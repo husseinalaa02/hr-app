@@ -168,6 +168,34 @@ export async function deleteEmployee(id) {
 }
 
 export async function createEmployee(data) {
+  if (SUPABASE_MODE) {
+    const { data: existing } = await supabase.from('employees').select('name').order('name', { ascending: false }).limit(1);
+    const lastNum = existing?.[0]?.name ? parseInt(existing[0].name.replace('HR-EMP-', '')) || 0 : 0;
+    const id = `HR-EMP-${String(lastNum + 1).padStart(4, '0')}`;
+    const record = {
+      name: id,
+      employee_name:   data.employee_name || '',
+      department:      data.department || '',
+      designation:     data.designation || '',
+      cell_number:     data.cell_number || '',
+      image:           '',
+      user_id:         data.user_id || '',
+      password:        data.user_id || '',
+      company:         data.company || import.meta.env.VITE_DEFAULT_COMPANY || 'Afaq Al-Fiker',
+      date_of_joining: data.date_of_joining || null,
+      gender:          data.gender || '',
+      date_of_birth:   data.date_of_birth || null,
+      employment_type: data.employment_type || 'Full-time',
+      branch:          data.branch || '',
+      personal_email:  data.personal_email || '',
+      company_email:   data.company_email || '',
+      reports_to:      data.reports_to || null,
+      role:            data.role || 'employee',
+    };
+    const { data: inserted, error } = await supabase.from('employees').insert(record).select().single();
+    if (error) throw error;
+    return inserted;
+  }
   if (DEMO) {
     const all = await db.employees.toArray();
     const maxId = Math.max(0, ...all.map(e => parseInt(e.name.replace('HR-EMP-', '')) || 0));
