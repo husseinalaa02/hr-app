@@ -1,0 +1,246 @@
+import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getEmployees, getDepartments, createEmployee } from '../api/employees';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import Avatar from '../components/Avatar';
+import { SkeletonCard } from '../components/Skeleton';
+import ErrorState from '../components/ErrorState';
+import Modal from '../components/Modal';
+
+const EMPTY_FORM = {
+  employee_name: '', department: '', designation: '', gender: '',
+  date_of_joining: '', employment_type: 'Full-time', branch: '',
+  cell_number: '', personal_email: '', company_email: '', user_id: '', reports_to: '',
+};
+
+function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const { addToast } = useToast();
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handle = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const emp = await createEmployee(form);
+      addToast(`Employee "${emp.employee_name}" created`, 'success');
+      onCreated(emp);
+      onClose();
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Failed to create employee', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Create New Employee" onClose={onClose} size="lg">
+      <form onSubmit={handle} className="form-stack">
+        <div className="form-row">
+          <div className="form-group">
+            <label>Full Name *</label>
+            <input className="form-input" value={form.employee_name} onChange={e => set('employee_name', e.target.value)} required placeholder="e.g. Mohammed Al-Harbi" />
+          </div>
+          <div className="form-group">
+            <label>Gender</label>
+            <select className="form-input" value={form.gender} onChange={e => set('gender', e.target.value)}>
+              <option value="">Select</option>
+              <option>Male</option>
+              <option>Female</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Department</label>
+            <select className="form-input" value={form.department} onChange={e => set('department', e.target.value)}>
+              <option value="">Select department</option>
+              {departments.map(d => <option key={d} value={d}>{d}</option>)}
+              <option value="__new__">+ Other (type below)</option>
+            </select>
+            {form.department === '__new__' && (
+              <input className="form-input" style={{ marginTop: 6 }} placeholder="Enter department name"
+                onChange={e => set('department', e.target.value)} />
+            )}
+          </div>
+          <div className="form-group">
+            <label>Designation</label>
+            <input className="form-input" value={form.designation} onChange={e => set('designation', e.target.value)} placeholder="e.g. Software Engineer" />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Employment Type</label>
+            <select className="form-input" value={form.employment_type} onChange={e => set('employment_type', e.target.value)}>
+              <option>Full-time</option>
+              <option>Part-time</option>
+              <option>Contract</option>
+              <option>Intern</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Date of Joining</label>
+            <input type="date" className="form-input" value={form.date_of_joining} onChange={e => set('date_of_joining', e.target.value)} />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Branch</label>
+            <input className="form-input" value={form.branch} onChange={e => set('branch', e.target.value)} placeholder="e.g. Riyadh HQ" />
+          </div>
+          <div className="form-group">
+            <label>Phone</label>
+            <input type="tel" className="form-input" value={form.cell_number} onChange={e => set('cell_number', e.target.value)} placeholder="+964 7XX XXX XXXX" />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Personal Email</label>
+            <input type="email" className="form-input" value={form.personal_email} onChange={e => set('personal_email', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label>Company Email</label>
+            <input type="email" className="form-input" value={form.company_email} onChange={e => set('company_email', e.target.value)} />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>Login User ID (email used to log in)</label>
+          <input type="email" className="form-input" value={form.user_id} onChange={e => set('user_id', e.target.value)} placeholder="Same as company email usually" />
+        </div>
+
+        <div className="form-group">
+          <label>Reports To</label>
+          <select className="form-input" value={form.reports_to} onChange={e => set('reports_to', e.target.value)}>
+            <option value="">— No Manager —</option>
+            {employees.map(e => (
+              <option key={e.name} value={e.name}>{e.employee_name} ({e.designation})</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-actions">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            {saving ? <span className="spinner-sm" /> : 'Create Employee'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function EmployeeCard({ emp, onClick }) {
+  return (
+    <div className="emp-card" onClick={() => onClick(emp.name)}>
+      <div className="emp-card-avatar">
+        <Avatar name={emp.employee_name} image={emp.image} size={60} />
+      </div>
+      <div className="emp-card-info">
+        <h4>{emp.employee_name}</h4>
+        <p className="emp-card-dept">{emp.department}</p>
+        <p className="emp-card-desg">{emp.designation}</p>
+        {emp.cell_number && <p className="emp-card-phone">{emp.cell_number}</p>}
+      </div>
+    </div>
+  );
+}
+
+export default function Employees() {
+  const navigate = useNavigate();
+  const { isAdmin } = useAuth();
+  const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [search, setSearch] = useState('');
+  const [department, setDepartment] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showCreate, setShowCreate] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [emps, depts] = await Promise.all([
+        getEmployees({ search, department }),
+        departments.length ? Promise.resolve(departments) : getDepartments(),
+      ]);
+      setEmployees(emps);
+      if (!departments.length) setDepartments(depts);
+    } catch (e) {
+      setError(e.message || 'Failed to load employees');
+    } finally {
+      setLoading(false);
+    }
+  }, [search, department]);
+
+  useEffect(() => {
+    const timer = setTimeout(load, 300);
+    return () => clearTimeout(timer);
+  }, [load]);
+
+  const handleCreated = () => {
+    load();
+  };
+
+  return (
+    <div className="page-content">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Employee Directory</h1>
+          <p className="page-subtitle">View and manage company employees</p>
+        </div>
+        {isAdmin && (
+          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ New Employee</button>
+        )}
+      </div>
+      <div className="page-toolbar">
+        <input
+          type="search"
+          className="form-input search-input"
+          placeholder="Search by name…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <select
+          className="form-input select-input"
+          value={department}
+          onChange={e => setDepartment(e.target.value)}
+        >
+          <option value="">All Departments</option>
+          {departments.map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
+      </div>
+
+      {error && <ErrorState message={error} onRetry={load} />}
+
+      <div className="emp-grid">
+        {loading ? (
+          Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)
+        ) : employees.length === 0 ? (
+          <p className="text-muted">No employees found.</p>
+        ) : (
+          employees.map(emp => (
+            <EmployeeCard key={emp.name} emp={emp} onClick={id => navigate(`/employees/${id}`)} />
+          ))
+        )}
+      </div>
+
+      {showCreate && (
+        <CreateEmployeeModal
+          departments={departments}
+          employees={employees}
+          onClose={() => setShowCreate(false)}
+          onCreated={handleCreated}
+        />
+      )}
+    </div>
+  );
+}
