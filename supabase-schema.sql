@@ -148,6 +148,21 @@ create table if not exists recruitment_candidates (
   applied_at date default current_date
 );
 
+-- Work Schedules
+create table if not exists work_schedules (
+  id               bigserial primary key,
+  employee         text references employees(name) on delete cascade,
+  employee_name    text,
+  shift_type       text,   -- 'morning' | 'evening' | 'custom'
+  start_time       text,   -- 'HH:MM'
+  end_time         text,   -- 'HH:MM'
+  effective_date   date,
+  assigned_by      text,
+  assigned_by_name text,
+  notes            text,
+  created_at       timestamptz default now()
+);
+
 -- Check-in Events (individual IN/OUT punches)
 create table if not exists checkins (
   name        text primary key,
@@ -276,6 +291,14 @@ alter table audit_logs enable row level security;
 create policy "audit_select" on audit_logs for select to authenticated
   using (auth_role() in ('admin', 'audit_manager', 'ceo'));
 create policy "audit_insert" on audit_logs for insert to authenticated with check (true);
+
+-- WORK SCHEDULES
+alter table work_schedules enable row level security;
+create policy "ws_select" on work_schedules for select to authenticated
+  using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'ceo'));
+create policy "ws_insert" on work_schedules for insert to authenticated
+  with check (auth_role() in ('admin', 'hr_manager') or
+    exists (select 1 from employees where name = work_schedules.employee and reports_to = auth_employee_id()));
 
 -- CHECKINS
 alter table checkins enable row level security;
