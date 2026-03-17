@@ -36,6 +36,7 @@ export const PERMISSIONS = {
   TIMESHEETS_WRITE:     'timesheets:write',
 
   ANNOUNCEMENTS_READ:   'announcements:read',
+  ANNOUNCEMENTS_WRITE:  'announcements:write',
 
   PAYSLIPS_READ:        'payslips:read',
 
@@ -87,6 +88,7 @@ export const ROLE_PERMISSIONS = {
     'timesheets:write',
     'reports:hr',
     'announcements:read',
+    'announcements:write',
     'expenses:read',
     'expenses:approve',
     'day_requests:read',

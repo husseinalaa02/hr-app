@@ -6,7 +6,7 @@ const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
 export async function getAnnouncements() {
   if (SUPABASE_MODE) {
-    const { data, error } = await supabase.from('announcements').select('*').order('creation', { ascending: false }).limit(5);
+    const { data, error } = await supabase.from('announcements').select('*').order('creation', { ascending: false }).limit(20);
     if (error) return [];
     return data || [];
   }
@@ -15,4 +15,30 @@ export async function getAnnouncements() {
     return rows.length > 0 ? rows : [...MOCK_ANNOUNCEMENTS];
   }
   return [];
+}
+
+export async function createAnnouncement({ title, content, notice_date }) {
+  if (SUPABASE_MODE) {
+    const record = { name: `ANN-${Date.now()}`, title, content, notice_date, creation: new Date().toISOString() };
+    const { data, error } = await supabase.from('announcements').insert(record).select().single();
+    if (error) throw error;
+    return data;
+  }
+  if (DEMO) {
+    const record = { name: `ANN-${Date.now()}`, title, content, notice_date, creation: new Date().toISOString() };
+    await db.announcements.put(record);
+    return record;
+  }
+  throw new Error('No backend available');
+}
+
+export async function deleteAnnouncement(name) {
+  if (SUPABASE_MODE) {
+    const { error } = await supabase.from('announcements').delete().eq('name', name);
+    if (error) throw error;
+    return;
+  }
+  if (DEMO) {
+    await db.announcements.delete(name);
+  }
 }

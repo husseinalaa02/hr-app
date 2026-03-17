@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getTodayCheckins, getTodayAttendance } from '../api/attendance';
 import { getLeaveBalance, getLeaveApplications, getPendingApprovals } from '../api/leave';
 import { getEmployees } from '../api/employees';
-import { getAnnouncements } from '../api/dashboard';
+import { getAnnouncements, createAnnouncement, deleteAnnouncement } from '../api/dashboard';
 import { getPayrollRecords } from '../api/payroll';
 import { getExpenses } from '../api/expenses';
 import { getJobs } from '../api/recruitment';
@@ -126,14 +126,76 @@ const Icons = {
   expense_quick: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>,
 };
 
+function AnnouncementModal({ onClose, onSave }) {
+  const [form, setForm] = useState({ title: '', content: '', notice_date: new Date().toISOString().slice(0, 10) });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.title.trim()) { setError('Title is required'); return; }
+    setSaving(true);
+    try {
+      await onSave(form);
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Failed to create announcement');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">New Announcement</h2>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <form onSubmit={handleSubmit} className="modal-body">
+          {error && <div className="form-error" style={{ marginBottom: 12, color: '#dc2626', fontSize: 13 }}>{error}</div>}
+          <div className="form-group">
+            <label className="form-label">Title *</label>
+            <input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Announcement title" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Date</label>
+            <input className="form-input" type="date" value={form.notice_date} onChange={e => setForm(f => ({ ...f, notice_date: e.target.value }))} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Content</label>
+            <textarea className="form-input" rows={4} value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} placeholder="Announcement details..." style={{ resize: 'vertical' }} />
+          </div>
+          <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 8 }}>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Post Announcement'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
-  const { employee, isAdmin, isFinance, isAudit } = useAuth();
+  const { employee, isAdmin, isFinance, isAudit, hasPermission } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showAnnModal, setShowAnnModal] = useState(false);
+  const canWriteAnnouncements = hasPermission('announcements:write');
 
   const role = employee?.role;
   const isManager = isAdmin || role === 'manager';
+
+  const handleCreateAnnouncement = async (form) => {
+    const newAnn = await createAnnouncement(form);
+    setData(prev => ({ ...prev, announcements: [newAnn, ...(prev?.announcements || [])] }));
+  };
+
+  const handleDeleteAnnouncement = async (ann) => {
+    await deleteAnnouncement(ann.name);
+    setData(prev => ({ ...prev, announcements: (prev?.announcements || []).filter(a => a.name !== ann.name) }));
+  };
 
   useEffect(() => {
     if (!employee) return;
@@ -176,7 +238,7 @@ export default function Dashboard() {
   const attendanceColor  = checkedOut ? '#d97706' : checkedIn ? '#059669' : '#dc2626';
 
   // ── ADMIN / HR MANAGER VIEW ──────────────────────────────────────────────────
-  if (isManager || isFinance) {
+  if (isManager || isFinance || employee?.role === 'hr_manager') {
     const employees       = data?.allEmployees   || [];
     const pendingLeaves   = data?.pendingLeaves  || [];
     const announcements   = data?.announcements  || [];
@@ -307,18 +369,26 @@ export default function Dashboard() {
 
           {/* Announcements */}
           <div className="dash-card">
-            <SectionHeader title="Announcements" />
+            <div className="dash-section-header">
+              <h3 className="dash-section-title">Announcements</h3>
+              {canWriteAnnouncements && (
+                <button className="btn btn-primary" style={{ padding: '4px 12px', fontSize: 13 }} onClick={() => setShowAnnModal(true)}>+ New</button>
+              )}
+            </div>
             <div className="dash-card-body">
               {loading ? <Skeleton height={14} width="70%" /> :
                !announcements.length ? <p className="text-muted">No announcements.</p> : (
                 announcements.map((a, i) => (
-                  <div key={a.name} className="ann-card" style={{ '--ann-color': DEPT_COLORS[i % DEPT_COLORS.length] }}>
+                  <div key={a.id || a.name} className="ann-card" style={{ '--ann-color': DEPT_COLORS[i % DEPT_COLORS.length] }}>
                     <div className="ann-card-bar" />
-                    <div className="ann-card-body">
+                    <div className="ann-card-body" style={{ flex: 1 }}>
                       <div className="ann-card-title">{a.title}</div>
-                      <div className="ann-card-date">{a.notice_date || a.creation?.split(' ')[0]}</div>
+                      <div className="ann-card-date">{a.notice_date || a.creation?.split('T')[0]}</div>
                       {a.content && <p className="ann-card-text">{a.content}</p>}
                     </div>
+                    {canWriteAnnouncements && (
+                      <button onClick={() => handleDeleteAnnouncement(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '0 4px', alignSelf: 'flex-start' }} title="Delete">✕</button>
+                    )}
                   </div>
                 ))
               )}
@@ -349,6 +419,7 @@ export default function Dashboard() {
 
         </div>
 
+      {showAnnModal && <AnnouncementModal onClose={() => setShowAnnModal(false)} onSave={handleCreateAnnouncement} />}
       </div>
     );
   }
@@ -471,11 +542,11 @@ export default function Dashboard() {
             {loading ? <Skeleton height={14} width="80%" /> :
              !announcements.length ? <p className="text-muted" style={{fontSize:13}}>No announcements.</p> : (
               announcements.map((a, i) => (
-                <div key={a.name} className="ann-card" style={{ '--ann-color': DEPT_COLORS[i % DEPT_COLORS.length] }}>
+                <div key={a.id || a.name} className="ann-card" style={{ '--ann-color': DEPT_COLORS[i % DEPT_COLORS.length] }}>
                   <div className="ann-card-bar" />
                   <div className="ann-card-body">
                     <div className="ann-card-title">{a.title}</div>
-                    <div className="ann-card-date">{a.notice_date}</div>
+                    <div className="ann-card-date">{a.notice_date || a.creation?.split('T')[0]}</div>
                     {a.content && <p className="ann-card-text">{a.content}</p>}
                   </div>
                 </div>
