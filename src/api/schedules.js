@@ -69,18 +69,18 @@ export async function getScheduleHistory(employeeId) {
 export async function assignSchedule({ employee, employee_name, shift_type, start_time, end_time, effective_date, assigned_by, assigned_by_name, notes }) {
   const record = { employee, employee_name, shift_type, start_time, end_time, effective_date, assigned_by, assigned_by_name, notes };
   if (SUPABASE_MODE) {
-    // Remove all previous schedules for this employee so only the new one exists.
-    await supabase.from('work_schedules').delete().eq('employee', employee);
+    // Replace only the record with the same effective_date — older records remain as history
+    await supabase.from('work_schedules').delete().eq('employee', employee).eq('effective_date', effective_date);
     const { data, error } = await supabase.from('work_schedules').insert(record).select().single();
     if (error) throw error;
     invalidate(`schedule:${employee}`, 'schedules:');
     return data;
   }
   if (DEMO) {
-    // Remove existing schedules for this employee in demo mode
+    // Replace only the record with the same effective_date — keep older records as history
     const all = await db.table('work_schedules').toArray().catch(() => []);
-    const old = all.filter(r => r.employee === employee);
-    await Promise.all(old.map(r => db.table('work_schedules').delete(r.id)));
+    const same = all.filter(r => r.employee === employee && r.effective_date === effective_date);
+    await Promise.all(same.map(r => db.table('work_schedules').delete(r.id)));
     const r = { ...record, id: Date.now(), created_at: new Date().toISOString() };
     await db.table('work_schedules').put(r);
     return r;
