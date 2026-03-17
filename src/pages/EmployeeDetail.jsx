@@ -7,6 +7,9 @@ import Avatar from '../components/Avatar';
 import { Skeleton } from '../components/Skeleton';
 import ErrorState from '../components/ErrorState';
 import Modal from '../components/Modal';
+import { supabase, SUPABASE_MODE } from '../db/supabase';
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 const SELF_EDITABLE  = ['cell_number', 'personal_email', 'date_of_birth', 'image'];
 const ADMIN_EDITABLE = [
@@ -21,18 +24,42 @@ function ChangePasswordModal({ targetId, isSelf, onClose }) {
   const [confirm, setConfirm] = useState('');
   const [saving, setSaving] = useState(false);
   const { addToast } = useToast();
+  const { getAccessToken } = useAuth();
 
   const handle = async (e) => {
     e.preventDefault();
     if (newPwd !== confirm) { addToast('Passwords do not match', 'error'); return; }
-    if (newPwd.length < 4) { addToast('Password must be at least 4 characters', 'error'); return; }
+    if (newPwd.length < 6) { addToast('Password must be at least 6 characters', 'error'); return; }
     setSaving(true);
     try {
-      if (isSelf) {
-        const emp = await getEmployee(targetId);
-        if (!emp || emp.password !== current) throw new Error('Current password is incorrect');
+      if (isSelf && SUPABASE_MODE) {
+        // Self: use Supabase Auth updateUser (requires current session to be valid)
+        // Re-authenticate first by signing in with current password
+        const { data: { session } } = await supabase.auth.getSession();
+        const email = session?.user?.email;
+        if (email) {
+          const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password: current });
+          if (signInErr) throw new Error('Current password is incorrect');
+        }
+        const { error } = await supabase.auth.updateUser({ password: newPwd });
+        if (error) throw error;
+      } else if (!isSelf && SUPABASE_MODE) {
+        // Admin/HR: call secure API endpoint
+        const token = await getAccessToken?.();
+        const res = await fetch(`${API_BASE}/api/set-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ employee_id: targetId, new_password: newPwd }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to change password');
+      } else {
+        // Demo mode fallback
+        await updateEmployee(targetId, { password: newPwd });
       }
-      await updateEmployee(targetId, { password: newPwd });
       addToast('Password changed successfully', 'success');
       onClose();
     } catch (err) {

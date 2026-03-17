@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEmployees, getDepartments, createEmployee } from '../api/employees';
 import { useAuth } from '../context/AuthContext';
+
 import { useToast } from '../context/ToastContext';
 import Avatar from '../components/Avatar';
 import { SkeletonCard } from '../components/Skeleton';
@@ -56,7 +57,7 @@ function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [createdEmp, setCreatedEmp] = useState(null);
-  const { addToast } = useToast();
+  const { addToast, getAccessToken } = { ...useToast(), ...useAuth() };
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -68,11 +69,12 @@ function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const emp = await createEmployee(form);
+      const token = await getAccessToken?.();
+      const emp = await createEmployee(form, token);
       onCreated(emp);
       setCreatedEmp({ ...emp, password: form.password });
     } catch (err) {
-      addToast(err.response?.data?.message || 'Failed to create employee', 'error');
+      addToast(err.message || 'Failed to create employee', 'error');
     } finally {
       setSaving(false);
     }

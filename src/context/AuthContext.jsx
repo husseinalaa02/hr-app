@@ -1,267 +1,217 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { findEmployeeByUserId, deriveRole } from '../api/employees';
+import { supabase, SUPABASE_MODE } from '../db/supabase';
 import { initDatabase, clearDatabase } from '../db/index';
 import { hasPermission as rbacHasPermission } from '../rbac/permissions';
-import { supabase, SUPABASE_MODE } from '../db/supabase';
 
 const AuthContext = createContext(null);
-
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
+const API_BASE  = import.meta.env.VITE_API_BASE_URL || '';
 
+// ─── Rate limiting (client-side extra layer) ─────────────────────────────────
+const MAX_ATTEMPTS     = 5;
+const LOCKOUT_MS       = 15 * 60 * 1000; // 15 minutes
+
+function checkRateLimit() {
+  try {
+    const raw = localStorage.getItem('_login_attempts');
+    if (!raw) return null;
+    const { count, since } = JSON.parse(raw);
+    const elapsed = Date.now() - since;
+    if (count >= MAX_ATTEMPTS && elapsed < LOCKOUT_MS) {
+      const remaining = Math.ceil((LOCKOUT_MS - elapsed) / 60000);
+      return `Too many failed attempts. Try again in ${remaining} minute${remaining > 1 ? 's' : ''}.`;
+    }
+    if (elapsed >= LOCKOUT_MS) localStorage.removeItem('_login_attempts');
+    return null;
+  } catch { return null; }
+}
+
+function recordFailedAttempt() {
+  try {
+    const raw = localStorage.getItem('_login_attempts');
+    const prev = raw ? JSON.parse(raw) : { count: 0, since: Date.now() };
+    const elapsed = Date.now() - prev.since;
+    const count = elapsed < LOCKOUT_MS ? prev.count + 1 : 1;
+    const since = elapsed < LOCKOUT_MS ? prev.since : Date.now();
+    localStorage.setItem('_login_attempts', JSON.stringify({ count, since }));
+  } catch {}
+}
+
+function clearRateLimit() {
+  localStorage.removeItem('_login_attempts');
+}
+
+// ─── Demo profiles (fallback when Supabase is not configured) ────────────────
 const DEMO_PROFILES = {
-  hassan: {
-    name: 'HR-EMP-0010',
-    employee_name: 'Hussein Alaa',
-    department: 'Management',
-    designation: 'System Administrator',
-    cell_number: '',
-    image: '',
-    company: 'Afaq Al-Fiker',
-    date_of_joining: '2015-01-01',
-    gender: 'Male',
-    date_of_birth: '',
-    employment_type: 'Full-time',
-    branch: 'Baghdad HQ',
-    personal_email: '',
-    company_email: 'hussein@afaqalfiker.com',
-    reports_to: '',
-    role: 'admin',
-  },
-  ceo: {
-    name: 'HR-EMP-0009',
-    employee_name: 'Alaa Alghanimi',
-    department: 'Management',
-    designation: 'CEO',
-    cell_number: '+964 770 000 0001',
-    image: '',
-    company: 'Afaq Al-Fiker',
-    date_of_joining: '2015-01-01',
-    gender: 'Male',
-    date_of_birth: '1975-03-10',
-    employment_type: 'Full-time',
-    branch: 'Baghdad HQ',
-    personal_email: 'alaa@gmail.com',
-    company_email: 'alaa@afaqalfiker.com',
-    reports_to: '',
-    role: 'ceo',
-  },
-  sara: {
-    name: 'HR-EMP-0002',
-    employee_name: 'Sara Al-Otaibi',
-    department: 'Human Resources',
-    designation: 'HR Manager',
-    cell_number: '+964 771 234 5678',
-    image: '',
-    company: 'Afaq Al-Fiker',
-    date_of_joining: '2019-01-15',
-    gender: 'Female',
-    date_of_birth: '1988-04-20',
-    employment_type: 'Full-time',
-    branch: 'Baghdad HQ',
-    personal_email: 'sara@gmail.com',
-    company_email: 'sara@afaqalfiker.com',
-    reports_to: 'HR-EMP-0009',
-    role: 'hr_manager',
-  },
-  khalid: {
-    name: 'HR-EMP-0003',
-    employee_name: 'Khalid Al-Zahrani',
-    department: 'Finance',
-    designation: 'Finance Manager',
-    cell_number: '+964 772 345 6789',
-    image: '',
-    company: 'Afaq Al-Fiker',
-    date_of_joining: '2018-06-01',
-    gender: 'Male',
-    date_of_birth: '1983-08-15',
-    employment_type: 'Full-time',
-    branch: 'Baghdad HQ',
-    personal_email: 'khalid@gmail.com',
-    company_email: 'khalid@afaqalfiker.com',
-    reports_to: 'HR-EMP-0009',
-    role: 'finance_manager',
-  },
-  ahmed: {
-    name: 'HR-EMP-0001',
-    employee_name: 'Ahmed Al-Rashidi',
-    department: 'Information Technology',
-    designation: 'IT Manager',
-    cell_number: '+964 770 123 4567',
-    image: '',
-    company: 'Afaq Al-Fiker',
-    date_of_joining: '2022-03-01',
-    gender: 'Male',
-    date_of_birth: '1995-06-15',
-    employment_type: 'Full-time',
-    branch: 'Baghdad HQ',
-    personal_email: 'ahmed@gmail.com',
-    company_email: 'ahmed@afaqalfiker.com',
-    reports_to: 'HR-EMP-0009',
-    role: 'it_manager',
-  },
-  audit: {
-    name: 'AUDIT-001',
-    employee_name: 'Audit Manager',
-    department: 'Compliance',
-    designation: 'Audit Manager',
-    cell_number: '',
-    image: '',
-    company: 'Afaq Al-Fiker',
-    date_of_joining: '2020-01-01',
-    gender: 'Male',
-    date_of_birth: '',
-    employment_type: 'Full-time',
-    branch: 'Baghdad HQ',
-    personal_email: '',
-    company_email: 'audit@afaqalfiker.com',
-    reports_to: '',
-    role: 'audit_manager',
-  },
-  reem: {
-    name: 'HR-EMP-0006',
-    employee_name: 'Reem Al-Dossari',
-    department: 'Information Technology',
-    designation: 'Software Developer',
-    cell_number: '+964 775 678 9012',
-    image: '',
-    company: 'Afaq Al-Fiker',
-    date_of_joining: '2023-09-01',
-    gender: 'Female',
-    date_of_birth: '2000-04-22',
-    employment_type: 'Full-time',
-    branch: 'Baghdad HQ',
-    personal_email: 'reem@gmail.com',
-    company_email: 'reem@afaqalfiker.com',
-    reports_to: 'HR-EMP-0001',
-    role: 'employee',
-  },
+  hassan: { name: 'HR-EMP-0010', employee_name: 'Hussein Alaa', department: 'Management', designation: 'System Administrator', cell_number: '', image: '', company: 'Afaq Al-Fiker', date_of_joining: '2015-01-01', gender: 'Male', date_of_birth: '', employment_type: 'Full-time', branch: 'Baghdad HQ', personal_email: '', company_email: 'hussein@afaqalfiker.com', reports_to: '', role: 'admin' },
+  ceo:     { name: 'HR-EMP-0009', employee_name: 'Alaa Alghanimi', department: 'Management', designation: 'CEO', cell_number: '+964 770 000 0001', image: '', company: 'Afaq Al-Fiker', date_of_joining: '2015-01-01', gender: 'Male', date_of_birth: '1975-03-10', employment_type: 'Full-time', branch: 'Baghdad HQ', personal_email: 'alaa@gmail.com', company_email: 'alaa@afaqalfiker.com', reports_to: '', role: 'ceo' },
+  sara:    { name: 'HR-EMP-0002', employee_name: 'Sara Al-Otaibi', department: 'Human Resources', designation: 'HR Manager', cell_number: '+964 771 234 5678', image: '', company: 'Afaq Al-Fiker', date_of_joining: '2019-01-15', gender: 'Female', date_of_birth: '1988-04-20', employment_type: 'Full-time', branch: 'Baghdad HQ', personal_email: 'sara@gmail.com', company_email: 'sara@afaqalfiker.com', reports_to: 'HR-EMP-0009', role: 'hr_manager' },
+  khalid:  { name: 'HR-EMP-0003', employee_name: 'Khalid Al-Zahrani', department: 'Finance', designation: 'Finance Manager', cell_number: '+964 772 345 6789', image: '', company: 'Afaq Al-Fiker', date_of_joining: '2018-06-01', gender: 'Male', date_of_birth: '1983-08-15', employment_type: 'Full-time', branch: 'Baghdad HQ', personal_email: 'khalid@gmail.com', company_email: 'khalid@afaqalfiker.com', reports_to: 'HR-EMP-0009', role: 'finance_manager' },
+  ahmed:   { name: 'HR-EMP-0001', employee_name: 'Ahmed Al-Rashidi', department: 'Information Technology', designation: 'IT Manager', cell_number: '+964 770 123 4567', image: '', company: 'Afaq Al-Fiker', date_of_joining: '2022-03-01', gender: 'Male', date_of_birth: '1995-06-15', employment_type: 'Full-time', branch: 'Baghdad HQ', personal_email: 'ahmed@gmail.com', company_email: 'ahmed@afaqalfiker.com', reports_to: 'HR-EMP-0009', role: 'it_manager' },
+  reem:    { name: 'HR-EMP-0006', employee_name: 'Reem Al-Dossari', department: 'Information Technology', designation: 'Software Developer', cell_number: '+964 775 678 9012', image: '', company: 'Afaq Al-Fiker', date_of_joining: '2023-09-01', gender: 'Female', date_of_birth: '2000-04-22', employment_type: 'Full-time', branch: 'Baghdad HQ', personal_email: 'reem@gmail.com', company_email: 'reem@afaqalfiker.com', reports_to: 'HR-EMP-0001', role: 'employee' },
 };
 
-function getDemoProfile(identifier) {
-  const raw = (identifier || '').toLowerCase().trim();
-  // Support both username and email (e.g. "hussein" or "hussein@afaqalfiker.com")
-  const id = raw.includes('@') ? raw.split('@')[0] : raw;
-  if (id === 'hassan' || id === 'hussein') return DEMO_PROFILES.hassan;
-  if (id === 'administrator' || id === 'ceo' || id === 'alaa') return DEMO_PROFILES.ceo;
-  if (id === 'sara' || id === 'hr') return DEMO_PROFILES.sara;
-  if (id === 'khalid' || id === 'finance' || id === 'finance_manager') return DEMO_PROFILES.khalid;
-  if (id === 'ahmed' || id === 'itmanager') return DEMO_PROFILES.ahmed;
-  if (id === 'audit' || id === 'audit_manager') return DEMO_PROFILES.audit;
-  if (id === 'reem' || id === 'employee') return DEMO_PROFILES.reem;
+function getDemoProfile(id) {
+  const raw = (id || '').toLowerCase().trim().split('@')[0];
+  if (raw === 'hassan' || raw === 'hussein') return DEMO_PROFILES.hassan;
+  if (raw === 'administrator' || raw === 'ceo' || raw === 'alaa') return DEMO_PROFILES.ceo;
+  if (raw === 'sara' || raw === 'hr') return DEMO_PROFILES.sara;
+  if (raw === 'khalid' || raw === 'finance_manager') return DEMO_PROFILES.khalid;
+  if (raw === 'ahmed' || raw === 'itmanager') return DEMO_PROFILES.ahmed;
+  if (raw === 'reem') return DEMO_PROFILES.reem;
   return null;
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser]         = useState(null);
   const [employee, setEmployee] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]   = useState(true);
 
-  const loadSession = useCallback(async () => {
-    // Ensure the DB is seeded before anything else
-    await initDatabase();
-
-    const stored = localStorage.getItem('user_info');
-    if (stored) {
-      try {
-        const info = JSON.parse(stored);
-        if (SUPABASE_MODE && info.employee) {
-          // Re-fetch fresh employee data from Supabase
-          const { data: freshEmp } = await supabase.from('employees').select('*')
-            .eq('name', info.employee.name).single();
-          const emp = freshEmp || info.employee;
-          setUser(info.user);
-          setEmployee(emp);
-          localStorage.setItem('user_info', JSON.stringify({ user: info.user, employee: emp }));
-          setLoading(false);
-          return;
-        }
-        if (DEMO_MODE && info.user) {
-          // Always re-apply the latest DEMO_PROFILE so stale sessions get fresh role/data
-          const profile = getDemoProfile(info.user);
-          if (profile) {
-            // Reject legacy generic identifiers like 'employee', 'admin', 'finance'
-            // that used to be valid but now have real names (hussein, ahmed, khalid, etc.)
-            const legacyIds = ['employee', 'admin'];
-            if (legacyIds.includes(info.user.toLowerCase())) {
-              localStorage.removeItem('user_info');
-              setLoading(false);
-              return;
-            }
-            const emp = { ...profile, user_id: info.user };
-            localStorage.setItem('user_info', JSON.stringify({ user: info.user, employee: emp }));
-            setUser(info.user);
-            setEmployee(emp);
-            setLoading(false);
-            return;
-          }
-          // Unknown/stale identifier — clear and force re-login
-          localStorage.removeItem('user_info');
-          setLoading(false);
-          return;
-        }
-        setUser(info.user);
-        setEmployee(info.employee);
-        setLoading(false);
-        return;
-      } catch {}
-    }
-    setLoading(false);
+  // Fetch employee record for a Supabase Auth user
+  const fetchEmployee = useCallback(async (authUser) => {
+    const { data: emp } = await supabase
+      .from('employees').select('*').eq('auth_id', authUser.id).single();
+    return emp || null;
   }, []);
 
-  useEffect(() => { loadSession(); }, [loadSession]);
+  const loadSession = useCallback(async () => {
+    await initDatabase();
+
+    if (SUPABASE_MODE) {
+      // Supabase manages the session via localStorage automatically
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const emp = await fetchEmployee(session.user);
+        setUser(session.user);
+        setEmployee(emp);
+      }
+      setLoading(false);
+      return;
+    }
+
+    if (DEMO_MODE) {
+      const stored = localStorage.getItem('user_info');
+      if (stored) {
+        try {
+          const info = JSON.parse(stored);
+          if (info.user) {
+            const profile = getDemoProfile(info.user);
+            if (profile) {
+              setUser(info.user);
+              setEmployee({ ...profile, user_id: info.user });
+            }
+          }
+        } catch {}
+      }
+    }
+    setLoading(false);
+  }, [fetchEmployee]);
+
+  useEffect(() => {
+    loadSession();
+
+    if (SUPABASE_MODE) {
+      // Keep state in sync with Supabase session changes (token refresh, sign-out)
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          const emp = await fetchEmployee(session.user);
+          setUser(session.user);
+          setEmployee(emp);
+        } else if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' && !session) {
+          setUser(null);
+          setEmployee(null);
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          // Re-fetch employee in case role/data changed
+          const emp = await fetchEmployee(session.user);
+          setEmployee(emp);
+        }
+      });
+      return () => subscription.unsubscribe();
+    }
+  }, [loadSession, fetchEmployee]);
 
   const login = async (identifier, password) => {
+    // Client-side rate limit check
+    const lockMsg = checkRateLimit();
+    if (lockMsg) throw new Error(lockMsg);
+
     if (SUPABASE_MODE) {
-      const { data: emp, error } = await supabase.from('employees').select('*')
-        .eq('user_id', identifier.toLowerCase().trim()).single();
-      if (error || !emp) throw new Error('User not found');
-      if (emp.password !== password) throw new Error('Incorrect password');
-      setUser(identifier);
-      setEmployee(emp);
-      localStorage.setItem('user_info', JSON.stringify({ user: identifier, employee: emp }));
-      return;
-    }
-    if (DEMO_MODE) {
-      let emp;
-      const profile = getDemoProfile(identifier);
-      if (profile) {
-        emp = { ...profile, user_id: identifier };
-      } else {
-        // Fallback: look up in DB
-        const found = await findEmployeeByUserId(identifier);
-        if (found) {
-          const role = await deriveRole(found);
-          emp = { ...found, role };
-        } else {
-          emp = { ...DEMO_PROFILES.reem, user_id: identifier };
+      const email = `${identifier.toLowerCase().trim()}@afaqhr.internal`;
+
+      // Try Supabase Auth first
+      let { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        // If user doesn't have an auth account yet, transparently migrate them
+        if (error.message?.toLowerCase().includes('invalid login credentials') ||
+            error.message?.toLowerCase().includes('email not confirmed')) {
+          try {
+            const migrateRes = await fetch(`${API_BASE}/api/migrate-auth`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_id: identifier.toLowerCase().trim(), password }),
+            });
+            const migrateData = await migrateRes.json();
+            if (migrateRes.ok && (migrateData.migrated || migrateData.already_done)) {
+              // Retry Supabase Auth after migration
+              const retry = await supabase.auth.signInWithPassword({ email, password });
+              data  = retry.data;
+              error = retry.error;
+            }
+          } catch {
+            // Migration endpoint unavailable — fall through to error
+          }
         }
       }
+
+      if (error) {
+        recordFailedAttempt();
+        throw new Error('Invalid username or password');
+      }
+
+      clearRateLimit();
+      // Employee is set via onAuthStateChange
+      return;
+    }
+
+    if (DEMO_MODE) {
+      const profile = getDemoProfile(identifier);
+      const emp = profile
+        ? { ...profile, user_id: identifier }
+        : { ...DEMO_PROFILES.reem, user_id: identifier };
       setUser(identifier);
       setEmployee(emp);
       localStorage.setItem('user_info', JSON.stringify({ user: identifier, employee: emp }));
       return;
     }
-    throw new Error('Invalid credentials');
+
+    throw new Error('No authentication backend configured');
   };
 
   const logout = async () => {
-    localStorage.removeItem('auth_token');
+    if (SUPABASE_MODE) {
+      await supabase.auth.signOut();
+    }
     localStorage.removeItem('user_info');
-    // Clear sensitive cached data from the local DB
     await clearDatabase();
     setUser(null);
     setEmployee(null);
   };
 
-  const refreshEmployee = (updated) => {
-    setEmployee(updated);
-    const stored = localStorage.getItem('user_info');
-    if (stored) {
-      try {
-        const info = JSON.parse(stored);
-        localStorage.setItem('user_info', JSON.stringify({ ...info, employee: updated }));
-      } catch {}
+  const refreshEmployee = async (updated) => {
+    if (updated) {
+      setEmployee(updated);
+    } else if (SUPABASE_MODE && user) {
+      const emp = await fetchEmployee(user);
+      setEmployee(emp);
     }
+  };
+
+  // Expose the current session token for API calls that need authorization
+  const getAccessToken = async () => {
+    if (!SUPABASE_MODE) return null;
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
   };
 
   const role      = employee?.role || 'employee';
@@ -274,7 +224,12 @@ export function AuthProvider({ children }) {
   const hasPermission = (permission) => rbacHasPermission(role, permission);
 
   return (
-    <AuthContext.Provider value={{ user, employee, loading, login, logout, isAdmin, isCEO, isFinance, isAudit, isHR, hasPermission, demoMode: DEMO_MODE, refreshEmployee }}>
+    <AuthContext.Provider value={{
+      user, employee, loading,
+      login, logout, refreshEmployee, getAccessToken,
+      isAdmin, isCEO, isFinance, isAudit, isHR,
+      hasPermission, demoMode: DEMO_MODE,
+    }}>
       {children}
     </AuthContext.Provider>
   );
