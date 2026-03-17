@@ -1,6 +1,7 @@
 import { db } from '../db/index';
 import { MOCK_EMPLOYEES } from './mock';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
+import { cached, invalidate } from '../utils/cache';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -9,28 +10,25 @@ const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 // ─── Reads ────────────────────────────────────────────────────────────────────
 
 export async function getEmployees({ search = '', department = '' } = {}) {
-  if (SUPABASE_MODE) {
-    let query = supabase.from('employees').select('*');
-    if (search) query = query.ilike('employee_name', `%${search}%`);
-    if (department) query = query.eq('department', department);
-    const { data, error } = await query.order('employee_name');
-    if (error) throw error;
-    return data || [];
-  }
-  if (DEMO) {
-    let list = await db.employees.toArray();
-    // Fallback: if DB is empty (seed not yet run), use mock data directly
-    if (list.length === 0) list = [...MOCK_EMPLOYEES];
-    if (search) list = list.filter(e => e.employee_name.toLowerCase().includes(search.toLowerCase()));
-    if (department) list = list.filter(e => e.department === department);
-    return list.sort((a, b) => a.employee_name.localeCompare(b.employee_name));
-  }
-
-  const filters = [];
-  if (search) filters.push(['employee_name', 'like', `%${search}%`]);
-  if (department) filters.push(['department', '=', department]);
-
-  return [];
+  const cacheKey = `employees:${search}:${department}`;
+  return cached(cacheKey, async () => {
+    if (SUPABASE_MODE) {
+      let query = supabase.from('employees').select('*');
+      if (search) query = query.ilike('employee_name', `%${search}%`);
+      if (department) query = query.eq('department', department);
+      const { data, error } = await query.order('employee_name');
+      if (error) throw error;
+      return data || [];
+    }
+    if (DEMO) {
+      let list = await db.employees.toArray();
+      if (list.length === 0) list = [...MOCK_EMPLOYEES];
+      if (search) list = list.filter(e => e.employee_name.toLowerCase().includes(search.toLowerCase()));
+      if (department) list = list.filter(e => e.department === department);
+      return list.sort((a, b) => a.employee_name.localeCompare(b.employee_name));
+    }
+    return [];
+  }, 120_000); // 2 min TTL — employee list rarely changes
 }
 
 export async function getEmployee(id) {
@@ -97,6 +95,7 @@ export async function updateEmployee(id, data) {
   if (SUPABASE_MODE) {
     const { data: updated, error } = await supabase.from('employees').update(data).eq('name', id).select().single();
     if (error) throw error;
+    invalidate('employees');
     return updated;
   }
   if (DEMO) {
@@ -104,6 +103,7 @@ export async function updateEmployee(id, data) {
     if (!existing) return null;
     const updated = { ...existing, ...data };
     await db.employees.put(updated);
+    invalidate('employees');
     return updated;
   }
   throw new Error('No backend available');
@@ -113,10 +113,12 @@ export async function deleteEmployee(id) {
   if (SUPABASE_MODE) {
     const { error } = await supabase.from('employees').delete().eq('name', id);
     if (error) throw error;
+    invalidate('employees');
     return;
   }
   if (DEMO) {
     await db.employees.delete(id);
+    invalidate('employees');
     return;
   }
 }

@@ -1,5 +1,6 @@
 import { supabase, SUPABASE_MODE } from '../db/supabase';
 import { db } from '../db/index';
+import { cached, invalidate } from '../utils/cache';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -35,17 +36,19 @@ export async function getSchedules(employeeIds = []) {
 }
 
 export async function getMySchedule(employeeId) {
-  if (SUPABASE_MODE) {
-    const { data } = await supabase.from('work_schedules').select('*')
-      .eq('employee', employeeId).order('effective_date', { ascending: false }).limit(1).maybeSingle();
-    return data || null;
-  }
-  if (DEMO) {
-    const all = await db.table('work_schedules').toArray().catch(() => []);
-    return all.filter(r => r.employee === employeeId)
-      .sort((a, b) => b.effective_date?.localeCompare(a.effective_date))[0] || null;
-  }
-  return null;
+  return cached(`schedule:${employeeId}`, async () => {
+    if (SUPABASE_MODE) {
+      const { data } = await supabase.from('work_schedules').select('*')
+        .eq('employee', employeeId).order('effective_date', { ascending: false }).limit(1).maybeSingle();
+      return data || null;
+    }
+    if (DEMO) {
+      const all = await db.table('work_schedules').toArray().catch(() => []);
+      return all.filter(r => r.employee === employeeId)
+        .sort((a, b) => b.effective_date?.localeCompare(a.effective_date))[0] || null;
+    }
+    return null;
+  }, 300_000); // 5 min — schedules are set by HR, not frequently changed
 }
 
 export async function getScheduleHistory(employeeId) {
@@ -70,6 +73,7 @@ export async function assignSchedule({ employee, employee_name, shift_type, star
     await supabase.from('work_schedules').delete().eq('employee', employee);
     const { data, error } = await supabase.from('work_schedules').insert(record).select().single();
     if (error) throw error;
+    invalidate(`schedule:${employee}`, 'schedules:');
     return data;
   }
   if (DEMO) {

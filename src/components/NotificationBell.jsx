@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getNotifications, markAsRead, markAllAsRead } from '../api/notifications';
 import { useAuth } from '../context/AuthContext';
+import { supabase, SUPABASE_MODE } from '../db/supabase';
 
 const TYPE_ICONS = {
   leave: '📅',
@@ -26,8 +27,30 @@ export default function NotificationBell() {
   };
 
   useEffect(() => {
+    if (!employee?.name) return;
+
     load();
-    const interval = setInterval(load, 30_000);
+
+    if (SUPABASE_MODE) {
+      // Realtime: update badge instantly when a new notification arrives
+      // — no polling needed
+      const channel = supabase
+        .channel(`notif-${employee.name}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'notifications',
+            filter: `recipient_id=eq.${employee.name}` },
+          (payload) => {
+            setNotifications(prev => [payload.new, ...prev]);
+          }
+        )
+        .subscribe();
+
+      return () => supabase.removeChannel(channel);
+    }
+
+    // Fallback polling for demo mode (no realtime)
+    const interval = setInterval(load, 60_000);
     return () => clearInterval(interval);
   }, [employee?.name]);
 
