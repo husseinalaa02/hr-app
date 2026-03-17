@@ -2118,56 +2118,9 @@ html, body {
   .kpi-value { font-size: 22px; }
   .kpi-icon { width: 40px; height: 40px; }
 
-  /* Quick Actions — app-icon style on mobile */
-  .qa-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    padding: 4px 0;
-  }
-  .qa-item {
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    text-align: center;
-    gap: 9px;
-    padding: 16px 6px 14px;
-    background: transparent;
-    border: none;
-    border-radius: 16px;
-    min-height: unset;
-    box-shadow: none;
-  }
-  .qa-item:active {
-    background: var(--gray-100);
-    transform: scale(0.94);
-    box-shadow: none;
-  }
-  .qa-item:hover {
-    background: var(--gray-100);
-    transform: none;
-    box-shadow: none;
-  }
-  .qa-icon {
-    width: 56px;
-    height: 56px;
-    min-width: 56px;
-    border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-  }
-  .qa-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--gray-700);
-    line-height: 1.2;
-  }
 }
 @media (max-width: 480px) {
   .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .qa-grid { gap: 4px; }
-  .qa-item { padding: 14px 4px 12px; border-radius: 14px; }
-  .qa-icon { width: 50px; height: 50px; min-width: 50px; border-radius: 14px; }
-  .qa-label { font-size: 11px; }
   .leave-balance-grid { gap: 8px; }
   .leave-balance-card { padding: 12px 10px; }
   .leave-balance-value { font-size: 26px; }
@@ -2259,4 +2212,42 @@ html, body {
   font-weight: 700;
   line-height: 1.3;
   color: var(--gray-800);
+}
+
+/* ── Quick Actions: mobile app-icon style ── */
+@media (max-width: 768px) {
+  .qa-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .qa-item {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 10px;
+    padding: 16px 6px 14px;
+    background: transparent;
+    border: none;
+    border-radius: 16px;
+    min-height: unset;
+    box-shadow: none;
+  }
+  .qa-item:hover, .qa-item:active {
+    background: var(--gray-100);
+    transform: scale(0.95);
+    box-shadow: none;
+  }
+  .qa-icon {
+    width: 54px;
+    height: 54px;
+    min-width: 54px;
+    border-radius: 16px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+  }
+  .qa-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-600);
+  }
 }
