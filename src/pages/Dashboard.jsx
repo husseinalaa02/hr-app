@@ -465,12 +465,12 @@ export default function Dashboard() {
         <div className="dash-card-body">
           <div className="qa-grid">
             {[
-              { to: '/attendance', label: 'Check In / Out',   icon: Icons.checkin,       bg: '#e8f2fb', color: '#0C447C' },
-              { to: '/leave',      label: 'Request Leave',    icon: Icons.leave,         bg: '#d1fae5', color: '#059669' },
-              { to: '/timesheets', label: 'Timesheet',        icon: Icons.timesheet,     bg: '#fef3c7', color: '#d97706' },
-              { to: '/payslips',   label: 'My Payslips',      icon: Icons.payslip,       bg: '#ede9fe', color: '#7c3aed' },
-              { to: '/expenses',   label: 'Expenses',         icon: Icons.expense_quick, bg: '#e0f2fe', color: '#0284c7' },
-              { to: '/appraisals', label: 'Appraisals',       icon: Icons.attendance,    bg: '#fee2e2', color: '#dc2626' },
+              { to: '/attendance', label: 'Check In',   icon: Icons.checkin,       bg: '#e8f2fb', color: '#0C447C' },
+              { to: '/leave',      label: 'Leave',      icon: Icons.leave,         bg: '#d1fae5', color: '#059669' },
+              { to: '/timesheets', label: 'Timesheet',  icon: Icons.timesheet,     bg: '#fef3c7', color: '#d97706' },
+              { to: '/payslips',   label: 'Payslips',   icon: Icons.payslip,       bg: '#ede9fe', color: '#7c3aed' },
+              { to: '/expenses',   label: 'Expenses',   icon: Icons.expense_quick, bg: '#e0f2fe', color: '#0284c7' },
+              { to: '/appraisals', label: 'Appraisals', icon: Icons.attendance,    bg: '#fee2e2', color: '#dc2626' },
             ].map(({ to, label, icon, bg, color }) => (
               <Link key={to} to={to} className="qa-item">
                 <div className="qa-icon" style={{ background: bg, color }}>{icon}</div>

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Afaq Al-Fiker HR</string>
+    <string name="title_activity_main">Afaq Al-Fiker HR</string>
+    <string name="package_name">com.afaqalfiker.hr</string>
+    <string name="custom_url_scheme">com.afaqalfiker.hr</string>
+</resources>
