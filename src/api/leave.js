@@ -136,10 +136,18 @@ export async function getLeaveTypes() {
 
 export async function getLeaveBalance(employeeId) {
   if (SUPABASE_MODE) {
-    const { data: allocs } = await supabase.from('leave_allocs').select('*').eq('employee', employeeId);
+    const { data: rawAllocs } = await supabase.from('leave_allocs').select('*').eq('employee', employeeId);
     const { data: approved } = await supabase.from('leave_apps').select('*')
       .eq('employee', employeeId).eq('status', 'Approved');
-    return (allocs || []).map(alloc => {
+    // Deduplicate: if the same leave_type appears more than once, merge by summing allocated
+    const allocMap = {};
+    for (const a of rawAllocs || []) {
+      const key = `${a.leave_type}::${a.is_hourly ? '1' : '0'}`;
+      if (allocMap[key]) allocMap[key].total_leaves_allocated += a.total_leaves_allocated;
+      else allocMap[key] = { ...a };
+    }
+    const allocs = Object.values(allocMap);
+    return allocs.map(alloc => {
       if (alloc.is_hourly) {
         const used = (approved || []).filter(l => l.leave_type === alloc.leave_type && l.is_hourly)
           .reduce((s, l) => s + (l.total_hours || 0), 0);
