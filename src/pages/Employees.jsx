@@ -11,30 +11,76 @@ import Modal from '../components/Modal';
 const EMPTY_FORM = {
   employee_name: '', department: '', designation: '', gender: '',
   date_of_joining: '', employment_type: 'Full-time', branch: '',
-  cell_number: '', personal_email: '', company_email: '', user_id: '', reports_to: '',
+  cell_number: '', personal_email: '', company_email: '', user_id: '', password: '', reports_to: '',
 };
+
+function CreatedCredentialsModal({ emp, onClose }) {
+  const [copied, setCopied] = useState('');
+  const copy = (text, key) => {
+    navigator.clipboard?.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(''), 2000);
+  };
+  return (
+    <Modal title="Employee Created" onClose={onClose}>
+      <div style={{ padding: '4px 0 8px' }}>
+        <p style={{ fontSize: 14, color: 'var(--gray-600)', marginBottom: 20 }}>
+          Share these login credentials with <strong>{emp.employee_name}</strong>.
+        </p>
+        {[
+          { label: 'Login (User ID)', value: emp.user_id, key: 'uid' },
+          { label: 'Password', value: emp.password, key: 'pwd' },
+        ].map(({ label, value, key }) => (
+          <div key={key} style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>{label}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--gray-50)', border: '1.5px solid var(--gray-200)', borderRadius: 10, padding: '10px 14px' }}>
+              <span style={{ flex: 1, fontFamily: 'monospace', fontSize: 15, fontWeight: 700, color: 'var(--gray-800)', wordBreak: 'break-all' }}>{value || '—'}</span>
+              <button onClick={() => copy(value, key)} style={{ background: copied === key ? '#059669' : 'var(--primary)', color: '#fff', border: 'none', borderRadius: 7, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                {copied === key ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+          </div>
+        ))}
+        <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#92400e', marginTop: 8 }}>
+          Save these credentials — the password is not shown again.
+        </div>
+        <div className="form-actions" style={{ marginTop: 20 }}>
+          <button className="btn btn-primary" onClick={onClose}>Done</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
 
 function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [createdEmp, setCreatedEmp] = useState(null);
   const { addToast } = useToast();
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleUserIdChange = (v) => {
+    setForm(f => ({ ...f, user_id: v, password: f.password || v }));
+  };
 
   const handle = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
       const emp = await createEmployee(form);
-      addToast(`Employee "${emp.employee_name}" created`, 'success');
       onCreated(emp);
-      onClose();
+      setCreatedEmp({ ...emp, password: form.password });
     } catch (err) {
       addToast(err.response?.data?.message || 'Failed to create employee', 'error');
     } finally {
       setSaving(false);
     }
   };
+
+  if (createdEmp) {
+    return <CreatedCredentialsModal emp={createdEmp} onClose={onClose} />;
+  }
 
   return (
     <Modal title="Create New Employee" onClose={onClose} size="lg">
@@ -111,9 +157,15 @@ function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
           </div>
         </div>
 
-        <div className="form-group">
-          <label>Login User ID (email used to log in)</label>
-          <input type="email" className="form-input" value={form.user_id} onChange={e => set('user_id', e.target.value)} placeholder="Same as company email usually" />
+        <div className="form-row">
+          <div className="form-group">
+            <label>Login User ID *</label>
+            <input className="form-input" value={form.user_id} onChange={e => handleUserIdChange(e.target.value)} required placeholder="e.g. ahmed.ali" />
+          </div>
+          <div className="form-group">
+            <label>Password *</label>
+            <input className="form-input" value={form.password} onChange={e => set('password', e.target.value)} required placeholder="Set initial password" />
+          </div>
         </div>
 
         <div className="form-group">
