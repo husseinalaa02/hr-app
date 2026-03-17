@@ -20,19 +20,11 @@ export function useGeofence() {
     error: null,
   });
 
-  const intervalRef = useRef(null);
+  const intervalRef     = useRef(null);
+  const permGranted     = useRef(false); // cache permission so we don't prompt every 30 s
 
-  const updatePosition = async () => {
+  const fetchPosition = async () => {
     try {
-      // On native iOS/Android, request permission first
-      if (Capacitor.isNativePlatform()) {
-        const perm = await Geolocation.requestPermissions();
-        if (perm.location !== 'granted') {
-          setState(s => ({ ...s, loading: false, allowed: false, error: 'Location permission denied. Please enable it in Settings.' }));
-          return;
-        }
-      }
-
       const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 20000 });
       const dist = getDistance(pos.coords.latitude, pos.coords.longitude, LAT, LNG);
       setState({
@@ -54,11 +46,38 @@ export function useGeofence() {
     }
   };
 
+  const updatePosition = async () => {
+    // On native, request permission once; on web the browser handles its own prompt
+    if (Capacitor.isNativePlatform() && !permGranted.current) {
+      try {
+        // Check first so we don't show the system dialog on every refresh
+        const status = await Geolocation.checkPermissions();
+        if (status.location === 'granted') {
+          permGranted.current = true;
+        } else if (status.location === 'prompt' || status.location === 'prompt-with-rationale') {
+          const result = await Geolocation.requestPermissions();
+          if (result.location !== 'granted') {
+            setState(s => ({ ...s, loading: false, allowed: false, error: 'Location permission denied. Please enable it in Settings.' }));
+            return;
+          }
+          permGranted.current = true;
+        } else {
+          // denied
+          setState(s => ({ ...s, loading: false, allowed: false, error: 'Location permission denied. Please enable it in Settings.' }));
+          return;
+        }
+      } catch {
+        // checkPermissions not available on older plugin versions — fall through to fetchPosition
+        permGranted.current = true;
+      }
+    }
+    await fetchPosition();
+  };
+
   useEffect(() => {
     if (!isConfigured) return;
 
     updatePosition();
-    // Refresh every 30 seconds
     intervalRef.current = setInterval(updatePosition, 30_000);
 
     return () => {

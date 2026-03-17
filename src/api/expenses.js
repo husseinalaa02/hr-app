@@ -1,6 +1,7 @@
 import { db } from '../db/index';
 import { MOCK_EXPENSES } from './mock';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
+import { addNotification } from './notifications';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -73,6 +74,14 @@ export async function approveExpense(id, approverName) {
   if (SUPABASE_MODE) {
     const { data: updated, error } = await supabase.from('expenses').update({ status: 'Approved', approved_by: approverName, approved_at: new Date().toISOString() }).eq('id', id).select().single();
     if (error) throw error;
+    if (updated?.employee_id) {
+      addNotification({
+        recipient_id: updated.employee_id,
+        title: 'Expense Approved',
+        message: `Your ${updated.expense_type} expense of $${updated.amount} has been approved.`,
+        type: 'expense',
+      }).catch(() => {});
+    }
     return updated;
   }
   if (DEMO) {
@@ -89,6 +98,14 @@ export async function rejectExpense(id) {
   if (SUPABASE_MODE) {
     const { data: updated, error } = await supabase.from('expenses').update({ status: 'Rejected' }).eq('id', id).select().single();
     if (error) throw error;
+    if (updated?.employee_id) {
+      addNotification({
+        recipient_id: updated.employee_id,
+        title: 'Expense Rejected',
+        message: `Your ${updated.expense_type} expense of $${updated.amount} has been rejected.`,
+        type: 'expense',
+      }).catch(() => {});
+    }
     return updated;
   }
   if (DEMO) {

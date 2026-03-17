@@ -13,6 +13,20 @@ function localToday() {
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
 }
 
+// Returns the UTC ISO string for local midnight (start of today)
+function localDayStart() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
+// Returns the UTC ISO string for 23:59:59 local time (end of today)
+function localDayEnd() {
+  const d = new Date();
+  d.setHours(23, 59, 59, 999);
+  return d.toISOString();
+}
+
 export async function checkin(employeeId, logType) {
   const time = localNow();
   const today = localToday();
@@ -59,7 +73,8 @@ export async function getTodayCheckins(employeeId) {
     const { data } = await supabase.from('checkins')
       .select('*')
       .eq('employee', employeeId)
-      .gte('time', `${today}T00:00:00.000Z`)
+      .gte('time', localDayStart())
+      .lte('time', localDayEnd())
       .order('time');
     return data || [];
   }

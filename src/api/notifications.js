@@ -1,8 +1,17 @@
+import { supabase, SUPABASE_MODE } from '../db/supabase';
 import { db } from '../db/index';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
 export async function getNotifications(recipientId) {
+  if (SUPABASE_MODE) {
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('recipient_id', recipientId)
+      .order('created_at', { ascending: false });
+    return data || [];
+  }
   if (DEMO) {
     const rows = await db.notifications
       .filter(n => n.recipient_id === recipientId)
@@ -13,6 +22,14 @@ export async function getNotifications(recipientId) {
 }
 
 export async function getUnreadCount(recipientId) {
+  if (SUPABASE_MODE) {
+    const { count } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('recipient_id', recipientId)
+      .eq('read', false);
+    return count || 0;
+  }
   if (DEMO) {
     return db.notifications.filter(n => n.recipient_id === recipientId && !n.read).count();
   }
@@ -20,6 +37,10 @@ export async function getUnreadCount(recipientId) {
 }
 
 export async function markAsRead(id) {
+  if (SUPABASE_MODE) {
+    await supabase.from('notifications').update({ read: true }).eq('id', id);
+    return;
+  }
   if (DEMO) {
     const rec = await db.notifications.get(Number(id));
     if (rec) await db.notifications.put({ ...rec, read: true });
@@ -27,6 +48,11 @@ export async function markAsRead(id) {
 }
 
 export async function markAllAsRead(recipientId) {
+  if (SUPABASE_MODE) {
+    await supabase.from('notifications').update({ read: true })
+      .eq('recipient_id', recipientId).eq('read', false);
+    return;
+  }
   if (DEMO) {
     const rows = await db.notifications.filter(n => n.recipient_id === recipientId && !n.read).toArray();
     await Promise.all(rows.map(n => db.notifications.put({ ...n, read: true })));
@@ -34,9 +60,32 @@ export async function markAllAsRead(recipientId) {
 }
 
 export async function addNotification({ recipient_id, title, message, type = 'info' }) {
+  if (SUPABASE_MODE) {
+    const { data } = await supabase
+      .from('notifications')
+      .insert({ recipient_id, title, message, type })
+      .select()
+      .single();
+    return data;
+  }
   if (DEMO) {
     const record = { recipient_id, title, message, type, read: false, created_at: new Date().toISOString() };
     const id = await db.notifications.add(record);
     return { ...record, id };
+  }
+}
+
+// Fan-out: create one notification per employee that has the given role(s)
+export async function notifyRole(roles, { title, message, type = 'info' }) {
+  const roleList = Array.isArray(roles) ? roles : [roles];
+  if (SUPABASE_MODE) {
+    const { data: emps } = await supabase
+      .from('employees')
+      .select('name')
+      .in('role', roleList);
+    if (!emps?.length) return;
+    await supabase.from('notifications').insert(
+      emps.map(e => ({ recipient_id: e.name, title, message, type }))
+    );
   }
 }

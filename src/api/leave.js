@@ -1,6 +1,7 @@
 import { db } from '../db/index';
 import { MOCK_LEAVE_APPLICATIONS, MOCK_HOURLY_APPLICATIONS, MOCK_ALLOCATIONS_V2, MOCK_EMPLOYEES } from './mock';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
+import { addNotification, notifyRole } from './notifications';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -211,12 +212,22 @@ export async function submitLeaveApplication(data) {
       const record = { name: `HLAPPL-${Date.now()}`, employee: data.employee, employee_name: data.employee_name, leave_type: 'Hourly Leave', from_date: data.from_date, from_time: data.from_time, to_time: data.to_time, total_hours: hrs, total_leave_days: 0, status: 'Open', description: data.description || '', is_hourly: true, approval_stage: 'Pending Manager', posting_date: data.from_date };
       const { data: inserted, error } = await supabase.from('leave_apps').insert(record).select().single();
       if (error) throw error;
+      notifyRole(['hr_manager', 'admin'], {
+        title: 'New Hourly Leave Request',
+        message: `${data.employee_name} requested ${hrs}h leave on ${data.from_date}.`,
+        type: 'leave',
+      }).catch(() => {});
       return inserted;
     }
     const days = calcDays(data.from_date, data.to_date);
     const record = { name: `LAPPL-${Date.now()}`, employee: data.employee, employee_name: data.employee_name, leave_type: data.leave_type, from_date: data.from_date, to_date: data.to_date, total_leave_days: days, total_hours: 0, status: 'Open', description: data.description || '', is_hourly: false, approval_stage: 'Pending Manager', posting_date: data.from_date };
     const { data: inserted, error } = await supabase.from('leave_apps').insert(record).select().single();
     if (error) throw error;
+    notifyRole(['hr_manager', 'admin'], {
+      title: 'New Leave Request',
+      message: `${data.employee_name} requested ${data.leave_type} from ${data.from_date} to ${data.to_date} (${days}d).`,
+      type: 'leave',
+    }).catch(() => {});
     return inserted;
   }
   if (DEMO) {
@@ -264,6 +275,12 @@ export async function updateLeaveStatus(name, action, actorRole = 'manager') {
 
     if (action === 'Rejected') {
       const { data: updated } = await supabase.from('leave_apps').update({ status: 'Rejected', approval_stage: 'Rejected' }).eq('name', name).select().single();
+      addNotification({
+        recipient_id: existing.employee,
+        title: 'Leave Request Rejected',
+        message: `Your ${existing.leave_type} request (${existing.from_date}) has been rejected.`,
+        type: 'leave',
+      }).catch(() => {});
       return updated;
     }
 
@@ -293,6 +310,23 @@ export async function updateLeaveStatus(name, action, actorRole = 'manager') {
     }
 
     const { data: updated } = await supabase.from('leave_apps').update(updates).eq('name', name).select().single();
+
+    if (updates.status === 'Approved') {
+      addNotification({
+        recipient_id: existing.employee,
+        title: 'Leave Request Approved',
+        message: `Your ${existing.leave_type} request (${existing.from_date}) has been approved.`,
+        type: 'leave',
+      }).catch(() => {});
+    } else if (updates.approval_stage === 'Pending HR') {
+      // Notify HR that this leave needs their final approval
+      notifyRole('hr_manager', {
+        title: 'Leave Awaiting HR Approval',
+        message: `${existing.employee_name}'s unpaid leave (${existing.from_date}) is pending HR approval.`,
+        type: 'leave',
+      }).catch(() => {});
+    }
+
     return updated;
   }
   if (DEMO) {

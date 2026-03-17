@@ -25,7 +25,11 @@ export default function NotificationBell() {
     setNotifications(data);
   };
 
-  useEffect(() => { load(); }, [employee?.name]);
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 30_000);
+    return () => clearInterval(interval);
+  }, [employee?.name]);
 
   useEffect(() => {
     if (!open) return;

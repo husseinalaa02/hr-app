@@ -182,6 +182,17 @@ create table if not exists attendance (
   status           text default 'Present'
 );
 
+-- Notifications
+create table if not exists notifications (
+  id           bigserial primary key,
+  recipient_id text not null,
+  title        text,
+  message      text,
+  type         text default 'info',
+  read         boolean default false,
+  created_at   timestamptz default now()
+);
+
 -- Audit Logs
 create table if not exists audit_logs (
   id             bigserial primary key,
@@ -196,37 +207,52 @@ create table if not exists audit_logs (
   changes        jsonb
 );
 
--- ─── Helper: get current user's role from JWT app_metadata ───────────────────
+-- ─── Helper functions (safe to re-run) ───────────────────────────────────────
 create or replace function auth_role()
 returns text language sql stable as $$
   select coalesce(auth.jwt() -> 'app_metadata' ->> 'role', 'employee')
 $$;
 
--- Helper: get current user's employee_id from JWT
 create or replace function auth_employee_id()
 returns text language sql stable as $$
   select auth.jwt() -> 'app_metadata' ->> 'employee_id'
 $$;
 
--- ─── Row Level Security ───────────────────────────────────────────────────────
+-- ─── Drop all policies before recreating (makes this file re-runnable) ────────
+do $$ declare r record;
+begin
+  for r in select policyname, tablename from pg_policies where schemaname = 'public' loop
+    execute format('drop policy if exists %I on %I', r.policyname, r.tablename);
+  end loop;
+end $$;
+
+-- ─── Enable RLS on all tables ─────────────────────────────────────────────────
+alter table employees           enable row level security;
+alter table leave_apps          enable row level security;
+alter table leave_allocs        enable row level security;
+alter table day_requests        enable row level security;
+alter table payroll             enable row level security;
+alter table payroll_log         enable row level security;
+alter table expenses            enable row level security;
+alter table announcements       enable row level security;
+alter table recruitment_jobs    enable row level security;
+alter table recruitment_candidates enable row level security;
+alter table audit_logs          enable row level security;
+alter table notifications       enable row level security;
+alter table work_schedules      enable row level security;
+alter table checkins            enable row level security;
+alter table attendance          enable row level security;
+
+-- ─── Policies ─────────────────────────────────────────────────────────────────
 
 -- EMPLOYEES
-alter table employees enable row level security;
--- Any authenticated user can read the directory
-create policy "emp_select" on employees for select to authenticated using (true);
--- Employees update their own record; admin/HR update anyone
-create policy "emp_update_self"  on employees for update to authenticated
-  using (auth_id = auth.uid());
-create policy "emp_update_admin" on employees for update to authenticated
-  using (auth_role() in ('admin', 'hr_manager'));
--- Only service role (API) inserts/deletes — block direct client access
-create policy "emp_insert_admin" on employees for insert to authenticated
-  with check (auth_role() = 'admin');
-create policy "emp_delete_admin" on employees for delete to authenticated
-  using (auth_role() = 'admin');
+create policy "emp_select"       on employees for select to authenticated using (true);
+create policy "emp_update_self"  on employees for update to authenticated using (auth_id = auth.uid());
+create policy "emp_update_admin" on employees for update to authenticated using (auth_role() in ('admin', 'hr_manager'));
+create policy "emp_insert_admin" on employees for insert to authenticated with check (auth_role() = 'admin');
+create policy "emp_delete_admin" on employees for delete to authenticated using (auth_role() = 'admin');
 
 -- LEAVE APPS
-alter table leave_apps enable row level security;
 create policy "leave_select" on leave_apps for select to authenticated
   using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'ceo'));
 create policy "leave_insert" on leave_apps for insert to authenticated
@@ -237,14 +263,12 @@ create policy "leave_delete" on leave_apps for delete to authenticated
   using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager'));
 
 -- LEAVE ALLOCS
-alter table leave_allocs enable row level security;
 create policy "alloc_select" on leave_allocs for select to authenticated
   using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'ceo'));
 create policy "alloc_write" on leave_allocs for all to authenticated
   using (auth_role() in ('admin', 'hr_manager'));
 
 -- DAY REQUESTS
-alter table day_requests enable row level security;
 create policy "dr_select" on day_requests for select to authenticated
   using (employee_id = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'ceo'));
 create policy "dr_insert" on day_requests for insert to authenticated
@@ -252,18 +276,15 @@ create policy "dr_insert" on day_requests for insert to authenticated
 create policy "dr_update" on day_requests for update to authenticated
   using (employee_id = auth_employee_id() or auth_role() in ('admin', 'hr_manager'));
 
--- PAYROLL (finance/admin/ceo only)
-alter table payroll enable row level security;
+-- PAYROLL
 create policy "payroll_access" on payroll for all to authenticated
   using (auth_role() in ('admin', 'finance_manager', 'ceo'));
 
 -- PAYROLL LOG
-alter table payroll_log enable row level security;
 create policy "payroll_log_access" on payroll_log for all to authenticated
   using (auth_role() in ('admin', 'finance_manager', 'ceo'));
 
 -- EXPENSES
-alter table expenses enable row level security;
 create policy "exp_select" on expenses for select to authenticated
   using (employee_id = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'finance_manager', 'ceo'));
 create policy "exp_insert" on expenses for insert to authenticated
@@ -272,42 +293,42 @@ create policy "exp_update" on expenses for update to authenticated
   using (employee_id = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'finance_manager'));
 
 -- ANNOUNCEMENTS
-alter table announcements enable row level security;
 create policy "ann_select" on announcements for select to authenticated using (true);
 create policy "ann_write"  on announcements for all to authenticated
   using (auth_role() in ('admin', 'hr_manager'));
 
 -- RECRUITMENT
-alter table recruitment_jobs enable row level security;
 create policy "recruit_jobs_access" on recruitment_jobs for all to authenticated
   using (auth_role() in ('admin', 'hr_manager', 'ceo'));
-
-alter table recruitment_candidates enable row level security;
 create policy "recruit_cands_access" on recruitment_candidates for all to authenticated
   using (auth_role() in ('admin', 'hr_manager', 'ceo'));
 
 -- AUDIT LOGS
-alter table audit_logs enable row level security;
 create policy "audit_select" on audit_logs for select to authenticated
   using (auth_role() in ('admin', 'audit_manager', 'ceo'));
 create policy "audit_insert" on audit_logs for insert to authenticated with check (true);
 
+-- NOTIFICATIONS
+create policy "notif_select" on notifications for select to authenticated
+  using (recipient_id = auth_employee_id());
+create policy "notif_insert" on notifications for insert to authenticated
+  with check (true);
+create policy "notif_update" on notifications for update to authenticated
+  using (recipient_id = auth_employee_id());
+
 -- WORK SCHEDULES
-alter table work_schedules enable row level security;
 create policy "ws_select" on work_schedules for select to authenticated
   using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'ceo'));
 create policy "ws_insert" on work_schedules for insert to authenticated
   with check (auth_role() in ('admin', 'hr_manager'));
 
 -- CHECKINS
-alter table checkins enable row level security;
 create policy "chk_select" on checkins for select to authenticated
   using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager'));
 create policy "chk_insert" on checkins for insert to authenticated
   with check (employee = auth_employee_id());
 
 -- ATTENDANCE
-alter table attendance enable row level security;
 create policy "att_select" on attendance for select to authenticated
   using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'ceo'));
 create policy "att_upsert" on attendance for all to authenticated
