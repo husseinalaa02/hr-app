@@ -270,6 +270,28 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* ── Quick Actions ── */}
+        <div className="dash-card dash-card-wide">
+          <SectionHeader title="Quick Actions" />
+          <div className="dash-card-body">
+            <div className="qa-grid">
+              {[
+                { to: '/employees',   label: 'Employees',    icon: Icons.employees,     bg: '#e8f2fb', color: '#0C447C' },
+                { to: '/payroll',     label: 'Payroll',      icon: Icons.payroll,       bg: '#fef3c7', color: '#d97706' },
+                { to: '/leave',       label: 'Leave',        icon: Icons.leave,         bg: '#fee2e2', color: '#dc2626' },
+                { to: '/reports',     label: 'Reports',      icon: Icons.attendance,    bg: '#d1fae5', color: '#059669' },
+                { to: '/recruitment', label: 'Recruitment',  icon: Icons.jobs,          bg: '#ede9fe', color: '#7c3aed' },
+                { to: '/expenses',    label: 'Expenses',     icon: Icons.expense_quick, bg: '#e0f2fe', color: '#0284c7' },
+              ].map(({ to, label, icon, bg, color }) => (
+                <Link key={to} to={to} className="qa-item">
+                  <div className="qa-icon" style={{ background: bg, color }}>{icon}</div>
+                  <span className="qa-label">{label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* ── KPI Row ── */}
         <div className="kpi-grid">
           <KpiCard
@@ -392,28 +414,6 @@ export default function Dashboard() {
                   </div>
                 ))
               )}
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="dash-card">
-            <SectionHeader title="Quick Actions" />
-            <div className="dash-card-body">
-              <div className="qa-grid">
-                {[
-                  { to: '/employees',   label: 'Employees',    icon: Icons.employees,     bg: '#e8f2fb', color: '#0C447C' },
-                  { to: '/payroll',     label: 'Payroll',      icon: Icons.payroll,       bg: '#fef3c7', color: '#d97706' },
-                  { to: '/leave',       label: 'Leave',        icon: Icons.leave,         bg: '#fee2e2', color: '#dc2626' },
-                  { to: '/reports',     label: 'Reports',      icon: Icons.attendance,    bg: '#d1fae5', color: '#059669' },
-                  { to: '/recruitment', label: 'Recruitment',  icon: Icons.jobs,          bg: '#ede9fe', color: '#7c3aed' },
-                  { to: '/expenses',    label: 'Expenses',     icon: Icons.expense_quick, bg: '#e0f2fe', color: '#0284c7' },
-                ].map(({ to, label, icon, bg, color }) => (
-                  <Link key={to} to={to} className="qa-item">
-                    <div className="qa-icon" style={{ background: bg, color }}>{icon}</div>
-                    <span className="qa-label">{label}</span>
-                  </Link>
-                ))}
-              </div>
             </div>
           </div>
 
