@@ -3,127 +3,108 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getAllEmployeesWithOverrides, savePermissionOverrides } from '../api/admin';
 import { updateEmployee } from '../api/employees';
-import { PERMISSIONS, ROLE_PERMISSIONS } from '../rbac/permissions';
+import { ROLE_PERMISSIONS } from '../rbac/permissions';
 import { Skeleton } from '../components/Skeleton';
 
-// ── Permission groups for the matrix UI ──────────────────────────────────────
+// ── Config ────────────────────────────────────────────────────────────────────
 const PERM_GROUPS = [
-  { label: 'Employees',     perms: ['employees:read', 'employees:write', 'employees:delete'] },
-  { label: 'Payroll',       perms: ['payroll:read', 'payroll:write', 'payroll:process', 'payroll:export'] },
-  { label: 'Leave',         perms: ['leave:read', 'leave:write', 'leave:approve'] },
-  { label: 'Attendance',    perms: ['attendance:read', 'attendance:write'] },
-  { label: 'Timesheets',    perms: ['timesheets:read', 'timesheets:write'] },
-  { label: 'Payslips',      perms: ['payslips:read'] },
-  { label: 'Day Requests',  perms: ['day_requests:read', 'day_requests:write', 'day_requests:approve'] },
-  { label: 'Expenses',      perms: ['expenses:read', 'expenses:write', 'expenses:approve'] },
-  { label: 'Appraisals',   perms: ['appraisals:read', 'appraisals:manage'] },
-  { label: 'Recruitment',   perms: ['recruitment:read', 'recruitment:manage'] },
-  { label: 'Reports',       perms: ['reports:hr', 'reports:finance', 'reports:executive'] },
-  { label: 'Announcements', perms: ['announcements:read', 'announcements:write'] },
-  { label: 'Audit',         perms: ['audit:read'] },
+  { label: 'Employees',     icon: '👥', perms: ['employees:read', 'employees:write', 'employees:delete'] },
+  { label: 'Payroll',       icon: '💰', perms: ['payroll:read', 'payroll:write', 'payroll:process', 'payroll:export'] },
+  { label: 'Leave',         icon: '📅', perms: ['leave:read', 'leave:write', 'leave:approve'] },
+  { label: 'Attendance',    icon: '🕐', perms: ['attendance:read', 'attendance:write'] },
+  { label: 'Timesheets',    icon: '📋', perms: ['timesheets:read', 'timesheets:write'] },
+  { label: 'Day Requests',  icon: '📆', perms: ['day_requests:read', 'day_requests:write', 'day_requests:approve'] },
+  { label: 'Expenses',      icon: '🧾', perms: ['expenses:read', 'expenses:write', 'expenses:approve'] },
+  { label: 'Appraisals',    icon: '⭐', perms: ['appraisals:read', 'appraisals:manage'] },
+  { label: 'Recruitment',   icon: '🔍', perms: ['recruitment:read', 'recruitment:manage'] },
+  { label: 'Reports',       icon: '📊', perms: ['reports:hr', 'reports:finance', 'reports:executive'] },
+  { label: 'Announcements', icon: '📢', perms: ['announcements:read', 'announcements:write'] },
+  { label: 'Payslips',      icon: '💳', perms: ['payslips:read'] },
+  { label: 'Audit',         icon: '🔒', perms: ['audit:read'] },
 ];
 
 const PERM_LABELS = {
-  'employees:read':       'View Employees',
-  'employees:write':      'Edit Employees',
-  'employees:delete':     'Delete Employees',
-  'payroll:read':         'View Payroll',
-  'payroll:write':        'Edit Payroll',
-  'payroll:process':      'Process Payroll',
-  'payroll:export':       'Export Payroll',
-  'leave:read':           'View Leave',
-  'leave:write':          'Submit Leave',
-  'leave:approve':        'Approve Leave',
-  'attendance:read':      'View Attendance',
-  'attendance:write':     'Edit Attendance',
-  'timesheets:read':      'View Timesheets',
-  'timesheets:write':     'Edit Timesheets',
-  'payslips:read':        'View Payslips',
-  'day_requests:read':    'View Day Requests',
-  'day_requests:write':   'Submit Day Requests',
-  'day_requests:approve': 'Approve Day Requests',
-  'expenses:read':        'View Expenses',
-  'expenses:write':       'Submit Expenses',
-  'expenses:approve':     'Approve Expenses',
-  'appraisals:read':      'View Appraisals',
-  'appraisals:manage':    'Manage Appraisals',
-  'recruitment:read':     'View Recruitment',
-  'recruitment:manage':   'Manage Recruitment',
-  'reports:hr':           'HR Reports',
-  'reports:finance':      'Finance Reports',
-  'reports:executive':    'Executive Reports',
-  'announcements:read':   'View Announcements',
-  'announcements:write':  'Post Announcements',
-  'audit:read':           'View Audit Log',
+  'employees:read': 'View', 'employees:write': 'Edit', 'employees:delete': 'Delete',
+  'payroll:read': 'View', 'payroll:write': 'Edit', 'payroll:process': 'Process', 'payroll:export': 'Export',
+  'leave:read': 'View', 'leave:write': 'Submit', 'leave:approve': 'Approve',
+  'attendance:read': 'View', 'attendance:write': 'Edit',
+  'timesheets:read': 'View', 'timesheets:write': 'Edit',
+  'payslips:read': 'View',
+  'day_requests:read': 'View', 'day_requests:write': 'Submit', 'day_requests:approve': 'Approve',
+  'expenses:read': 'View', 'expenses:write': 'Submit', 'expenses:approve': 'Approve',
+  'appraisals:read': 'View', 'appraisals:manage': 'Manage',
+  'recruitment:read': 'View', 'recruitment:manage': 'Manage',
+  'reports:hr': 'HR', 'reports:finance': 'Finance', 'reports:executive': 'Executive',
+  'announcements:read': 'View', 'announcements:write': 'Post',
+  'audit:read': 'View',
 };
 
-const ALL_ROLES = ['admin', 'ceo', 'hr_manager', 'finance_manager', 'it_manager', 'audit_manager', 'employee'];
+const ALL_ROLES = ['admin','ceo','hr_manager','finance_manager','it_manager','audit_manager','employee'];
 const ROLE_LABELS = {
-  admin:           'Admin',
-  ceo:             'CEO',
-  hr_manager:      'HR Manager',
-  finance_manager: 'Finance Manager',
-  it_manager:      'IT Manager',
-  audit_manager:   'Audit Manager',
-  employee:        'Employee',
+  admin: 'Admin', ceo: 'CEO', hr_manager: 'HR Manager',
+  finance_manager: 'Finance Manager', it_manager: 'IT Manager',
+  audit_manager: 'Audit Manager', employee: 'Employee',
+};
+const ROLE_COLORS = {
+  admin: '#0C447C', ceo: '#6d28d9', hr_manager: '#059669',
+  finance_manager: '#b45309', it_manager: '#0891b2',
+  audit_manager: '#7c3aed', employee: '#6b7280',
 };
 
-// ── Toggle button: 3 states — null (role default), true (force on), false (force off)
+function RolePill({ role, size = 'sm' }) {
+  return (
+    <span style={{
+      display: 'inline-block',
+      padding: size === 'lg' ? '4px 14px' : '2px 10px',
+      borderRadius: 20,
+      fontSize: size === 'lg' ? 13 : 11,
+      fontWeight: 600,
+      color: '#fff',
+      background: ROLE_COLORS[role] || '#6b7280',
+      whiteSpace: 'nowrap',
+    }}>
+      {ROLE_LABELS[role] || role}
+    </span>
+  );
+}
+
+// 3-state toggle: role-default (green/gray) → force-on (blue) → force-off (red) → back
 function PermToggle({ roleHas, override, onChange }) {
-  // Effective value
   const effective = override !== undefined ? override : roleHas;
 
-  // Cycle: null → invert → null
   const handleClick = () => {
-    if (override === undefined) {
-      // Currently using role default — override to opposite
-      onChange(!roleHas);
-    } else if (override === !roleHas) {
-      // Override that differs from role — clear it (back to role default)
-      onChange(undefined);
-    } else {
-      // Override same as role (redundant) — clear it
-      onChange(undefined);
-    }
+    if (override === undefined) onChange(!roleHas);
+    else onChange(undefined);
   };
 
   let cls = 'perm-toggle';
   let title = '';
-  if (override === true) { cls += ' perm-force-on'; title = 'Manually granted — click to reset'; }
-  else if (override === false) { cls += ' perm-force-off'; title = 'Manually revoked — click to reset'; }
-  else if (roleHas) { cls += ' perm-role-on'; title = 'Granted by role — click to revoke'; }
-  else { cls += ' perm-role-off'; title = 'Not in role — click to grant'; }
+  if (override === true)   { cls += ' perm-force-on';  title = 'Manually granted — click to reset to role default'; }
+  else if (override === false) { cls += ' perm-force-off'; title = 'Manually revoked — click to reset to role default'; }
+  else if (roleHas)        { cls += ' perm-role-on';   title = 'Granted by role — click to revoke'; }
+  else                     { cls += ' perm-role-off';  title = 'Not in role — click to grant'; }
 
   return (
     <button className={cls} onClick={handleClick} title={title} type="button">
-      {effective ? (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="20 6 9 17 4 12"/>
-        </svg>
-      ) : (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      )}
+      {effective
+        ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      }
     </button>
   );
 }
 
-// ── Role badge pill ───────────────────────────────────────────────────────────
-function RolePill({ role }) {
-  const colors = {
-    admin: '#0C447C', ceo: '#6d28d9', hr_manager: '#059669',
-    finance_manager: '#b45309', it_manager: '#0891b2',
-    audit_manager: '#7c3aed', employee: '#6b7280',
-  };
+// ── Stat card ─────────────────────────────────────────────────────────────────
+function StatCard({ label, value, color }) {
   return (
-    <span style={{
-      display: 'inline-block', padding: '2px 10px', borderRadius: 20,
-      fontSize: 12, fontWeight: 600, color: '#fff',
-      background: colors[role] || '#6b7280',
+    <div style={{
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 12, padding: '16px 20px', flex: 1, minWidth: 120,
+      borderTop: `3px solid ${color}`,
     }}>
-      {ROLE_LABELS[role] || role}
-    </span>
+      <div style={{ fontSize: 26, fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{label}</div>
+    </div>
   );
 }
 
@@ -131,65 +112,61 @@ export default function Admin() {
   const { employee: me } = useAuth();
   const { addToast } = useToast();
   const [tab, setTab] = useState('roles');
-
   const [employees, setEmployees] = useState([]);
-  const [loading, setLoading]     = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  // Roles tab state
-  const [roleEdits, setRoleEdits] = useState({}); // { [empId]: newRole }
+  // Roles tab
+  const [roleEdits, setRoleEdits] = useState({});
   const [savingRole, setSavingRole] = useState({});
+  const [search, setSearch] = useState('');
 
-  // Permissions tab state
+  // Permissions tab
   const [selectedEmp, setSelectedEmp] = useState('');
-  const [pendingOverrides, setPendingOverrides] = useState({}); // { [perm]: true | false | undefined }
+  const [pendingOverrides, setPendingOverrides] = useState({});
   const [savingPerms, setSavingPerms] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    try {
-      const data = await getAllEmployeesWithOverrides();
-      setEmployees(data);
-    } catch (e) {
-      addToast('Failed to load employees', 'error');
-    } finally {
-      setLoading(false);
-    }
+    try { setEmployees(await getAllEmployeesWithOverrides()); }
+    catch { addToast('Failed to load', 'error'); }
+    finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
+  // Stats
+  const roleCounts = ALL_ROLES.reduce((acc, r) => {
+    acc[r] = employees.filter(e => e.role === r).length;
+    return acc;
+  }, {});
+  const withOverrides = employees.filter(e => Object.keys(e.overrides).length > 0).length;
+
   // ── Roles tab ──────────────────────────────────────────────────────────────
-  const handleRoleChange = (empId, newRole) => {
-    setRoleEdits(prev => ({ ...prev, [empId]: newRole }));
-  };
+  const filtered = employees.filter(e =>
+    !search || e.employee_name.toLowerCase().includes(search.toLowerCase()) ||
+    e.department?.toLowerCase().includes(search.toLowerCase())
+  );
 
   const saveRole = async (emp) => {
     const newRole = roleEdits[emp.name];
     if (!newRole || newRole === emp.role) return;
-    setSavingRole(prev => ({ ...prev, [emp.name]: true }));
+    setSavingRole(p => ({ ...p, [emp.name]: true }));
     try {
       await updateEmployee(emp.name, { role: newRole });
-      setEmployees(prev => prev.map(e => e.name === emp.name ? { ...e, role: newRole } : e));
-      setRoleEdits(prev => { const n = { ...prev }; delete n[emp.name]; return n; });
-      addToast(`${emp.employee_name}'s role updated to ${ROLE_LABELS[newRole]}`, 'success');
-    } catch {
-      addToast('Failed to update role', 'error');
-    } finally {
-      setSavingRole(prev => ({ ...prev, [emp.name]: false }));
-    }
+      setEmployees(p => p.map(e => e.name === emp.name ? { ...e, role: newRole } : e));
+      setRoleEdits(p => { const n = { ...p }; delete n[emp.name]; return n; });
+      addToast(`${emp.employee_name} → ${ROLE_LABELS[newRole]}`, 'success');
+    } catch { addToast('Failed to update role', 'error'); }
+    finally { setSavingRole(p => ({ ...p, [emp.name]: false })); }
   };
 
   // ── Permissions tab ────────────────────────────────────────────────────────
   const selectedEmpObj = employees.find(e => e.name === selectedEmp);
 
-  // When a different employee is selected, load their current overrides into pending state
   useEffect(() => {
     if (!selectedEmpObj) { setPendingOverrides({}); return; }
-    // Convert stored overrides to pending format (undefined = no override / role default)
     const pending = {};
-    for (const [perm, val] of Object.entries(selectedEmpObj.overrides)) {
-      pending[perm] = val;
-    }
+    for (const [perm, val] of Object.entries(selectedEmpObj.overrides)) pending[perm] = val;
     setPendingOverrides(pending);
   }, [selectedEmp]);
 
@@ -202,241 +179,292 @@ export default function Admin() {
     });
   };
 
-  const resetToRole = () => {
-    setPendingOverrides({});
-  };
-
   const savePermissions = async () => {
     if (!selectedEmpObj) return;
     setSavingPerms(true);
     try {
-      // Build diff: what overrides to set vs delete
-      const toSave = {};
-      // All permissions that exist in pendingOverrides
-      for (const [perm, val] of Object.entries(pendingOverrides)) {
-        toSave[perm] = val;
-      }
-      // Any existing overrides NOT in pendingOverrides → delete (null means remove)
+      const toSave = { ...pendingOverrides };
       for (const perm of Object.keys(selectedEmpObj.overrides)) {
         if (!(perm in pendingOverrides)) toSave[perm] = null;
       }
       await savePermissionOverrides(selectedEmpObj.name, toSave);
-      // Update local state
-      setEmployees(prev => prev.map(e =>
+      setEmployees(p => p.map(e =>
         e.name === selectedEmpObj.name ? { ...e, overrides: { ...pendingOverrides } } : e
       ));
       addToast('Permissions saved', 'success');
-    } catch {
-      addToast('Failed to save permissions', 'error');
-    } finally {
-      setSavingPerms(false);
-    }
+    } catch { addToast('Failed to save', 'error'); }
+    finally { setSavingPerms(false); }
   };
 
-  const hasUnsavedChanges = selectedEmpObj && (
+  const hasChanges = selectedEmpObj && (
     JSON.stringify(pendingOverrides) !== JSON.stringify(
-      Object.fromEntries(Object.entries(selectedEmpObj.overrides).filter(([,v]) => v !== undefined))
+      Object.fromEntries(Object.entries(selectedEmpObj.overrides).filter(([, v]) => v !== undefined))
     )
   );
 
-  // Count overrides for a given employee
-  const overrideCount = (emp) => Object.keys(emp.overrides).length;
+  const rolePerms = selectedEmpObj ? (ROLE_PERMISSIONS[selectedEmpObj.role] || []) : [];
+  const effectiveGranted = Object.values(PERM_GROUPS).flatMap(g => g.perms).filter(p => {
+    const ov = pendingOverrides[p];
+    return ov !== undefined ? ov : rolePerms.includes(p);
+  }).length;
+  const totalPerms = Object.values(PERM_GROUPS).flatMap(g => g.perms).length;
+  const overrideCount = Object.keys(pendingOverrides).length;
 
   return (
     <div className="page-content">
-      <div className="card" style={{ marginBottom: 0 }}>
-        <div className="card-header" style={{ borderBottom: '1px solid var(--border)' }}>
-          <h3 style={{ margin: 0 }}>Control Panel</h3>
-          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Admin only</span>
+      {/* Page header */}
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Control Panel</h1>
+          <p className="page-subtitle">Manage roles and individual permissions for every employee</p>
         </div>
+      </div>
 
+      {/* Stats row */}
+      {!loading && (
+        <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+          <StatCard label="Total Employees" value={employees.length} color="var(--primary)" />
+          <StatCard label="Admins" value={roleCounts.admin || 0} color={ROLE_COLORS.admin} />
+          <StatCard label="HR Managers" value={roleCounts.hr_manager || 0} color={ROLE_COLORS.hr_manager} />
+          <StatCard label="Finance" value={roleCounts.finance_manager || 0} color={ROLE_COLORS.finance_manager} />
+          <StatCard label="With Overrides" value={withOverrides} color="#7c3aed" />
+        </div>
+      )}
+
+      <div className="card" style={{ marginBottom: 0 }}>
         {/* Tabs */}
         <div className="admin-tabs">
-          <button
-            className={`admin-tab${tab === 'roles' ? ' active' : ''}`}
-            onClick={() => setTab('roles')}
-          >
+          <button className={`admin-tab${tab === 'roles' ? ' active' : ''}`} onClick={() => setTab('roles')}>
             Users &amp; Roles
           </button>
-          <button
-            className={`admin-tab${tab === 'permissions' ? ' active' : ''}`}
-            onClick={() => setTab('permissions')}
-          >
+          <button className={`admin-tab${tab === 'permissions' ? ' active' : ''}`} onClick={() => setTab('permissions')}>
             Permissions
           </button>
         </div>
 
-        {/* ── Tab: Users & Roles ─────────────────────────────────────────────── */}
+        {/* ── Users & Roles ──────────────────────────────────────────────────── */}
         {tab === 'roles' && (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Employee</th>
-                  <th>Department</th>
-                  <th>Current Role</th>
-                  <th>Change Role</th>
-                  <th>Perm Overrides</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i}>
-                      {Array.from({ length: 6 }).map((__, j) => (
-                        <td key={j}><Skeleton height={14} /></td>
-                      ))}
-                    </tr>
-                  ))
-                ) : employees.map(emp => {
-                  const pendingRole = roleEdits[emp.name];
-                  const isDirty = pendingRole && pendingRole !== emp.role;
-                  const isSelf = emp.name === me?.name;
-                  return (
-                    <tr key={emp.name}>
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{emp.employee_name}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{emp.name}</div>
-                      </td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{emp.department}</td>
-                      <td><RolePill role={emp.role} /></td>
-                      <td>
-                        <select
-                          className="form-control"
-                          style={{ fontSize: 13, padding: '4px 8px', width: 'auto' }}
-                          value={pendingRole ?? emp.role}
-                          onChange={e => handleRoleChange(emp.name, e.target.value)}
-                          disabled={isSelf}
-                        >
-                          {ALL_ROLES.map(r => (
-                            <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        {overrideCount(emp) > 0 ? (
-                          <button
-                            className="btn btn-sm"
-                            style={{ fontSize: 12 }}
-                            onClick={() => { setSelectedEmp(emp.name); setTab('permissions'); }}
-                          >
-                            {overrideCount(emp)} override{overrideCount(emp) > 1 ? 's' : ''}
-                          </button>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
-                        )}
-                      </td>
-                      <td>
-                        {isSelf ? (
-                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>You</span>
-                        ) : (
-                          <button
-                            className="btn btn-primary btn-sm"
-                            disabled={!isDirty || savingRole[emp.name]}
-                            onClick={() => saveRole(emp)}
-                          >
-                            {savingRole[emp.name] ? 'Saving…' : 'Save'}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+              <input
+                className="form-control"
+                placeholder="Search employee or department…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{ maxWidth: 320, fontSize: 13 }}
+              />
+            </div>
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Department</th>
+                    <th>Current Role</th>
+                    <th>Assign Role</th>
+                    <th>Overrides</th>
+                    <th style={{ width: 80 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading
+                    ? Array.from({ length: 6 }).map((_, i) => (
+                        <tr key={i}>{Array.from({ length: 6 }).map((__, j) => <td key={j}><Skeleton height={14} /></td>)}</tr>
+                      ))
+                    : filtered.map(emp => {
+                        const pendingRole = roleEdits[emp.name];
+                        const isDirty = pendingRole && pendingRole !== emp.role;
+                        const isSelf = emp.name === me?.name;
+                        const oc = Object.keys(emp.overrides).length;
+                        return (
+                          <tr key={emp.name} style={isDirty ? { background: 'var(--warning-light)' } : undefined}>
+                            <td>
+                              <div style={{ fontWeight: 600, fontSize: 14 }}>{emp.employee_name}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{emp.name}</div>
+                            </td>
+                            <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{emp.department || '—'}</td>
+                            <td><RolePill role={emp.role} /></td>
+                            <td>
+                              <select
+                                className="form-control"
+                                style={{ fontSize: 13, padding: '5px 8px', minWidth: 150 }}
+                                value={pendingRole ?? emp.role}
+                                onChange={e => setRoleEdits(p => ({ ...p, [emp.name]: e.target.value }))}
+                                disabled={isSelf}
+                              >
+                                {ALL_ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                              </select>
+                            </td>
+                            <td>
+                              {oc > 0 ? (
+                                <button
+                                  className="btn btn-sm"
+                                  style={{ fontSize: 11, background: '#f3e8ff', color: '#7c3aed', border: '1px solid #e9d5ff' }}
+                                  onClick={() => { setSelectedEmp(emp.name); setTab('permissions'); }}
+                                >
+                                  {oc} override{oc > 1 ? 's' : ''}
+                                </button>
+                              ) : (
+                                <button
+                                  className="btn btn-sm"
+                                  style={{ fontSize: 11 }}
+                                  onClick={() => { setSelectedEmp(emp.name); setTab('permissions'); }}
+                                >
+                                  Edit
+                                </button>
+                              )}
+                            </td>
+                            <td>
+                              {isSelf ? (
+                                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>You</span>
+                              ) : (
+                                <button
+                                  className="btn btn-primary btn-sm"
+                                  disabled={!isDirty || savingRole[emp.name]}
+                                  onClick={() => saveRole(emp)}
+                                >
+                                  {savingRole[emp.name] ? '…' : 'Save'}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                  }
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
-        {/* ── Tab: Permissions ───────────────────────────────────────────────── */}
+        {/* ── Permissions ────────────────────────────────────────────────────── */}
         {tab === 'permissions' && (
-          <div style={{ padding: '20px 24px' }}>
-            {/* Employee picker */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-              <div style={{ flex: '0 0 280px' }}>
-                <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
-                  Select Employee
-                </label>
-                <select
-                  className="form-control"
-                  value={selectedEmp}
-                  onChange={e => setSelectedEmp(e.target.value)}
-                >
-                  <option value="">— Choose an employee —</option>
-                  {employees.map(e => (
-                    <option key={e.name} value={e.name}>{e.employee_name} ({ROLE_LABELS[e.role] || e.role})</option>
-                  ))}
-                </select>
+          <div style={{ display: 'flex', minHeight: 500 }}>
+
+            {/* Left: employee list */}
+            <div style={{
+              width: 240, flexShrink: 0, borderRight: '1px solid var(--border)',
+              overflowY: 'auto', background: 'var(--surface-alt, #f9fafb)',
+            }}>
+              <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
+                Select Employee
               </div>
-              {selectedEmpObj && (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 22 }}>
-                  <RolePill role={selectedEmpObj.role} />
-                  <button className="btn btn-sm" onClick={resetToRole}>Reset to role defaults</button>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={savePermissions}
-                    disabled={savingPerms || !hasUnsavedChanges}
-                  >
-                    {savingPerms ? 'Saving…' : 'Save Changes'}
-                  </button>
-                </div>
-              )}
+              {loading
+                ? Array.from({ length: 5 }).map((_, i) => <div key={i} style={{ padding: '10px 14px' }}><Skeleton height={32} /></div>)
+                : employees.map(emp => {
+                    const oc = Object.keys(emp.overrides).length;
+                    const isSelected = selectedEmp === emp.name;
+                    return (
+                      <button
+                        key={emp.name}
+                        onClick={() => setSelectedEmp(emp.name)}
+                        style={{
+                          width: '100%', textAlign: 'left', background: isSelected ? 'var(--primary-light)' : 'none',
+                          border: 'none', borderBottom: '1px solid var(--border)', padding: '10px 14px',
+                          cursor: 'pointer', borderLeft: isSelected ? `3px solid var(--primary)` : '3px solid transparent',
+                        }}
+                      >
+                        <div style={{ fontWeight: 600, fontSize: 13, color: isSelected ? 'var(--primary)' : 'var(--text)' }}>{emp.employee_name}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                          <RolePill role={emp.role} />
+                          {oc > 0 && (
+                            <span style={{ fontSize: 10, background: '#f3e8ff', color: '#7c3aed', padding: '1px 6px', borderRadius: 10, fontWeight: 600 }}>
+                              {oc}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })
+              }
             </div>
 
-            {!selectedEmpObj ? (
-              <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)', fontSize: 14 }}>
-                Select an employee to manage their permissions
-              </div>
-            ) : (
-              <>
-                {/* Legend */}
-                <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
-                  {[
-                    { cls: 'perm-role-on',   label: 'Granted by role' },
-                    { cls: 'perm-role-off',  label: 'Not in role' },
-                    { cls: 'perm-force-on',  label: 'Manually granted' },
-                    { cls: 'perm-force-off', label: 'Manually revoked' },
-                  ].map(({ cls, label }) => (
-                    <div key={cls} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
-                      <span className={`perm-toggle ${cls}`} style={{ pointerEvents: 'none', cursor: 'default' }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          {cls.includes('off') ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></> : <polyline points="20 6 9 17 4 12"/>}
-                        </svg>
-                      </span>
-                      {label}
+            {/* Right: permission matrix */}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {!selectedEmpObj ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', gap: 12 }}>
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3 }}>
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                  <span style={{ fontSize: 14 }}>Select an employee to manage permissions</span>
+                </div>
+              ) : (
+                <>
+                  {/* Toolbar */}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px',
+                    borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexWrap: 'wrap',
+                    position: 'sticky', top: 0, zIndex: 2,
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>{selectedEmpObj.employee_name}</span>
+                      <span style={{ marginLeft: 10 }}><RolePill role={selectedEmpObj.role} size="lg" /></span>
                     </div>
-                  ))}
-                </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      {effectiveGranted}/{totalPerms} permissions
+                      {overrideCount > 0 && <span style={{ marginLeft: 8, color: '#7c3aed', fontWeight: 600 }}>{overrideCount} override{overrideCount > 1 ? 's' : ''}</span>}
+                    </div>
+                    <button className="btn btn-sm" onClick={() => setPendingOverrides({})}>Reset to role</button>
+                    <button className="btn btn-primary btn-sm" onClick={savePermissions} disabled={savingPerms || !hasChanges}>
+                      {savingPerms ? 'Saving…' : 'Save Changes'}
+                    </button>
+                  </div>
 
-                {/* Permission matrix */}
-                <div className="perm-matrix">
-                  {PERM_GROUPS.map(group => {
-                    const rolePerms = ROLE_PERMISSIONS[selectedEmpObj.role] || [];
-                    return (
-                      <div key={group.label} className="perm-group">
-                        <div className="perm-group-label">{group.label}</div>
-                        {group.perms.map(perm => {
-                          const roleHas = rolePerms.includes(perm);
-                          const override = pendingOverrides[perm]; // true | false | undefined
-                          const effective = override !== undefined ? override : roleHas;
-                          return (
-                            <div key={perm} className={`perm-row${effective ? ' perm-row-on' : ''}`}>
-                              <PermToggle
-                                roleHas={roleHas}
-                                override={override}
-                                onChange={(val) => handlePermToggle(perm, val)}
-                              />
-                              <span className="perm-label">{PERM_LABELS[perm] || perm}</span>
-                              <span className="perm-key">{perm}</span>
-                            </div>
-                          );
-                        })}
+                  {/* Legend */}
+                  <div style={{ display: 'flex', gap: 16, padding: '10px 20px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', background: 'var(--surface-alt, #f9fafb)' }}>
+                    {[
+                      { cls: 'perm-role-on',   label: 'From role' },
+                      { cls: 'perm-role-off',  label: 'Not in role' },
+                      { cls: 'perm-force-on',  label: 'Manually granted' },
+                      { cls: 'perm-force-off', label: 'Manually revoked' },
+                    ].map(({ cls, label }) => (
+                      <div key={cls} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-muted)' }}>
+                        <span className={`perm-toggle ${cls}`} style={{ pointerEvents: 'none', width: 20, height: 20 }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            {cls.includes('off') ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></> : <polyline points="20 6 9 17 4 12"/>}
+                          </svg>
+                        </span>
+                        {label}
                       </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
+                    ))}
+                  </div>
+
+                  {/* Matrix */}
+                  <div style={{ padding: '16px 20px' }}>
+                    <div className="perm-matrix">
+                      {PERM_GROUPS.map(group => (
+                        <div key={group.label} className="perm-group">
+                          <div className="perm-group-label">
+                            <span style={{ marginRight: 6 }}>{group.icon}</span>{group.label}
+                          </div>
+                          {group.perms.map(perm => {
+                            const roleHas = rolePerms.includes(perm);
+                            const override = pendingOverrides[perm];
+                            const effective = override !== undefined ? override : roleHas;
+                            return (
+                              <div key={perm} className={`perm-row${effective ? ' perm-row-on' : ''}`}>
+                                <PermToggle roleHas={roleHas} override={override} onChange={val => handlePermToggle(perm, val)} />
+                                <span className="perm-label">{PERM_LABELS[perm] || perm}</span>
+                                {override !== undefined && (
+                                  <span style={{
+                                    fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 8,
+                                    background: override ? '#dbeafe' : 'var(--danger-light)',
+                                    color: override ? '#1d4ed8' : 'var(--danger)',
+                                    textTransform: 'uppercase', letterSpacing: '0.04em',
+                                  }}>
+                                    {override ? 'granted' : 'revoked'}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>

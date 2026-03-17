@@ -45,8 +45,8 @@ export default function Payroll() {
   const { employee, isAdmin, isFinance, isAudit } = useAuth();
   const { addToast } = useToast();
 
-  const canCreate = isAdmin && !isAudit;
-  const canPay    = isFinance;
+  const canCreate = (isAdmin || isHR) && !isAudit;
+  const canPay    = isFinance || isAdmin;
 
   const [records, setRecords]       = useState([]);
   const [employees, setEmployees]   = useState([]);
