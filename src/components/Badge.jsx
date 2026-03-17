@@ -3,6 +3,7 @@ const TYPE_MAP = {
   Approved: 'badge-success',
   Rejected: 'badge-danger',
   Present: 'badge-success',
+  Late: 'badge-warning',
   Absent: 'badge-danger',
   'Half Day': 'badge-warning',
   'Work From Home': 'badge-info',

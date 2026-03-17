@@ -179,8 +179,11 @@ create table if not exists attendance (
   in_time          timestamptz,
   out_time         timestamptz,
   working_hours    numeric,
-  status           text default 'Present'
+  status           text default 'Present',
+  late_minutes     numeric default 0
 );
+-- Add late_minutes to existing tables (safe to run on already-created table)
+alter table attendance add column if not exists late_minutes numeric default 0;
 
 -- Notifications
 create table if not exists notifications (

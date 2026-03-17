@@ -1,5 +1,6 @@
 import { db } from '../db/index';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
+import { addNotification } from './notifications';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -11,6 +12,37 @@ function localToday() {
   const d = new Date();
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+
+// Check if an IN punch is late relative to the employee's assigned shift.
+// Returns { late: boolean, minutes: number } — minutes is always from shift start.
+async function checkLateness(employeeId, checkinTime) {
+  if (!SUPABASE_MODE) return { late: false, minutes: 0 };
+
+  const { data: schedule } = await supabase
+    .from('work_schedules')
+    .select('start_time')
+    .eq('employee', employeeId)
+    .order('effective_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!schedule?.start_time) return { late: false, minutes: 0 };
+
+  const [h, m] = schedule.start_time.split(':').map(Number);
+  const checkin = new Date(checkinTime);
+
+  // Build shift-start in local time on the same calendar day as check-in
+  const shiftStart = new Date(checkin);
+  shiftStart.setHours(h, m, 0, 0);
+
+  const GRACE_MS = 15 * 60 * 1000; // 15-minute grace window
+  if (checkin <= new Date(shiftStart.getTime() + GRACE_MS)) {
+    return { late: false, minutes: 0 };
+  }
+
+  const minutes = Math.round((checkin - shiftStart) / 60_000);
+  return { late: true, minutes };
 }
 
 // Returns the UTC ISO string for local midnight (start of today)
@@ -42,10 +74,25 @@ export async function checkin(employeeId, logType) {
     // Upsert the daily attendance record
     const attName = `ATT-${employeeId}-${today}`;
     if (logType === 'IN') {
+      const { late, minutes } = await checkLateness(employeeId, time);
       await supabase.from('attendance').upsert({
         name: attName, employee: employeeId, attendance_date: today,
-        in_time: time, status: 'Present',
+        in_time: time,
+        status: late ? 'Late' : 'Present',
+        late_minutes: minutes,
       }, { onConflict: 'name' });
+
+      if (late) {
+        const hrs = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        const label = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} min`;
+        addNotification({
+          recipient_id: employeeId,
+          title: 'Late Check-In',
+          message: `You checked in ${label} after your scheduled start time.`,
+          type: 'info',
+        }).catch(() => {});
+      }
     } else {
       const { data: att } = await supabase.from('attendance').select('in_time')
         .eq('name', attName).maybeSingle();

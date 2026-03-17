@@ -235,7 +235,16 @@ export default function Attendance() {
                   <td>{formatTime(a.in_time) || '—'}</td>
                   <td>{formatTime(a.out_time) || '—'}</td>
                   <td>{a.working_hours ? `${Number(a.working_hours).toFixed(1)}h` : '—'}</td>
-                  <td><Badge status={a.status} /></td>
+                  <td>
+                    <Badge status={a.status} />
+                    {a.status === 'Late' && a.late_minutes > 0 && (
+                      <span style={{ fontSize: 11, color: 'var(--gray-500)', marginLeft: 5 }}>
+                        +{a.late_minutes >= 60
+                          ? `${Math.floor(a.late_minutes / 60)}h ${a.late_minutes % 60}m`
+                          : `${a.late_minutes}m`}
+                      </span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
