@@ -302,13 +302,16 @@ create policy "dr_insert" on day_requests for insert to authenticated
 create policy "dr_update" on day_requests for update to authenticated
   using (employee_id = auth_employee_id() or auth_role() in ('admin', 'hr_manager'));
 
--- PAYROLL
-create policy "payroll_access" on payroll for all to authenticated
+-- PAYROLL: managers can read/write all; employees can read only their own Paid records
+create policy "payroll_mgr_all" on payroll for all to authenticated
   using (auth_role() in ('admin', 'hr_manager', 'finance_manager', 'ceo'))
   with check (auth_role() in ('admin', 'hr_manager', 'finance_manager', 'ceo'));
+create policy "payroll_self_read" on payroll for select to authenticated
+  using (employee_id = (select name from employees where auth_id = auth.uid())
+         and status = 'Paid');
 
 -- PAYROLL LOG
-create policy "payroll_log_access" on payroll_log for all to authenticated
+create policy "payroll_log_mgr_all" on payroll_log for all to authenticated
   using (auth_role() in ('admin', 'hr_manager', 'finance_manager', 'ceo'))
   with check (auth_role() in ('admin', 'hr_manager', 'finance_manager', 'ceo'));
 
