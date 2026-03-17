@@ -75,36 +75,39 @@ export function AuthProvider({ children }) {
   }, []);
 
   const loadSession = useCallback(async () => {
-    await initDatabase();
+    try {
+      await initDatabase();
 
-    if (SUPABASE_MODE) {
-      // Supabase manages the session via localStorage automatically
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const emp = await fetchEmployee(session.user);
-        setUser(session.user);
-        setEmployee(emp);
+      if (SUPABASE_MODE) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const emp = await fetchEmployee(session.user);
+          setUser(session.user);
+          setEmployee(emp);
+        }
+        return;
       }
-      setLoading(false);
-      return;
-    }
 
-    if (DEMO_MODE) {
-      const stored = localStorage.getItem('user_info');
-      if (stored) {
-        try {
-          const info = JSON.parse(stored);
-          if (info.user) {
-            const profile = getDemoProfile(info.user);
-            if (profile) {
-              setUser(info.user);
-              setEmployee({ ...profile, user_id: info.user });
+      if (DEMO_MODE) {
+        const stored = localStorage.getItem('user_info');
+        if (stored) {
+          try {
+            const info = JSON.parse(stored);
+            if (info.user) {
+              const profile = getDemoProfile(info.user);
+              if (profile) {
+                setUser(info.user);
+                setEmployee({ ...profile, user_id: info.user });
+              }
             }
-          }
-        } catch {}
+          } catch {}
+        }
       }
+    } catch (err) {
+      console.error('[Auth] Session load failed:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [fetchEmployee]);
 
   useEffect(() => {
