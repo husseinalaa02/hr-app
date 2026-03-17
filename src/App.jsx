@@ -23,6 +23,7 @@ const Appraisals     = lazy(() => import('./pages/Appraisals'));
 const Recruitment    = lazy(() => import('./pages/Recruitment'));
 const Expenses       = lazy(() => import('./pages/Expenses'));
 const Reports        = lazy(() => import('./pages/Reports'));
+const Admin          = lazy(() => import('./pages/Admin'));
 
 const PAGE_TITLES = {
   '/':             'Dashboard',
@@ -38,6 +39,7 @@ const PAGE_TITLES = {
   '/recruitment':  'Recruitment',
   '/expenses':     'Expenses',
   '/reports':      'Reports',
+  '/admin':        'Control Panel',
 };
 
 function NetworkBanner() {
@@ -90,6 +92,15 @@ function RequireRole({ permission, children }) {
   return children;
 }
 
+function RequireAdmin({ children }) {
+  const { user, loading, isAdmin } = useAuth();
+  const location = useLocation();
+  if (loading) return <div className="app-loading"><span className="spinner" /></div>;
+  if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
+  if (!isAdmin) return <AccessDenied />;
+  return children;
+}
+
 export default function App() {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -133,6 +144,7 @@ export default function App() {
               <Route path="/recruitment"  element={<RequireRole permission={ROUTE_PERMISSIONS['/recruitment']}><Recruitment /></RequireRole>} />
               <Route path="/expenses"     element={<RequireRole permission={ROUTE_PERMISSIONS['/expenses']}><Expenses /></RequireRole>} />
               <Route path="/reports"      element={<RequireRole permission={ROUTE_PERMISSIONS['/reports']}><Reports /></RequireRole>} />
+              <Route path="/admin"        element={<RequireAdmin><Admin /></RequireAdmin>} />
               <Route path="*"             element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

@@ -200,6 +200,25 @@ create table if not exists notifications (
   created_at   timestamptz default now()
 );
 
+-- Per-user permission overrides (admin-only)
+create table if not exists employee_permissions (
+  id           bigserial primary key,
+  employee_id  text not null references employees(name) on delete cascade,
+  permission   text not null,
+  granted      boolean not null,
+  updated_at   timestamptz default now(),
+  unique(employee_id, permission)
+);
+alter table employee_permissions enable row level security;
+create policy "ep_admin_all" on employee_permissions
+  for all to authenticated
+  using (auth_role() = 'admin')
+  with check (auth_role() = 'admin');
+-- Current user can read their own overrides
+create policy "ep_self_read" on employee_permissions
+  for select to authenticated
+  using (employee_id = (select name from employees where auth_id = auth.uid()));
+
 -- Audit Logs
 create table if not exists audit_logs (
   id             bigserial primary key,

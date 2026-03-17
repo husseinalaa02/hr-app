@@ -1,15 +1,14 @@
 import { useAuth } from '../context/AuthContext';
-import { hasPermission } from './permissions';
 
 export function usePermission() {
-  const { employee } = useAuth();
+  const { employee, hasPermission } = useAuth();
   const role = employee?.role || 'employee';
 
-  const can = (permission) => hasPermission(role, permission);
+  const can = (permission) => hasPermission(permission);
 
   const canAny = (permissions) => {
     if (!Array.isArray(permissions)) return false;
-    return permissions.some((p) => hasPermission(role, p));
+    return permissions.some((p) => hasPermission(p));
   };
 
   const isReadOnly    = role === 'audit_manager' || role === 'ceo';

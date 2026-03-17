@@ -2282,3 +2282,79 @@ html, body {
     color: var(--gray-600);
   }
 }
+
+/* ── Admin Control Panel ──────────────────────────────────────────────────── */
+.admin-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+}
+.admin-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+.admin-tab:hover { color: var(--text); }
+.admin-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+/* Permission matrix */
+.perm-matrix {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.perm-group {
+  background: var(--surface-alt, #f9fafb);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.perm-group-label {
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.perm-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+.perm-row:last-child { border-bottom: none; }
+.perm-row-on { background: rgba(5, 150, 105, 0.04); }
+.perm-label { flex: 1; font-size: 13px; color: var(--text); }
+.perm-key { font-size: 10px; color: var(--text-muted); font-family: monospace; }
+
+/* Toggle button */
+.perm-toggle {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.perm-role-on  { background: var(--success-light); color: var(--success); }
+.perm-role-off { background: var(--surface-alt, #f3f4f6); color: var(--text-muted); }
+.perm-force-on  { background: #dbeafe; color: #1d4ed8; box-shadow: 0 0 0 2px #1d4ed8; }
+.perm-force-off { background: var(--danger-light); color: var(--danger); box-shadow: 0 0 0 2px var(--danger); }
+}

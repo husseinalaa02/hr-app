@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase, SUPABASE_MODE } from '../db/supabase';
 import { initDatabase, clearDatabase } from '../db/index';
 import { hasPermission as rbacHasPermission } from '../rbac/permissions';
+import { getPermissionOverrides } from '../api/admin';
 
 const AuthContext = createContext(null);
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
@@ -66,6 +67,7 @@ export function AuthProvider({ children }) {
   const [user, setUser]         = useState(null);
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading]   = useState(true);
+  const [permOverrides, setPermOverrides] = useState({});
 
   // Fetch employee record for a Supabase Auth user
   const fetchEmployee = useCallback(async (authUser) => {
@@ -84,6 +86,9 @@ export function AuthProvider({ children }) {
           const emp = await fetchEmployee(session.user);
           setUser(session.user);
           setEmployee(emp);
+          if (emp?.name) {
+            getPermissionOverrides(emp.name).then(setPermOverrides).catch(() => {});
+          }
         }
         return;
       }
@@ -120,9 +125,13 @@ export function AuthProvider({ children }) {
           const emp = await fetchEmployee(session.user);
           setUser(session.user);
           setEmployee(emp);
+          if (emp?.name) {
+            getPermissionOverrides(emp.name).then(setPermOverrides).catch(() => {});
+          }
         } else if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' && !session) {
           setUser(null);
           setEmployee(null);
+          setPermOverrides({});
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           // Re-fetch employee in case role/data changed
           const emp = await fetchEmployee(session.user);
@@ -199,6 +208,7 @@ export function AuthProvider({ children }) {
     await clearDatabase();
     setUser(null);
     setEmployee(null);
+    setPermOverrides({});
   };
 
   const refreshEmployee = async (updated) => {
@@ -224,14 +234,24 @@ export function AuthProvider({ children }) {
   const isAudit   = role === 'audit_manager';
   const isHR      = role === 'hr_manager'      || role === 'admin';
 
-  const hasPermission = (permission) => rbacHasPermission(role, permission);
+  const hasPermission = (permission) => {
+    if (permission in permOverrides) return permOverrides[permission];
+    return rbacHasPermission(role, permission);
+  };
+
+  const reloadPermissions = async () => {
+    if (employee?.name) {
+      const ov = await getPermissionOverrides(employee.name);
+      setPermOverrides(ov);
+    }
+  };
 
   return (
     <AuthContext.Provider value={{
       user, employee, loading,
       login, logout, refreshEmployee, getAccessToken,
       isAdmin, isCEO, isFinance, isAudit, isHR,
-      hasPermission, demoMode: DEMO_MODE,
+      hasPermission, permOverrides, reloadPermissions, demoMode: DEMO_MODE,
     }}>
       {children}
     </AuthContext.Provider>
