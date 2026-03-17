@@ -71,16 +71,30 @@ export async function checkin(employeeId, logType) {
     });
     if (chkErr) throw chkErr;
 
-    // Upsert the daily attendance record
+    // Update the daily attendance record
     const attName = `ATT-${employeeId}-${today}`;
     if (logType === 'IN') {
       const { late, minutes } = await checkLateness(employeeId, time);
-      await supabase.from('attendance').upsert({
+
+      // INSERT only — never overwrite an existing record's in_time.
+      // If the row already exists (employee checked in earlier today) we
+      // simply skip so the original first-punch time is preserved.
+      const { error: insErr } = await supabase.from('attendance').insert({
         name: attName, employee: employeeId, attendance_date: today,
         in_time: time,
         status: late ? 'Late' : 'Present',
         late_minutes: minutes,
-      }, { onConflict: 'name' });
+      });
+
+      // 23505 = unique_violation (record already exists — harmless, skip it)
+      // If late_minutes column doesn't exist yet the insert will fail with a
+      // different code; fall back to inserting without it so check-in still works.
+      if (insErr && insErr.code !== '23505') {
+        await supabase.from('attendance').insert({
+          name: attName, employee: employeeId, attendance_date: today,
+          in_time: time, status: late ? 'Late' : 'Present',
+        }).then(() => {}, () => {}); // best-effort; ignore all errors
+      }
 
       if (late) {
         const hrs = Math.floor(minutes / 60);
@@ -94,15 +108,17 @@ export async function checkin(employeeId, logType) {
         }).catch(() => {});
       }
     } else {
+      // OUT: only update an existing record — never create one with no in_time.
       const { data: att } = await supabase.from('attendance').select('in_time')
         .eq('name', attName).maybeSingle();
-      const hours = att?.in_time
-        ? parseFloat(((new Date(time) - new Date(att.in_time)) / 3_600_000).toFixed(2))
-        : 0;
-      await supabase.from('attendance').upsert({
-        name: attName, employee: employeeId, attendance_date: today,
-        out_time: time, working_hours: hours, status: 'Present',
-      }, { onConflict: 'name' });
+      if (att) {
+        const hours = att.in_time
+          ? parseFloat(((new Date(time) - new Date(att.in_time)) / 3_600_000).toFixed(2))
+          : 0;
+        await supabase.from('attendance').update({
+          out_time: time, working_hours: hours,
+        }).eq('name', attName);
+      }
     }
     return { name: localName, employee: employeeId, log_type: logType, time };
   }

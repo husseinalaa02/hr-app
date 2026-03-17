@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { checkin, getTodayCheckins, getWeeklyAttendance } from '../api/attendance';
+import { checkin, getTodayCheckins, getTodayAttendance, getWeeklyAttendance } from '../api/attendance';
 import { useGeofence } from '../hooks/useGeofence';
 import Badge from '../components/Badge';
 import { Skeleton } from '../components/Skeleton';
@@ -94,11 +94,12 @@ export default function Attendance() {
   const { addToast } = useToast();
   const geo = useGeofence();
 
-  const [checkins, setCheckins] = useState([]);
-  const [weekly, setWeekly] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [checkins, setCheckins]     = useState([]);
+  const [todayAtt, setTodayAtt]     = useState(null);
+  const [weekly, setWeekly]         = useState([]);
+  const [loading, setLoading]       = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError]           = useState(null);
 
   const load = useCallback(async () => {
     if (!employee) return;
@@ -106,11 +107,13 @@ export default function Attendance() {
     setError(null);
     try {
       const weekStart = getWeekStart();
-      const [ci, w] = await Promise.all([
+      const [ci, att, w] = await Promise.all([
         getTodayCheckins(employee.name),
+        getTodayAttendance(employee.name),
         getWeeklyAttendance(employee.name, weekStart),
       ]);
       setCheckins(ci);
+      setTodayAtt(att);
       setWeekly(w);
     } catch (e) {
       setError(e.message || 'Failed to load attendance');
@@ -143,14 +146,14 @@ export default function Attendance() {
     }
   };
 
-  const lastIn  = checkins.find(c => c.log_type === 'IN');
-  const lastOut = checkins.find(c => c.log_type === 'OUT');
   const formatTime = (dt) => dt
     ? new Date(dt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : null;
 
-  const inTime  = formatTime(lastIn?.time);
-  const outTime = formatTime(lastOut?.time);
+  // Today's Log: read directly from the attendance record (in_time / out_time)
+  // so it's always consistent with the weekly table.
+  const inTime  = formatTime(todayAtt?.in_time);
+  const outTime = formatTime(todayAtt?.out_time);
 
   return (
     <div className="page-content">
