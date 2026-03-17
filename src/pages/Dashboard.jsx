@@ -146,8 +146,8 @@ function AnnouncementModal({ onClose, onSave }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal modal-md" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">New Announcement</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
