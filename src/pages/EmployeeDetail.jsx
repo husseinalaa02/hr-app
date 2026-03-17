@@ -99,7 +99,7 @@ function EditableField({ label, fieldKey, value, type = 'text', options, onChang
 export default function EmployeeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { employee: me, isAdmin, isHR, refreshEmployee } = useAuth();
+  const { employee: me, isAdmin, isHR, logout, refreshEmployee } = useAuth();
   const { addToast } = useToast();
 
   const [employee, setEmployee]       = useState(null);
@@ -367,6 +367,16 @@ export default function EmployeeDetail() {
 
         </div>
       ) : null}
+
+      {isSelf && (
+        <button
+          className="btn btn-danger signout-mobile"
+          onClick={logout}
+          style={{ width: '100%', marginTop: 16 }}
+        >
+          Sign Out
+        </button>
+      )}
 
       {showChangePwd && (
         <ChangePasswordModal

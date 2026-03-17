@@ -38,8 +38,8 @@ export default function BottomNav() {
   const role = employee?.role || 'employee';
   let NAV;
   if (isAudit)                           NAV = NAV_AUDIT;
-  else if (isFinance)                    NAV = NAV_FINANCE;
   else if (isAdmin)                      NAV = NAV_ADMIN;
+  else if (isFinance)                    NAV = NAV_FINANCE;
   else                                   NAV = NAV_EMPLOYEE;
 
   const profilePath   = employee?.name ? `/employees/${employee.name}` : null;

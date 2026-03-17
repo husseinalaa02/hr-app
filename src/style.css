@@ -1236,10 +1236,12 @@ html, body {
 
 /* ===== BOTTOM NAV (mobile only) ===== */
 .bottom-nav { display: none; }
+.signout-mobile { display: none; }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .sidebar { display: none; }
+  .signout-mobile { display: block; }
   .sidebar-overlay { display: none; }
   .main-area { margin-left: 0; }
   .menu-btn { display: none; }
