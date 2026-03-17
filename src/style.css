@@ -2357,4 +2357,3 @@ html, body {
 .perm-role-off { background: var(--surface-alt, #f3f4f6); color: var(--text-muted); }
 .perm-force-on  { background: #dbeafe; color: #1d4ed8; box-shadow: 0 0 0 2px #1d4ed8; }
 .perm-force-off { background: var(--danger-light); color: var(--danger); box-shadow: 0 0 0 2px var(--danger); }
-}
