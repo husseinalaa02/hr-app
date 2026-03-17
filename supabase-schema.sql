@@ -304,11 +304,13 @@ create policy "dr_update" on day_requests for update to authenticated
 
 -- PAYROLL
 create policy "payroll_access" on payroll for all to authenticated
-  using (auth_role() in ('admin', 'finance_manager', 'ceo'));
+  using (auth_role() in ('admin', 'hr_manager', 'finance_manager', 'ceo'))
+  with check (auth_role() in ('admin', 'hr_manager', 'finance_manager', 'ceo'));
 
 -- PAYROLL LOG
 create policy "payroll_log_access" on payroll_log for all to authenticated
-  using (auth_role() in ('admin', 'finance_manager', 'ceo'));
+  using (auth_role() in ('admin', 'hr_manager', 'finance_manager', 'ceo'))
+  with check (auth_role() in ('admin', 'hr_manager', 'finance_manager', 'ceo'));
 
 -- EXPENSES
 create policy "exp_select" on expenses for select to authenticated
