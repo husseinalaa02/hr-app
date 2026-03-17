@@ -297,8 +297,7 @@ alter table work_schedules enable row level security;
 create policy "ws_select" on work_schedules for select to authenticated
   using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'ceo'));
 create policy "ws_insert" on work_schedules for insert to authenticated
-  with check (auth_role() in ('admin', 'hr_manager') or
-    exists (select 1 from employees where name = work_schedules.employee and reports_to = auth_employee_id()));
+  with check (auth_role() in ('admin', 'hr_manager'));
 
 -- CHECKINS
 alter table checkins enable row level security;

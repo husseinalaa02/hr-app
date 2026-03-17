@@ -222,10 +222,10 @@ export default function Timesheets() {
 
   const [mySchedule, setMySchedule]   = useState(null);
   const [employees, setEmployees]     = useState([]);
-  const [schedules, setSchedules]     = useState([]);  // current schedule per employee
+  const [schedules, setSchedules]     = useState([]);
   const [loading, setLoading]         = useState(true);
   const [showAssign, setShowAssign]   = useState(false);
-  const [editTarget, setEditTarget]   = useState(null);  // employee to assign/edit
+  const [editTarget, setEditTarget]   = useState(null);
   const [historyTarget, setHistoryTarget] = useState(null);
 
   const load = useCallback(async () => {
@@ -238,19 +238,8 @@ export default function Timesheets() {
       if (canManage) {
         const emps = await getEmployees({});
         setEmployees(emps);
-        const ids = emps.map(e => e.name);
-        const sched = await getSchedules(ids);
+        const sched = await getSchedules(emps.map(e => e.name));
         setSchedules(sched);
-      } else {
-        // Manager: load direct reports
-        const directReports = await getEmployees({}).then(all =>
-          all.filter(e => e.reports_to === employee.name)
-        );
-        if (directReports.length) {
-          setEmployees(directReports);
-          const sched = await getSchedules(directReports.map(e => e.name));
-          setSchedules(sched);
-        }
       }
     } catch (e) {
       addToast(e.message || 'Failed to load schedules', 'error');
@@ -262,8 +251,6 @@ export default function Timesheets() {
   useEffect(() => { load(); }, [load]);
 
   const currentScheduleFor = (empId) => schedules.find(s => s.employee === empId) || null;
-  const canManageEmployee = (emp) => canManage || emp.reports_to === employee?.name;
-  const manageableEmployees = employees.filter(canManageEmployee);
 
   return (
     <div className="page-content">
@@ -309,10 +296,10 @@ export default function Timesheets() {
       </div>
 
       {/* Manage Schedules Table (admin / HR / direct managers) */}
-      {manageableEmployees.length > 0 && (
+      {canManage && (
         <div className="card">
           <div className="card-header">
-            <h3>{canManage ? 'All Employees' : 'Your Direct Reports'}</h3>
+            <h3>All Employees</h3>
           </div>
           <div className="table-wrap">
             <table className="data-table">
@@ -334,7 +321,7 @@ export default function Timesheets() {
                       ))}
                     </tr>
                   ))
-                ) : manageableEmployees.map(emp => {
+                ) : employees.map(emp => {
                   const sched = currentScheduleFor(emp.name);
                   return (
                     <tr key={emp.name}>
@@ -380,7 +367,7 @@ export default function Timesheets() {
 
       {showAssign && (
         <AssignScheduleModal
-          employees={manageableEmployees}
+          employees={employees}
           preselectedEmployee={editTarget}
           onClose={() => { setShowAssign(false); setEditTarget(null); }}
           onAssigned={load}
