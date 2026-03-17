@@ -132,7 +132,7 @@ export async function createEmployee(data) {
       cell_number:     data.cell_number || '',
       image:           '',
       user_id:         data.user_id || '',
-      password:        data.user_id || '',
+      password:        data.password || data.user_id || '',
       company:         data.company || import.meta.env.VITE_DEFAULT_COMPANY || 'Afaq Al-Fiker',
       date_of_joining: data.date_of_joining || null,
       gender:          data.gender || '',

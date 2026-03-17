@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import Avatar from '../components/Avatar';
 import { Skeleton } from '../components/Skeleton';
 import ErrorState from '../components/ErrorState';
+import Modal from '../components/Modal';
 
 const SELF_EDITABLE  = ['cell_number', 'personal_email', 'date_of_birth', 'image'];
 const ADMIN_EDITABLE = [
@@ -13,6 +14,61 @@ const ADMIN_EDITABLE = [
   'date_of_joining', 'branch', 'gender', 'reports_to',
   'cell_number', 'personal_email', 'date_of_birth', 'company_email', 'user_id', 'image',
 ];
+
+function ChangePasswordModal({ targetId, isSelf, onClose }) {
+  const [current, setCurrent] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [saving, setSaving] = useState(false);
+  const { addToast } = useToast();
+
+  const handle = async (e) => {
+    e.preventDefault();
+    if (newPwd !== confirm) { addToast('Passwords do not match', 'error'); return; }
+    if (newPwd.length < 4) { addToast('Password must be at least 4 characters', 'error'); return; }
+    setSaving(true);
+    try {
+      if (isSelf) {
+        const emp = await getEmployee(targetId);
+        if (!emp || emp.password !== current) throw new Error('Current password is incorrect');
+      }
+      await updateEmployee(targetId, { password: newPwd });
+      addToast('Password changed successfully', 'success');
+      onClose();
+    } catch (err) {
+      addToast(err.message || 'Failed to change password', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Change Password" onClose={onClose}>
+      <form onSubmit={handle} className="form-stack">
+        {isSelf && (
+          <div className="form-group">
+            <label>Current Password</label>
+            <input type="password" className="form-input" value={current} onChange={e => setCurrent(e.target.value)} required placeholder="Enter current password" />
+          </div>
+        )}
+        <div className="form-group">
+          <label>New Password</label>
+          <input type="password" className="form-input" value={newPwd} onChange={e => setNewPwd(e.target.value)} required placeholder="Enter new password" />
+        </div>
+        <div className="form-group">
+          <label>Confirm New Password</label>
+          <input type="password" className="form-input" value={confirm} onChange={e => setConfirm(e.target.value)} required placeholder="Re-enter new password" />
+        </div>
+        <div className="form-actions">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            {saving ? <span className="spinner-sm" /> : 'Change Password'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
 
 function ReadField({ label, value }) {
   if (!value) return null;
@@ -43,7 +99,7 @@ function EditableField({ label, fieldKey, value, type = 'text', options, onChang
 export default function EmployeeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { employee: me, isAdmin, refreshEmployee } = useAuth();
+  const { employee: me, isAdmin, isHR, refreshEmployee } = useAuth();
   const { addToast } = useToast();
 
   const [employee, setEmployee]       = useState(null);
@@ -56,10 +112,12 @@ export default function EmployeeDetail() {
   const [error, setError]             = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting]       = useState(false);
+  const [showChangePwd, setShowChangePwd] = useState(false);
   const fileInputRef = useRef(null);
 
   const isSelf      = me?.name === id;
   const canEdit     = isAdmin || isSelf;
+  const canChangePwd = isAdmin || isHR || isSelf;
   const editableKeys = isAdmin ? ADMIN_EDITABLE : SELF_EDITABLE;
 
   const load = async () => {
@@ -209,9 +267,10 @@ export default function EmployeeDetail() {
               <p className="text-muted">{employee.designation} &bull; {employee.department}</p>
               <p className="text-muted">{employee.company}</p>
             </div>
-            {canEdit && !editMode && (
+            {!editMode && (canEdit || canChangePwd) && (
               <div className="detail-hero-actions">
-                <button className="btn btn-secondary" onClick={() => setEditMode(true)}>✏️ Edit Profile</button>
+                {canEdit && <button className="btn btn-secondary" onClick={() => setEditMode(true)}>✏️ Edit Profile</button>}
+                {canChangePwd && <button className="btn btn-secondary" onClick={() => setShowChangePwd(true)}>🔑 Change Password</button>}
                 {isAdmin && (
                   <button className="btn btn-danger" onClick={() => setShowDeleteConfirm(true)}>Delete</button>
                 )}
@@ -308,6 +367,14 @@ export default function EmployeeDetail() {
 
         </div>
       ) : null}
+
+      {showChangePwd && (
+        <ChangePasswordModal
+          targetId={id}
+          isSelf={isSelf}
+          onClose={() => setShowChangePwd(false)}
+        />
+      )}
 
       {showDeleteConfirm && (
         <div className="modal-backdrop" onClick={() => !deleting && setShowDeleteConfirm(false)}>
