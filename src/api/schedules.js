@@ -66,11 +66,17 @@ export async function getScheduleHistory(employeeId) {
 export async function assignSchedule({ employee, employee_name, shift_type, start_time, end_time, effective_date, assigned_by, assigned_by_name, notes }) {
   const record = { employee, employee_name, shift_type, start_time, end_time, effective_date, assigned_by, assigned_by_name, notes };
   if (SUPABASE_MODE) {
+    // Remove all previous schedules for this employee so only the new one exists.
+    await supabase.from('work_schedules').delete().eq('employee', employee);
     const { data, error } = await supabase.from('work_schedules').insert(record).select().single();
     if (error) throw error;
     return data;
   }
   if (DEMO) {
+    // Remove existing schedules for this employee in demo mode
+    const all = await db.table('work_schedules').toArray().catch(() => []);
+    const old = all.filter(r => r.employee === employee);
+    await Promise.all(old.map(r => db.table('work_schedules').delete(r.id)));
     const r = { ...record, id: Date.now(), created_at: new Date().toISOString() };
     await db.table('work_schedules').put(r);
     return r;
