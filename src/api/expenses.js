@@ -1,4 +1,3 @@
-import client from './client';
 import { db } from '../db/index';
 import { MOCK_EXPENSES } from './mock';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
@@ -23,14 +22,7 @@ export async function getExpenses({ employeeId = '', status = '' } = {}) {
     if (status) rows = rows.filter(e => e.status === status);
     return rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
   }
-  try {
-    const res = await client.get('/api/resource/Expense Claim', {
-      params: { fields: JSON.stringify(['name','employee','employee_name','expense_type','total_claimed_amount','posting_date','status']), limit: 200 },
-    });
-    return res.data.data;
-  } catch {
-    return db.expenses.toArray();
-  }
+  return [];
 }
 
 export async function submitExpense({ employee_id, employee_name, expense_type, amount, expense_date, description }) {
@@ -52,8 +44,7 @@ export async function submitExpense({ employee_id, employee_name, expense_type, 
     const id = await db.expenses.add(record);
     return { ...record, id };
   }
-  const res = await client.post('/api/resource/Expense Claim', { employee: employee_id, expense_type, total_claimed_amount: amount, posting_date: expense_date, remark: description });
-  return res.data.data;
+  throw new Error('No backend available');
 }
 
 export async function saveDraftExpense({ employee_id, employee_name, expense_type, amount, expense_date, description }) {
@@ -75,8 +66,7 @@ export async function saveDraftExpense({ employee_id, employee_name, expense_typ
     const id = await db.expenses.add(record);
     return { ...record, id };
   }
-  const res = await client.post('/api/resource/Expense Claim', { employee: employee_id, expense_type, total_claimed_amount: amount, posting_date: expense_date, remark: description, docstatus: 0 });
-  return res.data.data;
+  throw new Error('No backend available');
 }
 
 export async function approveExpense(id, approverName) {
@@ -92,8 +82,7 @@ export async function approveExpense(id, approverName) {
     await db.expenses.put(updated);
     return updated;
   }
-  const res = await client.put(`/api/resource/Expense Claim/${id}`, { status: 'Approved' });
-  return res.data.data;
+  throw new Error('No backend available');
 }
 
 export async function rejectExpense(id) {
@@ -109,8 +98,7 @@ export async function rejectExpense(id) {
     await db.expenses.put(updated);
     return updated;
   }
-  const res = await client.put(`/api/resource/Expense Claim/${id}`, { status: 'Rejected' });
-  return res.data.data;
+  throw new Error('No backend available');
 }
 
 export async function deleteExpense(id) {
@@ -120,6 +108,4 @@ export async function deleteExpense(id) {
     return;
   }
   if (DEMO) { await db.expenses.delete(Number(id)); return; }
-  await client.delete(`/api/resource/Expense Claim/${id}`);
-  await db.expenses.delete(Number(id));
 }

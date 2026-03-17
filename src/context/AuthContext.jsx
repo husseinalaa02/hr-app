@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { login as apiLogin, logout as apiLogout, getLoggedInUser, getEmployeeForUser } from '../api/auth';
 import { findEmployeeByUserId, deriveRole } from '../api/employees';
 import { initDatabase, clearDatabase } from '../db/index';
 import { hasPermission as rbacHasPermission } from '../rbac/permissions';
@@ -206,17 +205,6 @@ export function AuthProvider({ children }) {
         return;
       } catch {}
     }
-    if (!DEMO_MODE) {
-      try {
-        const userEmail = await getLoggedInUser();
-        if (userEmail && userEmail !== 'Guest') {
-          const emp = await getEmployeeForUser(userEmail);
-          setUser(userEmail);
-          setEmployee(emp);
-          localStorage.setItem('user_info', JSON.stringify({ user: userEmail, employee: emp }));
-        }
-      } catch {}
-    }
     setLoading(false);
   }, []);
 
@@ -253,20 +241,10 @@ export function AuthProvider({ children }) {
       localStorage.setItem('user_info', JSON.stringify({ user: identifier, employee: emp }));
       return;
     }
-    await apiLogin(identifier, password);
-    const userEmail = await getLoggedInUser();
-    const emp = await getEmployeeForUser(userEmail);
-    const token = `${import.meta.env.VITE_API_KEY}:${import.meta.env.VITE_API_SECRET}`;
-    localStorage.setItem('auth_token', token);
-    localStorage.setItem('user_info', JSON.stringify({ user: userEmail, employee: emp }));
-    setUser(userEmail);
-    setEmployee(emp);
+    throw new Error('Invalid credentials');
   };
 
   const logout = async () => {
-    if (!DEMO_MODE) {
-      try { await apiLogout(); } catch {}
-    }
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_info');
     // Clear sensitive cached data from the local DB

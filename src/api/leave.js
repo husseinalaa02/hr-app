@@ -1,6 +1,4 @@
-import client from './client';
 import { db } from '../db/index';
-import { enqueuePendingOp } from '../db/sync';
 import { MOCK_LEAVE_APPLICATIONS, MOCK_HOURLY_APPLICATIONS, MOCK_ALLOCATIONS_V2, MOCK_EMPLOYEES } from './mock';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
 
@@ -56,24 +54,7 @@ export async function getLeaveApplications(employeeId, { status = '' } = {}) {
     return rows.sort((a, b) => (b.from_date > a.from_date ? 1 : -1));
   }
 
-  const filters = [['employee', '=', employeeId]];
-  if (status) filters.push(['status', '=', status]);
-
-  try {
-    const res = await client.get('/api/resource/Leave Application', {
-      params: {
-        fields: JSON.stringify(['name','employee','employee_name','leave_type','from_date','to_date','total_leave_days','status','description','posting_date','from_time','to_time','total_hours']),
-        filters: JSON.stringify(filters), limit: 100, order_by: 'posting_date desc',
-      },
-    });
-    const data = res.data.data.map(r => ({ ...r, is_hourly: !!(r.total_hours) }));
-    await db.leave_apps.bulkPut(data);
-    return data;
-  } catch {
-    let rows = await db.leave_apps.where('employee').equals(employeeId).toArray();
-    if (status) rows = rows.filter(l => l.status === status);
-    return rows.sort((a, b) => (b.from_date > a.from_date ? 1 : -1));
-  }
+  return [];
 }
 
 export async function getPendingApprovals({ managerId = null, includeHRQueue = false } = {}) {
@@ -141,42 +122,7 @@ export async function getPendingApprovals({ managerId = null, includeHRQueue = f
 
     return rows.sort((a, b) => (b.from_date > a.from_date ? 1 : -1));
   }
-  // ... keep existing production code after this block
-
-  try {
-    // Fetch direct reports first, then query their leaves
-    let employeeIds = [];
-    if (managerId) {
-      const empRes = await client.get('/api/resource/Employee', {
-        params: {
-          fields: JSON.stringify(['name']),
-          filters: JSON.stringify([['reports_to', '=', managerId]]),
-          limit: 200,
-        },
-      });
-      employeeIds = (empRes.data.data || []).map(e => e.name);
-      if (employeeIds.length === 0) return [];
-    }
-
-    const filters = [['status', '=', 'Open']];
-    if (employeeIds.length > 0) filters.push(['employee', 'in', employeeIds]);
-
-    const res = await client.get('/api/resource/Leave Application', {
-      params: {
-        fields: JSON.stringify(['name','employee','employee_name','leave_type','from_date','to_date','total_leave_days','status','description','from_time','to_time','total_hours']),
-        filters: JSON.stringify(filters), limit: 100,
-      },
-    });
-    const data = res.data.data.map(r => ({ ...r, is_hourly: !!(r.total_hours) }));
-    await db.leave_apps.bulkPut(data);
-    return data;
-  } catch {
-    // Fall back to DB
-    const allPending = await db.leave_apps.where('status').equals('Open').toArray();
-    if (!managerId) return allPending;
-    const directReports = await db.employees.where('reports_to').equals(managerId).primaryKeys();
-    return allPending.filter(l => directReports.includes(l.employee));
-  }
+  return [];
 }
 
 export async function getLeaveTypes() {
@@ -184,16 +130,7 @@ export async function getLeaveTypes() {
     return ['Annual Leave', 'Sick Leave', 'Casual Leave', 'Hourly Leave', 'Emergency Leave', 'Unpaid Leave'];
   }
   if (DEMO) return ['Annual Leave', 'Sick Leave', 'Casual Leave', 'Emergency Leave', 'Unpaid Leave'];
-  try {
-    const res = await client.get('/api/resource/Leave Type', {
-      params: { fields: JSON.stringify(['name']), limit: 50 },
-    });
-    return res.data.data.map(t => t.name);
-  } catch {
-    const allocs = await db.leave_allocs.toArray();
-    const types = [...new Set(allocs.map(a => a.leave_type))];
-    return types.length ? types : ['Annual Leave', 'Sick Leave', 'Casual Leave'];
-  }
+  return [];
 }
 
 export async function getLeaveBalance(employeeId) {
@@ -237,41 +174,7 @@ export async function getLeaveBalance(employeeId) {
     });
   }
 
-  const year = new Date().getFullYear();
-  try {
-    const [allocRes, appRes] = await Promise.all([
-      client.get('/api/resource/Leave Allocation', {
-        params: {
-          fields: JSON.stringify(['leave_type','total_leaves_allocated']),
-          filters: JSON.stringify([['employee','=',employeeId],['from_date','>=',`${year}-01-01`],['docstatus','=',1]]),
-          limit: 50,
-        },
-      }),
-      client.get('/api/resource/Leave Application', {
-        params: {
-          fields: JSON.stringify(['leave_type','total_leave_days','from_time','to_time']),
-          filters: JSON.stringify([['employee','=',employeeId],['status','=','Approved'],['from_date','>=',`${year}-01-01`]]),
-          limit: 200,
-        },
-      }),
-    ]);
-    const allocations = allocRes.data.data;
-    const applications = appRes.data.data;
-
-    const balances = allocations.map(alloc => {
-      const used = applications.filter(a => a.leave_type === alloc.leave_type).reduce((s, a) => s + (a.total_leave_days || 0), 0);
-      return { leave_type: alloc.leave_type, allocated: alloc.total_leaves_allocated, used, remaining: alloc.total_leaves_allocated - used, is_hourly: false, unit: 'days' };
-    });
-
-    // Cache as allocations
-    await db.leave_allocs.bulkPut(allocations.map(a => ({
-      ...a, employee: employeeId, is_hourly: false,
-    })));
-    return balances;
-  } catch {
-    // Fallback: compute from DB
-    return getLeaveBalance(employeeId); // recursive — now in DEMO branch which uses DB
-  }
+  return [];
 }
 
 export async function getAllApprovedLeaves() {
@@ -284,18 +187,7 @@ export async function getAllApprovedLeaves() {
     const rows = await db.leave_apps.where('status').equals('Approved').toArray();
     return rows.sort((a, b) => (b.from_date > a.from_date ? 1 : -1));
   }
-  try {
-    const res = await client.get('/api/resource/Leave Application', {
-      params: {
-        fields: JSON.stringify(['name','employee','employee_name','leave_type','from_date','to_date','total_leave_days','status','description','from_time','to_time','total_hours']),
-        filters: JSON.stringify([['status','=','Approved']]),
-        limit: 500, order_by: 'from_date desc',
-      },
-    });
-    return res.data.data;
-  } catch {
-    return db.leave_apps.where('status').equals('Approved').toArray();
-  }
+  return [];
 }
 
 // ─── Writes ───────────────────────────────────────────────────────────────────
@@ -362,28 +254,7 @@ export async function submitLeaveApplication(data) {
     return record;
   }
 
-  const payload = { ...data };
-  delete payload.is_hourly;
-
-  const localName = `PENDING-${Date.now()}`;
-  const optimistic = { ...payload, name: localName, status: 'Open', is_hourly: !!data.is_hourly, _pending: true };
-  await db.leave_apps.put(optimistic);
-
-  if (!navigator.onLine) {
-    await enqueuePendingOp({ table: 'leave_apps', method: 'POST', endpoint: '/api/resource/Leave Application', payload, localName });
-    return optimistic;
-  }
-
-  try {
-    const res = await client.post('/api/resource/Leave Application', payload);
-    const record = { ...res.data.data, is_hourly: !!data.is_hourly, _pending: false };
-    await db.leave_apps.delete(localName);
-    await db.leave_apps.put(record);
-    return record;
-  } catch (e) {
-    await enqueuePendingOp({ table: 'leave_apps', method: 'POST', endpoint: '/api/resource/Leave Application', payload, localName });
-    throw e;
-  }
+  throw new Error('No backend available');
 }
 
 export async function updateLeaveStatus(name, action, actorRole = 'manager') {
@@ -459,19 +330,5 @@ export async function updateLeaveStatus(name, action, actorRole = 'manager') {
     return updated;
   }
 
-  const apiAction = action === 'Approved' ? 'Approve' : 'Reject';
-  try {
-    const docRes = await client.get(`/api/resource/Leave Application/${name}`);
-    const doc = docRes.data.data;
-    await client.post('/api/method/frappe.model.workflow.apply_workflow', {
-      doc: JSON.stringify({ ...doc, doctype: 'Leave Application' }),
-      action: apiAction,
-    });
-  } catch {
-    await client.put(`/api/resource/Leave Application/${name}`, { status: action });
-  }
-
-  const existing = await db.leave_apps.get(name);
-  if (existing) await db.leave_apps.put({ ...existing, status: action });
-  return { name, status: action };
+  return null;
 }

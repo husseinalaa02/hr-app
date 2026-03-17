@@ -1,4 +1,3 @@
-import client from './client';
 import { db } from '../db/index';
 import { recalculatePayroll, FRIDAY_DAY_FIXED, calcExtraDayValue } from './payroll';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
@@ -43,32 +42,16 @@ export async function getDayRequests({ employeeId = '', managerId = '', status =
     if (status) list = list.filter(r => r.approval_status === status);
     return list.sort((a, b) => b.created_at.localeCompare(a.created_at));
   }
-  try {
-    const filters = [];
-    if (employeeId) filters.push(['employee_id', '=', employeeId]);
-    if (status)     filters.push(['approval_status', '=', status]);
-    const res = await client.get('/api/resource/Day Request', {
-      params: { fields: JSON.stringify(['name','employee_id','employee_name','request_type','request_date','approval_status','created_at','notes']), filters: JSON.stringify(filters), limit: 200 },
-    });
-    const data = res.data.data;
-    await db.day_requests.bulkPut(data);
-    return data;
-  } catch {
-    let list = await db.day_requests.toArray();
-    if (employeeId) list = list.filter(r => r.employee_id === employeeId);
-    if (status)     list = list.filter(r => r.approval_status === status);
-    return list;
-  }
+  return [];
 }
 
 export async function getDayRequest(id) {
   if (DEMO) return db.day_requests.get(Number(id));
-  try {
-    const res = await client.get(`/api/resource/Day Request/${id}`);
-    return res.data.data;
-  } catch {
-    return db.day_requests.get(Number(id));
+  if (SUPABASE_MODE) {
+    const { data } = await supabase.from('day_requests').select('*').eq('id', id).single();
+    return data || null;
   }
+  return null;
 }
 
 // ─── Duplicate Check ──────────────────────────────────────────────────────────
@@ -122,13 +105,7 @@ export async function createDayRequest(data) {
     return { ...record, id };
   }
 
-  const res = await client.post('/api/resource/Day Request', {
-    employee_id, employee_name, request_type, request_date,
-    approval_status: 'Pending', notes,
-  });
-  const record = res.data.data;
-  await db.day_requests.put(record);
-  return record;
+  throw new Error('No backend available');
 }
 
 // Manager approves: Pending Manager → Pending HR
@@ -149,10 +126,7 @@ export async function managerApproveDayRequest(id) {
     await db.day_requests.put(updated);
     return updated;
   }
-  const res = await client.put(`/api/resource/Day Request/${id}`, { approval_status: 'Pending HR' });
-  const updated = res.data.data;
-  await db.day_requests.put(updated);
-  return updated;
+  throw new Error('No backend available');
 }
 
 // HR approves: Pending HR → Approved + payroll update
@@ -213,10 +187,7 @@ export async function hrApproveDayRequest(id) {
     }
     return updated;
   }
-  const res = await client.put(`/api/resource/Day Request/${id}`, { approval_status: 'Approved' });
-  const updated = res.data.data;
-  await db.day_requests.put(updated);
-  return updated;
+  throw new Error('No backend available');
 }
 
 export async function rejectDayRequest(id) {
@@ -235,14 +206,12 @@ export async function rejectDayRequest(id) {
     await db.day_requests.put(updated);
     return updated;
   }
-  const res = await client.put(`/api/resource/Day Request/${id}`, { approval_status: 'Rejected' });
-  const updated = res.data.data;
-  await db.day_requests.put(updated);
-  return updated;
+  throw new Error('No backend available');
 }
 
 export async function deleteDayRequest(id) {
   if (DEMO) { await db.day_requests.delete(Number(id)); return; }
-  await client.delete(`/api/resource/Day Request/${id}`);
-  await db.day_requests.delete(Number(id));
+  if (SUPABASE_MODE) {
+    await supabase.from('day_requests').delete().eq('id', id);
+  }
 }

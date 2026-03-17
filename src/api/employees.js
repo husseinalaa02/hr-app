@@ -1,4 +1,3 @@
-import client from './client';
 import { db } from '../db/index';
 import { MOCK_EMPLOYEES } from './mock';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
@@ -29,22 +28,7 @@ export async function getEmployees({ search = '', department = '' } = {}) {
   if (search) filters.push(['employee_name', 'like', `%${search}%`]);
   if (department) filters.push(['department', '=', department]);
 
-  try {
-    const res = await client.get('/api/resource/Employee', {
-      params: {
-        fields: JSON.stringify(['name','employee_name','department','designation','cell_number','image','user_id','company','date_of_joining','gender','date_of_birth','employment_type','branch','personal_email','company_email','reports_to']),
-        filters: JSON.stringify(filters), limit: 200, order_by: 'employee_name asc',
-      },
-    });
-    const data = res.data.data;
-    await db.employees.bulkPut(data);
-    return data;
-  } catch {
-    let list = await db.employees.toArray();
-    if (search) list = list.filter(e => e.employee_name.toLowerCase().includes(search.toLowerCase()));
-    if (department) list = list.filter(e => e.department === department);
-    return list;
-  }
+  return [];
 }
 
 export async function getEmployee(id) {
@@ -58,14 +42,7 @@ export async function getEmployee(id) {
     if (rec) return rec;
     return MOCK_EMPLOYEES.find(e => e.name === id) || null;
   }
-  try {
-    const res = await client.get(`/api/resource/Employee/${id}`);
-    const data = res.data.data;
-    await db.employees.put(data);
-    return data;
-  } catch {
-    return db.employees.get(id);
-  }
+  return null;
 }
 
 export async function getDirectReports(managerId) {
@@ -79,19 +56,7 @@ export async function getDirectReports(managerId) {
     if (rows.length > 0) return rows;
     return MOCK_EMPLOYEES.filter(e => e.reports_to === managerId);
   }
-  try {
-    const res = await client.get('/api/resource/Employee', {
-      params: {
-        fields: JSON.stringify(['name','employee_name','department','designation','image']),
-        filters: JSON.stringify([['reports_to','=',managerId]]), limit: 50,
-      },
-    });
-    const data = res.data.data;
-    await db.employees.bulkPut(data);
-    return data;
-  } catch {
-    return db.employees.where('reports_to').equals(managerId).toArray();
-  }
+  return [];
 }
 
 export async function getDepartments() {
@@ -103,15 +68,7 @@ export async function getDepartments() {
     const emps = await db.employees.toArray();
     return [...new Set(emps.map(e => e.department).filter(Boolean))].sort();
   }
-  try {
-    const res = await client.get('/api/resource/Department', {
-      params: { fields: JSON.stringify(['name']), limit: 100 },
-    });
-    return res.data.data.map(d => d.name);
-  } catch {
-    const emps = await db.employees.toArray();
-    return [...new Set(emps.map(e => e.department).filter(Boolean))].sort();
-  }
+  return [];
 }
 
 // Used synchronously-ish during login — kept async, callers must await
@@ -147,10 +104,7 @@ export async function updateEmployee(id, data) {
     await db.employees.put(updated);
     return updated;
   }
-  const res = await client.put(`/api/resource/Employee/${id}`, data);
-  const updated = res.data.data;
-  await db.employees.put(updated);
-  return updated;
+  throw new Error('No backend available');
 }
 
 export async function deleteEmployee(id) {
@@ -163,8 +117,6 @@ export async function deleteEmployee(id) {
     await db.employees.delete(id);
     return;
   }
-  await client.delete(`/api/resource/Employee/${id}`);
-  await db.employees.delete(id);
 }
 
 export async function createEmployee(data) {
@@ -221,8 +173,5 @@ export async function createEmployee(data) {
     await db.employees.put(record);
     return record;
   }
-  const res = await client.post('/api/resource/Employee', data);
-  const record = res.data.data;
-  await db.employees.put(record);
-  return record;
+  throw new Error('No backend available');
 }

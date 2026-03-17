@@ -1,4 +1,3 @@
-import client from './client';
 import { db } from '../db/index';
 import { MOCK_PAYROLL_RECORDS } from './mock';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
@@ -47,13 +46,7 @@ export async function getPayrollRecords({ employeeId = '', month = '', year = ''
     }
     return list.sort((a, b) => b.period_start.localeCompare(a.period_start));
   }
-  try {
-    const params = { fields: JSON.stringify(['name','employee','employee_name','start_date','end_date','gross_pay','net_pay','status']), limit: 200 };
-    const res = await client.get('/api/resource/Salary Slip', { params });
-    return res.data.data;
-  } catch {
-    return db.payroll.toArray();
-  }
+  return [];
 }
 
 export async function getPayrollRecord(id) {
@@ -63,12 +56,7 @@ export async function getPayrollRecord(id) {
     return data;
   }
   if (DEMO) return db.payroll.get(Number(id));
-  try {
-    const res = await client.get(`/api/resource/Salary Slip/${id}`);
-    return res.data.data;
-  } catch {
-    return db.payroll.get(Number(id));
-  }
+  return null;
 }
 
 // ─── Writes ───────────────────────────────────────────────────────────────────
@@ -112,8 +100,7 @@ export async function createPayroll(data, performer = null) {
     if (performer) await addLog(id, 'Created', performer.name, performer.employee_name, '');
     return { ...record, id };
   }
-  const res = await client.post('/api/resource/Salary Slip', record);
-  return res.data.data;
+  throw new Error('No backend available');
 }
 
 export async function updatePayroll(id, data) {
@@ -147,10 +134,7 @@ export async function updatePayroll(id, data) {
     await db.payroll.put(updated);
     return updated;
   }
-  const res = await client.put(`/api/resource/Salary Slip/${id}`, data);
-  const updated = res.data.data;
-  await db.payroll.put(updated);
-  return updated;
+  throw new Error('No backend available');
 }
 
 export async function deletePayroll(id) {
@@ -160,8 +144,6 @@ export async function deletePayroll(id) {
     return;
   }
   if (DEMO) { await db.payroll.delete(Number(id)); return; }
-  await client.delete(`/api/resource/Salary Slip/${id}`);
-  await db.payroll.delete(Number(id));
 }
 
 // Recalculate a payroll record's bonuses from approved day requests
@@ -196,7 +178,6 @@ export async function recalculatePayroll(payrollId) {
 async function addLog(payrollId, action, performedBy, performedByName, notes = '') {
   const entry = { payroll_id: payrollId, action, performed_by: performedBy, performed_by_name: performedByName, timestamp: new Date().toISOString(), notes };
   if (DEMO) { await db.payroll_log.add(entry); return; }
-  // production: POST to log endpoint
 }
 
 export async function getPayrollLog(payrollId) {
@@ -209,10 +190,7 @@ export async function getPayrollLog(payrollId) {
     const rows = await db.payroll_log.where('payroll_id').equals(Number(payrollId)).toArray();
     return rows.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
   }
-  try {
-    const res = await client.get(`/api/resource/Payroll Log`, { params: { filters: JSON.stringify([['payroll_id','=',payrollId]]) } });
-    return res.data.data;
-  } catch { return db.payroll_log.where('payroll_id').equals(Number(payrollId)).toArray(); }
+  return [];
 }
 
 export async function submitPayroll(id, performer) {
@@ -234,8 +212,7 @@ export async function submitPayroll(id, performer) {
     await addLog(Number(id), 'Submitted to Finance', performer.name, performer.employee_name, 'Submitted for payment processing');
     return updated;
   }
-  const res = await client.put(`/api/resource/Salary Slip/${id}`, { status: 'Submitted' });
-  return res.data.data;
+  throw new Error('No backend available');
 }
 
 export async function markAsPaid(id, performer) {
@@ -257,8 +234,7 @@ export async function markAsPaid(id, performer) {
     await addLog(Number(id), 'Marked as Paid', performer.name, performer.employee_name, 'Salary payment processed');
     return updated;
   }
-  const res = await client.put(`/api/resource/Salary Slip/${id}`, { status: 'Paid' });
-  return res.data.data;
+  throw new Error('No backend available');
 }
 
 // ─── Export payroll to CSV ────────────────────────────────────────────────────
