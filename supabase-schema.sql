@@ -173,17 +173,21 @@ create table if not exists checkins (
 
 -- Daily Attendance Records
 create table if not exists attendance (
-  name             text primary key,
-  employee         text references employees(name) on delete cascade,
-  attendance_date  date,
-  in_time          timestamptz,
-  out_time         timestamptz,
-  working_hours    numeric,
-  status           text default 'Present',
-  late_minutes     numeric default 0
+  name                 text primary key,
+  employee             text references employees(name) on delete cascade,
+  attendance_date      date,
+  in_time              timestamptz,
+  out_time             timestamptz,
+  working_hours        numeric,
+  status               text default 'Present',
+  late_minutes         numeric default 0,
+  early_leave_minutes  numeric default 0,
+  overtime_minutes     numeric default 0
 );
--- Add late_minutes to existing tables (safe to run on already-created table)
-alter table attendance add column if not exists late_minutes numeric default 0;
+-- Add columns to existing tables (safe to re-run)
+alter table attendance add column if not exists late_minutes        numeric default 0;
+alter table attendance add column if not exists early_leave_minutes numeric default 0;
+alter table attendance add column if not exists overtime_minutes    numeric default 0;
 
 -- Notifications
 create table if not exists notifications (

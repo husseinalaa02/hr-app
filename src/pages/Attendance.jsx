@@ -1,7 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { checkin, getTodayCheckins, getTodayAttendance, getWeeklyAttendance } from '../api/attendance';
+import {
+  checkin, getTodayCheckins, getTodayAttendance,
+  getWeeklyAttendance, getMissedCheckout, isOffDay,
+} from '../api/attendance';
 import { useGeofence } from '../hooks/useGeofence';
 import Badge from '../components/Badge';
 import { Skeleton } from '../components/Skeleton';
@@ -89,17 +92,68 @@ function GeofenceIndicator({ geo }) {
   );
 }
 
+function MissedPunchBanner({ record }) {
+  if (!record) return null;
+  const date = new Date(record.attendance_date).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+  const inTime = new Date(record.in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return (
+    <div className="missed-punch-banner">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
+      </svg>
+      <span>
+        You forgot to check out on <strong>{date}</strong> (checked in at {inTime}).
+        Please submit a regularization request.
+      </span>
+    </div>
+  );
+}
+
+// Build a full week array (Mon → today) merged with attendance records
+function buildWeekRows(weekStart, records) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const rows = [];
+  const recMap = {};
+  for (const r of records) recMap[r.attendance_date] = r;
+
+  const start = new Date(weekStart);
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    if (d > today) break; // don't show future days
+    const key = d.toISOString().split('T')[0];
+    if (recMap[key]) {
+      rows.push(recMap[key]);
+    } else {
+      // Synthesize Off or Absent row for past days
+      const dayOfWeek = d.getDay();
+      const off = dayOfWeek === 5 || dayOfWeek === 6;
+      rows.push({
+        name: `SYNTH-${key}`,
+        attendance_date: key,
+        in_time: null, out_time: null, working_hours: null,
+        status: off ? 'Off' : (d < today ? 'Absent' : null),
+        late_minutes: 0,
+        _synthetic: true,
+      });
+    }
+  }
+  return rows;
+}
+
 export default function Attendance() {
   const { employee } = useAuth();
   const { addToast } = useToast();
   const geo = useGeofence();
 
-  const [checkins, setCheckins]     = useState([]);
-  const [todayAtt, setTodayAtt]     = useState(null);
-  const [weekly, setWeekly]         = useState([]);
-  const [loading, setLoading]       = useState(true);
+  const [checkins, setCheckins]         = useState([]);
+  const [todayAtt, setTodayAtt]         = useState(null);
+  const [weekly, setWeekly]             = useState([]);
+  const [missedRecord, setMissedRecord] = useState(null);
+  const [loading, setLoading]           = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [error, setError]           = useState(null);
+  const [error, setError]               = useState(null);
 
   const load = useCallback(async () => {
     if (!employee) return;
@@ -107,14 +161,16 @@ export default function Attendance() {
     setError(null);
     try {
       const weekStart = getWeekStart();
-      const [ci, att, w] = await Promise.all([
+      const [ci, att, w, missed] = await Promise.all([
         getTodayCheckins(employee.name),
         getTodayAttendance(employee.name),
         getWeeklyAttendance(employee.name, weekStart),
+        getMissedCheckout(employee.name),
       ]);
       setCheckins(ci);
       setTodayAtt(att);
-      setWeekly(w);
+      setWeekly(buildWeekRows(weekStart, w));
+      setMissedRecord(missed);
     } catch (e) {
       setError(e.message || 'Failed to load attendance');
     } finally {
@@ -124,9 +180,11 @@ export default function Attendance() {
 
   useEffect(() => { load(); }, [load]);
 
+  // ── Button state ────────────────────────────────────────────────────────────
   const lastCheckin = checkins[checkins.length - 1];
   const isCheckedIn = lastCheckin?.log_type === 'IN';
   const nextAction  = isCheckedIn ? 'OUT' : 'IN';
+  const offDay      = isOffDay();
   const geoBlocked  = geo.configured && (!geo.allowed || geo.loading || !!geo.error);
 
   const handleCheckin = async () => {
@@ -136,11 +194,34 @@ export default function Attendance() {
     }
     setActionLoading(true);
     try {
-      await checkin(employee.name, nextAction);
-      addToast(`${nextAction === 'IN' ? 'Checked in' : 'Checked out'} successfully`, 'success');
+      const result = await checkin(employee.name, nextAction);
+
+      if (nextAction === 'IN') {
+        if (result.late) {
+          const label = result.minutes >= 60
+            ? `${Math.floor(result.minutes / 60)}h ${result.minutes % 60}m`
+            : `${result.minutes} min`;
+          addToast(`Checked in — ${label} late`, result.minutes <= 15 ? 'warning' : 'error');
+        } else {
+          addToast('Checked in ✓ On Time', 'success');
+        }
+      } else {
+        if (result.earlyLeaveMinutes > 0) {
+          const m = result.earlyLeaveMinutes;
+          const label = m >= 60 ? `${Math.floor(m/60)}h ${m%60}m` : `${m} min`;
+          addToast(`Checked out — ${label} before shift end`, 'warning');
+        } else if (result.overtimeMinutes > 0) {
+          const m = result.overtimeMinutes;
+          const label = m >= 60 ? `${Math.floor(m/60)}h ${m%60}m` : `${m} min`;
+          addToast(`Checked out — ${label} overtime`, 'info');
+        } else {
+          addToast('Checked out successfully', 'success');
+        }
+      }
+
       await load();
     } catch (err) {
-      addToast(err.response?.data?.message || 'Check-in failed', 'error');
+      addToast(err.message || 'Action failed', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -150,14 +231,26 @@ export default function Attendance() {
     ? new Date(dt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : null;
 
-  // Today's Log: read directly from the attendance record (in_time / out_time)
-  // so it's always consistent with the weekly table.
-  const inTime  = formatTime(todayAtt?.in_time);
-  const outTime = formatTime(todayAtt?.out_time);
+  // CHECK IN card: first punch-in today
+  const firstIn = checkins.find(c => c.log_type === 'IN');
+  const inTime  = formatTime(firstIn?.time ?? todayAtt?.in_time);
+
+  // CHECK OUT card: last completed checkout (todayAtt.out_time is null while currently checked in)
+  const outTime = isCheckedIn ? null : formatTime(todayAtt?.out_time);
 
   return (
     <div className="page-content">
       <div className="checkin-card">
+
+        {/* Missed checkout banner */}
+        <MissedPunchBanner record={missedRecord} />
+
+        {/* Off-day notice */}
+        {offDay && (
+          <div className="offday-notice">
+            <span>Today is a non-working day — you can still check in if assigned a shift.</span>
+          </div>
+        )}
 
         {/* Clock */}
         <Clock />
@@ -233,18 +326,32 @@ export default function Attendance() {
               ) : weekly.length === 0 ? (
                 <tr><td colSpan={5} className="text-center text-muted">No records this week</td></tr>
               ) : weekly.map((a) => (
-                <tr key={a.name}>
+                <tr key={a.name} style={a._synthetic ? { opacity: 0.6 } : undefined}>
                   <td>{a.attendance_date}</td>
                   <td>{formatTime(a.in_time) || '—'}</td>
-                  <td>{formatTime(a.out_time) || '—'}</td>
+                  <td>{formatTime(a.out_time) || (isCheckedIn && a.attendance_date === (new Date().toISOString().split('T')[0]) ? <em style={{color:'var(--gray-400)'}}>open</em> : '—')}</td>
                   <td>{a.working_hours ? `${Number(a.working_hours).toFixed(1)}h` : '—'}</td>
                   <td>
-                    <Badge status={a.status} />
+                    {a.status && <Badge status={a.status} />}
                     {a.status === 'Late' && a.late_minutes > 0 && (
                       <span style={{ fontSize: 11, color: 'var(--gray-500)', marginLeft: 5 }}>
                         +{a.late_minutes >= 60
                           ? `${Math.floor(a.late_minutes / 60)}h ${a.late_minutes % 60}m`
                           : `${a.late_minutes}m`}
+                      </span>
+                    )}
+                    {a.status === 'Early Leave' && a.early_leave_minutes > 0 && (
+                      <span style={{ fontSize: 11, color: 'var(--gray-500)', marginLeft: 5 }}>
+                        -{a.early_leave_minutes >= 60
+                          ? `${Math.floor(a.early_leave_minutes / 60)}h ${a.early_leave_minutes % 60}m`
+                          : `${a.early_leave_minutes}m`}
+                      </span>
+                    )}
+                    {a.status === 'Overtime' && a.overtime_minutes > 0 && (
+                      <span style={{ fontSize: 11, color: 'var(--gray-500)', marginLeft: 5 }}>
+                        +{a.overtime_minutes >= 60
+                          ? `${Math.floor(a.overtime_minutes / 60)}h ${a.overtime_minutes % 60}m`
+                          : `${a.overtime_minutes}m`}
                       </span>
                     )}
                   </td>
