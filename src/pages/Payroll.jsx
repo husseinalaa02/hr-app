@@ -42,7 +42,7 @@ function LogTimeline({ entries }) {
 }
 
 export default function Payroll() {
-  const { employee, isAdmin, isFinance, isAudit } = useAuth();
+  const { employee, isAdmin, isHR, isFinance, isAudit } = useAuth();
   const { addToast } = useToast();
 
   const canCreate = (isAdmin || isHR) && !isAudit;
