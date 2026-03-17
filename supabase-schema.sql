@@ -147,6 +147,25 @@ create table if not exists recruitment_candidates (
   applied_at date default current_date
 );
 
+-- Check-in Events (individual IN/OUT punches)
+create table if not exists checkins (
+  name        text primary key,
+  employee    text references employees(name) on delete cascade,
+  log_type    text,
+  time        timestamptz default now()
+);
+
+-- Daily Attendance Records
+create table if not exists attendance (
+  name             text primary key,
+  employee         text references employees(name) on delete cascade,
+  attendance_date  date,
+  in_time          timestamptz,
+  out_time         timestamptz,
+  working_hours    numeric,
+  status           text default 'Present'
+);
+
 -- Audit Logs
 create table if not exists audit_logs (
   id             bigserial primary key,
@@ -173,6 +192,8 @@ alter table announcements       disable row level security;
 alter table recruitment_jobs    disable row level security;
 alter table recruitment_candidates disable row level security;
 alter table audit_logs          disable row level security;
+alter table checkins            disable row level security;
+alter table attendance          disable row level security;
 
 -- ─── Seed Data ────────────────────────────────────────────────────────────────
 
