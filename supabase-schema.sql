@@ -324,6 +324,8 @@ create policy "ws_select" on work_schedules for select to authenticated
   using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'ceo'));
 create policy "ws_insert" on work_schedules for insert to authenticated
   with check (auth_role() in ('admin', 'hr_manager'));
+create policy "ws_delete" on work_schedules for delete to authenticated
+  using (auth_role() in ('admin', 'hr_manager'));
 
 -- CHECKINS
 create policy "chk_select" on checkins for select to authenticated
