@@ -111,6 +111,10 @@ export async function createDayRequest(data) {
 // Manager approves: Pending Manager → Pending HR
 export async function managerApproveDayRequest(id) {
   if (SUPABASE_MODE) {
+    const { data: existing } = await supabase.from('day_requests').select('approval_status').eq('id', id).single();
+    if (!existing) throw new Error('Request not found');
+    if (existing.approval_status !== 'Pending Manager')
+      throw new Error('Only manager-pending requests can be approved here');
     const { data: updated, error } = await supabase.from('day_requests')
       .update({ approval_status: 'Pending HR' }).eq('id', id).select().single();
     if (error) throw error;
@@ -134,6 +138,8 @@ export async function hrApproveDayRequest(id) {
   if (SUPABASE_MODE) {
     const { data: request } = await supabase.from('day_requests').select('*').eq('id', id).single();
     if (!request) throw new Error('Request not found');
+    if (request.approval_status !== 'Pending HR')
+      throw new Error('Only HR-pending requests can be approved here');
 
     const { data: updated, error } = await supabase.from('day_requests')
       .update({ approval_status: 'Approved' }).eq('id', id).select().single();

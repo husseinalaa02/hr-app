@@ -190,13 +190,10 @@ export async function checkin(employeeId, logType) {
       return { late, minutes };
 
     } else {
-      // ── Check-Out: insert punch then recalculate cumulative hours ─────────
-      const { error: chkErr } = await supabase.from('checkins').insert({
-        name: localName, employee: employeeId, log_type: logType, time,
-      });
-      if (chkErr) throw chkErr;
-
-      const { data: todayPunches } = await supabase
+      // ── Check-Out: query punches first (read-only), then atomic RPC ───────
+      // We fetch all today's punches BEFORE the OUT punch is inserted so that
+      // calcCumulativeHours can pair existing IN/OUT pairs plus the new OUT.
+      const { data: existingPunches } = await supabase
         .from('checkins')
         .select('log_type, time')
         .eq('employee', employeeId)
@@ -204,34 +201,30 @@ export async function checkin(employeeId, logType) {
         .lte('time', localDayEnd())
         .order('time');
 
-      const workingHours = calcCumulativeHours(todayPunches || []);
+      // Synthesise the new OUT punch into the list so calcCumulativeHours sees it
+      const allPunches = [...(existingPunches || []), { log_type: 'OUT', time }];
+      const workingHours = calcCumulativeHours(allPunches);
 
       const shift = await getTodayShift(employeeId);
       const { earlyLeaveMinutes, overtimeMinutes } = calcCheckout(time, shift?.end_time, shift?.start_time);
 
-      // Read current status — don't downgrade 'Late' to 'Present'
-      const { data: currentAtt } = await supabase
-        .from('attendance')
-        .select('status')
-        .eq('name', attName)
-        .maybeSingle();
+      let newStatus = 'Present';
+      if (earlyLeaveMinutes > 0)    newStatus = 'Early Leave';
+      else if (overtimeMinutes > 0) newStatus = 'Overtime';
+      // Note: 'Late' downgrade prevention is enforced inside the record_checkout RPC
 
-      let newStatus = currentAtt?.status || 'Present';
-      if (newStatus !== 'Late') {
-        if (earlyLeaveMinutes > 0)     newStatus = 'Early Leave';
-        else if (overtimeMinutes > 0)  newStatus = 'Overtime';
-        else                           newStatus = 'Present';
-      }
-
-      if (currentAtt) {
-        await supabase.from('attendance').update({
-          out_time:            time,
-          working_hours:       workingHours,
-          early_leave_minutes: earlyLeaveMinutes,
-          overtime_minutes:    overtimeMinutes,
-          status:              newStatus,
-        }).eq('name', attName);
-      }
+      // ── Atomic: insert OUT punch + update attendance in one transaction ────
+      const { error: rpcErr } = await supabase.rpc('record_checkout', {
+        p_checkin_name:        localName,
+        p_employee:            employeeId,
+        p_att_name:            attName,
+        p_time:                time,
+        p_working_hours:       workingHours,
+        p_early_leave_minutes: earlyLeaveMinutes,
+        p_overtime_minutes:    overtimeMinutes,
+        p_new_status:          newStatus,
+      });
+      if (rpcErr) throw rpcErr;
 
       return { workingHours, earlyLeaveMinutes, overtimeMinutes };
     }
@@ -298,6 +291,8 @@ export async function getTodayAttendance(employeeId) {
 
 // Returns the most recent attendance record with an open check-in (no out_time)
 // within the last 7 days — catches missed checkouts older than yesterday.
+// Suppresses the banner if the affected date falls within an approved leave period
+// (e.g. employee forgot to check out on the last day before annual leave).
 export async function getMissedCheckout(employeeId) {
   if (!SUPABASE_MODE) return null;
 
@@ -317,5 +312,20 @@ export async function getMissedCheckout(employeeId) {
     .limit(1)
     .maybeSingle();
 
-  return data || null;
+  if (!data) return null;
+
+  // Suppress if the missed date is covered by an approved leave (false positive)
+  const { data: leave } = await supabase
+    .from('leave_apps')
+    .select('name')
+    .eq('employee', employeeId)
+    .eq('status', 'Approved')
+    .lte('from_date', data.attendance_date)
+    .gte('to_date',   data.attendance_date)
+    .limit(1)
+    .maybeSingle();
+
+  if (leave) return null;
+
+  return data;
 }

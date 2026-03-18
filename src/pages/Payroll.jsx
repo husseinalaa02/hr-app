@@ -8,6 +8,7 @@ import {
 } from '../api/payroll';
 import { getEmployees } from '../api/employees';
 import { formatIQD } from '../utils/format';
+import ErrorState from '../components/ErrorState';
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_CFG = {
@@ -51,6 +52,7 @@ export default function Payroll() {
   const [records, setRecords]       = useState([]);
   const [employees, setEmployees]   = useState([]);
   const [loading, setLoading]       = useState(true);
+  const [loadError, setLoadError]   = useState(null);
   const [filter, setFilter]         = useState('All');
   const [showCreate, setShowCreate] = useState(false);
   const [detail, setDetail]         = useState(null);
@@ -68,10 +70,13 @@ export default function Payroll() {
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [recs, emps] = await Promise.all([getPayrollRecords(), getEmployees()]);
       setRecords(recs);
       setEmployees(emps);
+    } catch (e) {
+      setLoadError(e.message || 'Failed to load payroll data');
     } finally { setLoading(false); }
   };
 
@@ -89,10 +94,9 @@ export default function Payroll() {
     const emp = employees.find(e => e.name === empId);
     setForm(f => ({
       ...f,
-      employee_id:       empId,
-      employee_name:     emp?.employee_name      || '',
-      base_salary:       String(emp?.base_salary       || ''),
-      additional_salary: String(emp?.additional_salary  || ''),
+      employee_id:   empId,
+      employee_name: emp?.employee_name || '',
+      // Salary fields are not stored on the employee record — HR enters them manually
     }));
   };
 
@@ -132,6 +136,9 @@ export default function Payroll() {
   };
 
   const handlePay = async (r) => {
+    if (!window.confirm(
+      `Mark ${r.employee_name}'s salary of ${formatIQD(r.calculated_salary)} as Paid?\n\nThis cannot be undone.`
+    )) return;
     setActionId(r.id);
     try {
       await markAsPaid(r.id, employee);
@@ -235,6 +242,8 @@ export default function Payroll() {
           Total: <strong>{formatIQD(totalPayroll)}</strong> across {filtered.length} records
         </div>
       )}
+
+      {loadError && <ErrorState message={loadError} onRetry={load} />}
 
       {/* Table */}
       {loading ? (

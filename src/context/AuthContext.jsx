@@ -3,6 +3,7 @@ import { supabase, SUPABASE_MODE } from '../db/supabase';
 import { initDatabase, clearDatabase } from '../db/index';
 import { hasPermission as rbacHasPermission } from '../rbac/permissions';
 import { getPermissionOverrides, getCustomRoles } from '../api/admin';
+import { invalidate } from '../utils/cache';
 
 const AuthContext = createContext(null);
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
@@ -206,6 +207,8 @@ export function AuthProvider({ children }) {
     if (SUPABASE_MODE) {
       await supabase.auth.signOut();
     }
+    // Clear in-memory cache so the next user doesn't see this user's cached data
+    invalidate('employees', 'departments', 'announcements', 'schedule', 'schedules');
     localStorage.removeItem('user_info');
     await clearDatabase();
     setUser(null);

@@ -324,6 +324,36 @@ begin
 end;
 $$;
 
+-- ─── Atomic checkout RPC ─────────────────────────────────────────────────────
+-- Inserts the OUT punch and updates the attendance row in one transaction,
+-- preventing the state where the punch is recorded but out_time stays null.
+-- Runs as the caller's role (not security definer) — existing att_insert + att_update_admin
+-- policies cover the writes since this is called server-side on behalf of the employee.
+create or replace function record_checkout(
+  p_checkin_name        text,
+  p_employee            text,
+  p_att_name            text,
+  p_time                timestamptz,
+  p_working_hours       numeric,
+  p_early_leave_minutes numeric,
+  p_overtime_minutes    numeric,
+  p_new_status          text
+) returns void language plpgsql security definer as $$
+begin
+  insert into checkins(name, employee, log_type, time)
+    values(p_checkin_name, p_employee, 'OUT', p_time);
+
+  update attendance
+     set out_time             = p_time,
+         working_hours        = p_working_hours,
+         early_leave_minutes  = p_early_leave_minutes,
+         overtime_minutes     = p_overtime_minutes,
+         -- Never downgrade Late to another status
+         status               = case when status = 'Late' then 'Late' else p_new_status end
+   where name = p_att_name;
+end;
+$$;
+
 -- ─── Drop all existing policies (makes this file safe to re-run) ──────────────
 do $$ declare r record;
 begin
@@ -511,9 +541,15 @@ create policy "att_select" on attendance for select to authenticated
         and mgr.reports_to = auth_employee_id()
     )
   );
-create policy "att_upsert" on attendance for all to authenticated
-  using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager'))
+-- Employees insert via record_checkin RPC (security definer); checkout via record_checkout RPC.
+-- Direct UPDATE/DELETE restricted to HR/admin — prevents employees from self-editing
+-- attendance status, working hours, or late minutes via the Supabase client.
+create policy "att_insert" on attendance for insert to authenticated
   with check (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager'));
+create policy "att_update_admin" on attendance for update to authenticated
+  using (auth_role() in ('admin', 'hr_manager'));
+create policy "att_delete_admin" on attendance for delete to authenticated
+  using (auth_role() in ('admin', 'hr_manager'));
 
 -- CUSTOM ROLES
 -- Admins can do everything; all authenticated users can read (needed for client-side permission checks)
