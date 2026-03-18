@@ -70,7 +70,7 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
       await onSubmit({ ...form, is_hourly: isHourly });
       onClose();
     } catch (err) {
-      addToast(err.response?.data?.message || 'Failed to submit leave', 'error');
+      addToast(err.message || 'Failed to submit leave', 'error');
     } finally {
       setSaving(false);
     }
@@ -238,7 +238,7 @@ export default function LeaveRequests() {
       addToast(`Leave ${action.toLowerCase()}`, 'success');
       load();
     } catch (err) {
-      addToast(err.response?.data?.message || 'Action failed', 'error');
+      addToast(err.message || 'Action failed', 'error');
     }
   };
 

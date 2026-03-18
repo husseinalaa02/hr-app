@@ -219,6 +219,7 @@ create table if not exists custom_roles (
   name        text not null unique,   -- internal identifier, e.g. 'operations_manager'
   label       text not null,          -- display name, e.g. 'Operations Manager'
   permissions text[] not null default '{}',
+  notify_as   text,                   -- built-in role to impersonate for notifications, e.g. 'hr_manager'
   created_at  timestamptz default now()
 );
 
@@ -437,7 +438,7 @@ create policy "ep_self_read" on employee_permissions for select to authenticated
 
 -- ─── Public directory view — safe columns only, no PII ────────────────────────
 create or replace view employees_public as
-  select name, employee_name, department, designation, role, branch, company, reports_to, image
+  select name, employee_name, department, designation, role, branch, company, reports_to, image, cell_number
   from employees;
 grant select on employees_public to authenticated;
 

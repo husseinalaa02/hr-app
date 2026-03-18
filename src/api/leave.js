@@ -149,13 +149,15 @@ export async function getLeaveBalance(employeeId) {
     const allocs = Object.values(allocMap);
     return allocs.map(alloc => {
       if (alloc.is_hourly) {
-        const used = (approved || []).filter(l => l.leave_type === alloc.leave_type && l.is_hourly)
+        const used      = (approved || []).filter(l => l.leave_type === alloc.leave_type && l.is_hourly)
           .reduce((s, l) => s + (l.total_hours || 0), 0);
-        return { leave_type: alloc.leave_type, allocated: alloc.total_leaves_allocated, used, remaining: alloc.total_leaves_allocated - used, is_hourly: true, unit: 'hrs' };
+        const remaining = alloc.total_leaves_allocated - used;
+        return { leave_type: alloc.leave_type, allocated: alloc.total_leaves_allocated, used, remaining, exceeded: remaining < 0, is_hourly: true, unit: 'hrs' };
       }
-      const used = (approved || []).filter(l => l.leave_type === alloc.leave_type && !l.is_hourly)
+      const used      = (approved || []).filter(l => l.leave_type === alloc.leave_type && !l.is_hourly)
         .reduce((s, l) => s + (l.total_leave_days || 0), 0);
-      return { leave_type: alloc.leave_type, allocated: alloc.total_leaves_allocated, used, remaining: alloc.total_leaves_allocated - used, is_hourly: false, unit: 'days' };
+      const remaining = alloc.total_leaves_allocated - used;
+      return { leave_type: alloc.leave_type, allocated: alloc.total_leaves_allocated, used, remaining, exceeded: remaining < 0, is_hourly: false, unit: 'days' };
     });
   }
   if (DEMO) {
@@ -217,6 +219,14 @@ export async function submitLeaveApplication(data) {
     if (isHourly) {
       const hrs = calcHours(data.from_time, data.to_time);
       if (hrs <= 0) throw new Error('To time must be after from time.');
+      // Server-side balance check for hourly leave
+      const { data: hourlyAlloc } = await supabase.from('leave_allocs')
+        .select('total_leaves_allocated').eq('employee', data.employee).eq('leave_type', 'Hourly Leave').eq('is_hourly', true);
+      const { data: hourlyUsed } = await supabase.from('leave_apps')
+        .select('total_hours').eq('employee', data.employee).eq('leave_type', 'Hourly Leave').eq('status', 'Approved').eq('is_hourly', true);
+      const allocatedHrs = (hourlyAlloc || []).reduce((s, r) => s + r.total_leaves_allocated, 0);
+      const usedHrs      = (hourlyUsed  || []).reduce((s, r) => s + (r.total_hours || 0), 0);
+      if (hrs > allocatedHrs - usedHrs) throw new Error(`Only ${Math.max(0, allocatedHrs - usedHrs)}h remaining.`);
       const record = { name: `HLAPPL-${Date.now()}`, employee: data.employee, employee_name: data.employee_name, leave_type: 'Hourly Leave', from_date: data.from_date, from_time: data.from_time, to_time: data.to_time, total_hours: hrs, total_leave_days: 0, status: 'Open', description: data.description || '', is_hourly: true, approval_stage: 'Pending Manager', posting_date: data.from_date };
       const { data: inserted, error } = await supabase.from('leave_apps').insert(record).select().single();
       if (error) throw error;
@@ -228,6 +238,16 @@ export async function submitLeaveApplication(data) {
       return inserted;
     }
     const days = calcDays(data.from_date, data.to_date);
+    // Server-side balance check for daily leave
+    const { data: balRows } = await supabase.from('leave_allocs')
+      .select('total_leaves_allocated').eq('employee', data.employee).eq('leave_type', data.leave_type).eq('is_hourly', false);
+    const { data: usedRows } = await supabase.from('leave_apps')
+      .select('total_leave_days').eq('employee', data.employee).eq('leave_type', data.leave_type).eq('status', 'Approved').eq('is_hourly', false);
+    const allocated = (balRows  || []).reduce((s, r) => s + r.total_leaves_allocated, 0);
+    const used      = (usedRows || []).reduce((s, r) => s + (r.total_leave_days || 0), 0);
+    if (allocated > 0 && days > allocated - used) {
+      throw new Error(`Only ${Math.max(0, allocated - used)} day(s) remaining for ${data.leave_type}.`);
+    }
     const record = { name: `LAPPL-${Date.now()}`, employee: data.employee, employee_name: data.employee_name, leave_type: data.leave_type, from_date: data.from_date, to_date: data.to_date, total_leave_days: days, total_hours: 0, status: 'Open', description: data.description || '', is_hourly: false, approval_stage: 'Pending Manager', posting_date: data.from_date };
     const { data: inserted, error } = await supabase.from('leave_apps').insert(record).select().single();
     if (error) throw error;
@@ -300,18 +320,26 @@ export async function updateLeaveStatus(name, action, actorRole = 'manager') {
         : { approval_stage: 'Pending HR' };
     } else if (stage === 'Pending HR') {
       updates = { status: 'Approved', approval_stage: 'Approved' };
-      // Apply unpaid deduction to payroll
+      // Apply unpaid deduction to payroll (only Draft/Submitted — never touch Paid records)
       const days = existing.total_leave_days || 1;
       const { data: prs } = await supabase.from('payroll').select('*')
         .eq('employee_id', existing.employee)
         .lte('period_start', existing.from_date)
         .gte('period_end', existing.from_date);
       for (const pr of (prs || [])) {
-        const deduction = Math.round((pr.base_salary + pr.additional_salary) / 30 * days);
+        if (pr.status === 'Paid') continue; // never mutate a settled payroll record
+        const periodDays = pr.working_days || 30;
+        const deduction  = Math.round((pr.base_salary + pr.additional_salary) / periodDays * days);
         await supabase.from('payroll').update({
-          working_days: Math.max(0, pr.working_days - days),
-          calculated_salary: Math.max(0, pr.calculated_salary - deduction),
+          working_days:       Math.max(0, pr.working_days - days),
+          calculated_salary:  Math.max(0, pr.calculated_salary - deduction),
         }).eq('id', pr.id);
+        // Log the deduction for audit trail
+        await supabase.from('payroll_log').insert({
+          payroll_id: pr.id, action: 'Unpaid Leave Deduction',
+          performed_by: existing.employee, performed_by_name: existing.employee_name,
+          notes: `Deducted ${deduction} IQD (${days}d unpaid leave from ${existing.from_date})`,
+        }).catch(() => {});
       }
     } else {
       return existing;

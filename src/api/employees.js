@@ -13,7 +13,7 @@ export async function getEmployees({ search = '', department = '' } = {}) {
   const cacheKey = `employees:${search}:${department}`;
   return cached(cacheKey, async () => {
     if (SUPABASE_MODE) {
-      let query = supabase.from('employees').select('*');
+      let query = supabase.from('employees_public').select('*');
       if (search) query = query.ilike('employee_name', `%${search}%`);
       if (department) query = query.eq('department', department);
       const { data, error } = await query.order('employee_name');
@@ -60,15 +60,17 @@ export async function getDirectReports(managerId) {
 }
 
 export async function getDepartments() {
-  if (SUPABASE_MODE) {
-    const { data } = await supabase.from('employees').select('department');
-    return [...new Set((data || []).map(e => e.department).filter(Boolean))].sort();
-  }
-  if (DEMO) {
-    const emps = await db.employees.toArray();
-    return [...new Set(emps.map(e => e.department).filter(Boolean))].sort();
-  }
-  return [];
+  return cached('departments', async () => {
+    if (SUPABASE_MODE) {
+      const { data } = await supabase.from('employees_public').select('department');
+      return [...new Set((data || []).map(e => e.department).filter(Boolean))].sort();
+    }
+    if (DEMO) {
+      const emps = await db.employees.toArray();
+      return [...new Set(emps.map(e => e.department).filter(Boolean))].sort();
+    }
+    return [];
+  }, 600_000); // 10-min TTL
 }
 
 // Used synchronously-ish during login — kept async, callers must await
@@ -81,12 +83,6 @@ export async function findEmployeeByUserId(userId) {
   const lower = userId.toLowerCase();
   const all = await db.employees.toArray();
   return all.find(e => e.user_id && e.user_id.toLowerCase() === lower) || null;
-}
-
-export async function deriveRole(emp) {
-  if (!emp?.reports_to) return 'admin';
-  const count = await db.employees.where('reports_to').equals(emp.name).count();
-  return count > 0 ? 'manager' : 'employee';
 }
 
 // ─── Writes ───────────────────────────────────────────────────────────────────

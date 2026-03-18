@@ -12,13 +12,15 @@ import ErrorState from '../components/ErrorState';
 
 // Company work week: Saturday (6) → Thursday (4). Return the most recent Saturday.
 function getWeekStart() {
-  const d   = new Date();
-  const day = d.getDay(); // 0 = Sun, 6 = Sat
-  // Days since last Saturday: if today is Sat(6) → 0, Sun(0) → 1, Mon(1) → 2, ... Fri(5) → 6
-  const daysSinceSat = (day + 1) % 7;
+  const now = new Date();
+  // Get Baghdad day-of-week by formatting and parsing
+  const dayName = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Baghdad', weekday: 'short' }).format(now);
+  const dayIndex = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(dayName);
+  // Days since last Saturday: Sat=0, Sun=1, Mon=2, Tue=3, Wed=4, Thu=5, Fri=6
+  const daysSinceSat = (dayIndex + 1) % 7;
+  const d = new Date(now);
   d.setDate(d.getDate() - daysSinceSat);
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString().split('T')[0];
+  return baghdadFmt.format(d);
 }
 
 // Format a duration in minutes as "Xh Ym" or "Ym"
@@ -120,20 +122,22 @@ function MissedPunchBanner({ record }) {
   );
 }
 
+const baghdadFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' });
+
 // Build a week array (Sat → Fri, company work week) merged with attendance records.
 // Days after today are excluded. Friday is always "Off".
 function buildWeekRows(weekStart, records) {
-  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date());
+  const todayStr = baghdadFmt.format(new Date());
   const recMap   = {};
   for (const r of records) recMap[r.attendance_date] = r;
 
   const rows  = [];
-  const start = new Date(`${weekStart}T00:00:00`);
+  const start = new Date(`${weekStart}T00:00:00+03:00`);
 
   for (let i = 0; i < 7; i++) {
     const d   = new Date(start);
     d.setDate(start.getDate() + i);
-    const key = d.toISOString().split('T')[0];
+    const key = baghdadFmt.format(d);  // Baghdad date — matches attendance_date values
     if (key > todayStr) break; // don't show future days
 
     if (recMap[key]) {
@@ -157,9 +161,9 @@ function buildWeekRows(weekStart, records) {
 
 // Week end = Friday (weekStart + 6 days)
 function getWeekEnd(weekStart) {
-  const d = new Date(`${weekStart}T00:00:00`);
+  const d = new Date(`${weekStart}T00:00:00+03:00`);
   d.setDate(d.getDate() + 6);
-  return d.toISOString().split('T')[0];
+  return baghdadFmt.format(d);
 }
 
 export default function Attendance() {

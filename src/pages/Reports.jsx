@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { db } from '../db/index';
+import { supabase, SUPABASE_MODE } from '../db/supabase';
 import { Skeleton } from '../components/Skeleton';
 
 function StatCard({ label, value, sub, color = '#1565c0' }) {
@@ -14,7 +14,6 @@ function StatCard({ label, value, sub, color = '#1565c0' }) {
 }
 
 export default function Reports() {
-  const { isAdmin } = useAuth();
   const [tab, setTab] = useState('overview');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,14 +21,27 @@ export default function Reports() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const [employees, leaves, payroll, appraisals, expenses, dayRequests] = await Promise.all([
-        db.employees.toArray(),
-        db.leave_apps.toArray(),
-        db.payroll.toArray(),
-        db.appraisals.toArray(),
-        db.expenses.toArray(),
-        db.day_requests.toArray(),
-      ]);
+      let employees, leaves, payroll, appraisals, expenses, dayRequests;
+
+      if (SUPABASE_MODE) {
+        [employees, leaves, payroll, appraisals, expenses, dayRequests] = await Promise.all([
+          supabase.from('employees').select('name,department').then(r => r.data || []),
+          supabase.from('leave_apps').select('*').then(r => r.data || []),
+          supabase.from('payroll').select('*').then(r => r.data || []),
+          supabase.from('appraisals').select('*').then(r => r.data || []),
+          supabase.from('expenses').select('*').then(r => r.data || []),
+          supabase.from('day_requests').select('*').then(r => r.data || []),
+        ]);
+      } else {
+        [employees, leaves, payroll, appraisals, expenses, dayRequests] = await Promise.all([
+          db.employees.toArray(),
+          db.leave_apps.toArray(),
+          db.payroll.toArray(),
+          db.appraisals.toArray(),
+          db.expenses.toArray(),
+          db.day_requests.toArray(),
+        ]);
+      }
 
       const deptMap = {};
       employees.forEach(e => { deptMap[e.department] = (deptMap[e.department] || 0) + 1; });
@@ -46,7 +58,7 @@ export default function Reports() {
       const appraisalByStatus = {};
       appraisals.forEach(a => { appraisalByStatus[a.status] = (appraisalByStatus[a.status] || 0) + 1; });
 
-      const expenseTotal = expenses.filter(e => e.status === 'Approved').reduce((s, e) => s + (e.amount || 0), 0);
+      const expenseTotal    = expenses.filter(e => e.status === 'Approved').reduce((s, e) => s + (e.amount || 0), 0);
       const pendingExpenses = expenses.filter(e => e.status === 'Submitted').length;
 
       setData({

@@ -130,7 +130,7 @@ export function AuthProvider({ children }) {
           if (emp?.name) {
             getPermissionOverrides(emp.name).then(setPermOverrides).catch(() => {});
           }
-        } else if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' && !session) {
+        } else if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
           setUser(null);
           setEmployee(null);
           setPermOverrides({});

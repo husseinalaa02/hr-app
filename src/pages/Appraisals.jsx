@@ -43,7 +43,8 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
   const existingComment = isSelf ? (appraisal.self_comment || '') : (appraisal.manager_comment || '');
 
   const [scores, setScores] = useState(existingScores);
-  const [comment, setComment] = useState(existingComment);
+  // One comment entry per text question — keyed by question id
+  const [comments, setComments] = useState({ _default: existingComment });
   const [saving, setSaving] = useState(false);
   const { addToast } = useToast();
 
@@ -53,6 +54,13 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
     getAppraisalTemplates().then(templates => {
       const t = templates.find(t => t.id === appraisal.template_id);
       setTemplateData(t || null);
+      // Seed comment map with existing answers keyed by question id
+      if (t?.questions) {
+        const textQs = t.questions.filter(q => q.type === 'text');
+        if (textQs.length > 0) {
+          setComments(Object.fromEntries(textQs.map(q => [q.id, existingComment])));
+        }
+      }
     });
   }, [appraisal.template_id]);
 
@@ -65,12 +73,15 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
     if (!isDraft && !allRated) { addToast('Please rate all criteria.', 'error'); return; }
     setSaving(true);
     try {
+      // Merge multi-question comments into a single string for storage,
+      // or pass the map if the API is updated to accept it.
+      const commentValue = Object.values(comments).filter(Boolean).join('\n\n');
       if (isSelf) {
-        if (isDraft) await saveSelfAssessmentDraft(appraisal.id, { scores, comment });
-        else         await submitSelfAssessment(appraisal.id, { scores, comment });
+        if (isDraft) await saveSelfAssessmentDraft(appraisal.id, { scores, comment: commentValue });
+        else         await submitSelfAssessment(appraisal.id, { scores, comment: commentValue });
       } else {
-        if (isDraft) await saveManagerReviewDraft(appraisal.id, { scores, comment });
-        else         await submitManagerReview(appraisal.id, { scores, comment });
+        if (isDraft) await saveManagerReviewDraft(appraisal.id, { scores, comment: commentValue });
+        else         await submitManagerReview(appraisal.id, { scores, comment: commentValue });
       }
       addToast(isDraft ? 'Draft saved' : 'Submitted successfully', 'success');
       onSave();
@@ -108,8 +119,8 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
           {textQuestions.map(q => (
             <div key={q.id} className="form-group">
               <label>{q.text}</label>
-              <textarea className="form-input" rows={3} value={comment}
-                onChange={e => setComment(e.target.value)} />
+              <textarea className="form-input" rows={3} value={comments[q.id] || ''}
+                onChange={e => setComments(c => ({ ...c, [q.id]: e.target.value }))} />
             </div>
           ))}
         </div>
@@ -118,8 +129,8 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
       {textQuestions.length === 0 && (
         <div className="form-group">
           <label>Additional Comments</label>
-          <textarea className="form-input" rows={3} value={comment}
-            onChange={e => setComment(e.target.value)} />
+          <textarea className="form-input" rows={3} value={comments._default || ''}
+            onChange={e => setComments(c => ({ ...c, _default: e.target.value }))} />
         </div>
       )}
 

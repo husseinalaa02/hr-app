@@ -57,7 +57,8 @@ function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [createdEmp, setCreatedEmp] = useState(null);
-  const { addToast, getAccessToken } = { ...useToast(), ...useAuth() };
+  const { addToast } = useToast();
+  const { getAccessToken } = useAuth();
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -166,7 +167,7 @@ function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
           </div>
           <div className="form-group">
             <label>Password *</label>
-            <input className="form-input" value={form.password} onChange={e => set('password', e.target.value)} required placeholder="Set initial password" />
+            <input type="password" className="form-input" value={form.password} onChange={e => set('password', e.target.value)} required placeholder="Set initial password" />
           </div>
         </div>
 

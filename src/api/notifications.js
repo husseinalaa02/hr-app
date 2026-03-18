@@ -75,17 +75,37 @@ export async function addNotification({ recipient_id, title, message, type = 'in
   }
 }
 
-// Fan-out: create one notification per employee that has the given role(s)
+// Fan-out: create one notification per employee that has the given role(s),
+// including custom-role employees whose custom_role.notify_as matches a target role.
 export async function notifyRole(roles, { title, message, type = 'info' }) {
   const roleList = Array.isArray(roles) ? roles : [roles];
   if (SUPABASE_MODE) {
-    const { data: emps } = await supabase
+    // Built-in roles
+    const { data: builtIn } = await supabase
       .from('employees')
       .select('name')
       .in('role', roleList);
-    if (!emps?.length) return;
+
+    // Custom roles with notify_as pointing to a target role
+    const { data: customMatches } = await supabase
+      .from('custom_roles')
+      .select('name')
+      .in('notify_as', roleList);
+
+    let recipients = (builtIn || []).map(e => e.name);
+
+    if (customMatches?.length) {
+      const customRoleNames = customMatches.map(r => r.name);
+      const { data: customEmps } = await supabase
+        .from('employees')
+        .select('name')
+        .in('role', customRoleNames);
+      recipients = [...new Set([...recipients, ...(customEmps || []).map(e => e.name)])];
+    }
+
+    if (!recipients.length) return;
     await supabase.from('notifications').insert(
-      emps.map(e => ({ recipient_id: e.name, title, message, type }))
+      recipients.map(id => ({ recipient_id: id, title, message, type }))
     );
   }
 }

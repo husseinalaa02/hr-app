@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense, Component } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { NetworkProvider, useNetwork } from './context/NetworkContext';
@@ -73,6 +73,23 @@ function NetworkBanner() {
   );
 }
 
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 32, textAlign: 'center' }}>
+          <h2 style={{ color: 'var(--danger, #c62828)', marginBottom: 8 }}>Something went wrong</h2>
+          <p style={{ color: 'var(--gray-600)', marginBottom: 16 }}>{this.state.error.message}</p>
+          <button className="btn btn-secondary" onClick={() => this.setState({ error: null })}>Try again</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -128,6 +145,7 @@ export default function App() {
         <div className="main-area">
           <Topbar title={title} onMenuClick={() => setSidebarOpen(true)} />
           <NetworkBanner />
+          <ErrorBoundary>
           <Suspense fallback={<div className="app-loading"><span className="spinner" /></div>}>
             <Routes>
               <Route path="/"             element={<RequireAuth><Dashboard /></RequireAuth>} />
@@ -148,6 +166,7 @@ export default function App() {
               <Route path="*"             element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
+          </ErrorBoundary>
           <BottomNav />
         </div>
       </div>

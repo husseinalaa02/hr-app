@@ -238,6 +238,9 @@ export async function getPayrollLog(payrollId) {
 
 export async function submitPayroll(id, performer) {
   if (SUPABASE_MODE) {
+    const { data: existing } = await supabase.from('payroll').select('status').eq('id', id).single();
+    if (!existing) throw new Error('Payroll record not found');
+    if (existing.status !== 'Draft') throw new Error('Only Draft payroll can be submitted');
     const now = new Date().toISOString();
     const updates = {
       status: 'Submitted',
@@ -270,6 +273,9 @@ export async function submitPayroll(id, performer) {
 
 export async function markAsPaid(id, performer) {
   if (SUPABASE_MODE) {
+    const { data: existing } = await supabase.from('payroll').select('status').eq('id', id).single();
+    if (!existing) throw new Error('Payroll record not found');
+    if (existing.status !== 'Submitted') throw new Error('Only Submitted payroll can be marked as Paid');
     const now = new Date().toISOString();
     const updates = {
       status: 'Paid',

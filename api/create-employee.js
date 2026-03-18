@@ -44,6 +44,9 @@ export default async function handler(req, res) {
   if (!employee_data?.user_id || !password) {
     return res.status(400).json({ message: 'user_id and password are required' });
   }
+  if (password.length < 8) {
+    return res.status(400).json({ message: 'Password must be at least 8 characters' });
+  }
 
   // Sanitise user_id — must be alphanumeric + underscores/dots only
   const userId = employee_data.user_id.toLowerCase().trim();
