@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { getAllEmployeesWithOverrides, savePermissionOverrides } from '../api/admin';
+import { getAllEmployeesWithOverrides, savePermissionOverrides, getCustomRoles, createCustomRole, updateCustomRole, deleteCustomRole } from '../api/admin';
 import { updateEmployee } from '../api/employees';
 import { ROLE_PERMISSIONS } from '../rbac/permissions';
 import { Skeleton } from '../components/Skeleton';
@@ -51,7 +51,8 @@ const ROLE_COLORS = {
   audit_manager: '#7c3aed', employee: '#6b7280',
 };
 
-function RolePill({ role, size = 'sm' }) {
+function RolePill({ role, customRoles = [], size = 'sm' }) {
+  const customLabel = customRoles.find(r => r.name === role)?.label;
   return (
     <span style={{
       display: 'inline-block',
@@ -60,10 +61,10 @@ function RolePill({ role, size = 'sm' }) {
       fontSize: size === 'lg' ? 13 : 11,
       fontWeight: 600,
       color: '#fff',
-      background: ROLE_COLORS[role] || '#6b7280',
+      background: ROLE_COLORS[role] || '#0891b2',
       whiteSpace: 'nowrap',
     }}>
-      {ROLE_LABELS[role] || role}
+      {ROLE_LABELS[role] || customLabel || role}
     </span>
   );
 }
@@ -108,6 +109,65 @@ function StatCard({ label, value, color }) {
   );
 }
 
+const ALL_PERMS = Object.values(PERM_GROUPS).flatMap(g => g.perms);
+
+function RoleEditor({ role: roleObj, onSave, onCancel }) {
+  const [label, setLabel] = useState(roleObj?.label || '');
+  const [name, setName]   = useState(roleObj?.name  || '');
+  const [perms, setPerms] = useState(roleObj?.permissions || []);
+  const isEdit = !!roleObj?.id;
+
+  const toggle = (p) => setPerms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
+
+  return (
+    <div style={{ padding: '20px' }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 160 }}>
+          <label className="form-label">Role Label (display name)</label>
+          <input className="form-control" value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. Operations Manager" />
+        </div>
+        {!isEdit && (
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <label className="form-label">Role ID (internal, no spaces)</label>
+            <input className="form-control" value={name} onChange={e => setName(e.target.value.toLowerCase().replace(/\s+/g, '_'))} placeholder="e.g. operations_manager" />
+          </div>
+        )}
+      </div>
+      <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        Permissions ({perms.length} selected)
+      </div>
+      <div className="perm-matrix" style={{ marginBottom: 16 }}>
+        {PERM_GROUPS.map(group => (
+          <div key={group.label} className="perm-group">
+            <div className="perm-group-label"><span style={{ marginRight: 6 }}>{group.icon}</span>{group.label}</div>
+            {group.perms.map(p => (
+              <div key={p} className={`perm-row${perms.includes(p) ? ' perm-row-on' : ''}`} style={{ cursor: 'pointer' }} onClick={() => toggle(p)}>
+                <button
+                  type="button"
+                  className={`perm-toggle ${perms.includes(p) ? 'perm-force-on' : 'perm-role-off'}`}
+                  onClick={e => { e.stopPropagation(); toggle(p); }}
+                >
+                  {perms.includes(p)
+                    ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  }
+                </button>
+                <span className="perm-label">{PERM_LABELS[p] || p}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn btn-primary btn-sm" onClick={() => onSave({ name: name.trim(), label: label.trim(), permissions: perms })} disabled={!label.trim() || (!isEdit && !name.trim())}>
+          {isEdit ? 'Save Changes' : 'Create Role'}
+        </button>
+        <button className="btn btn-sm" onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 export default function Admin() {
   const { employee: me } = useAuth();
   const { addToast } = useToast();
@@ -115,7 +175,7 @@ export default function Admin() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Roles tab
+  // Users & Roles tab
   const [roleEdits, setRoleEdits] = useState({});
   const [savingRole, setSavingRole] = useState({});
   const [search, setSearch] = useState('');
@@ -125,6 +185,11 @@ export default function Admin() {
   const [pendingOverrides, setPendingOverrides] = useState({});
   const [savingPerms, setSavingPerms] = useState(false);
 
+  // Custom Roles tab
+  const [customRoles, setCustomRoles]       = useState([]);
+  const [customRolesLoading, setCustomRolesLoading] = useState(false);
+  const [editingRole, setEditingRole]       = useState(null); // null | {} (new) | role obj (edit)
+
   const load = useCallback(async () => {
     setLoading(true);
     try { setEmployees(await getAllEmployeesWithOverrides()); }
@@ -132,10 +197,46 @@ export default function Admin() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const loadCustomRoles = useCallback(async () => {
+    setCustomRolesLoading(true);
+    try { setCustomRoles(await getCustomRoles()); }
+    catch { addToast('Failed to load custom roles', 'error'); }
+    finally { setCustomRolesLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); loadCustomRoles(); }, [load, loadCustomRoles]);
+
+  // Save / delete custom role handlers
+  const handleSaveCustomRole = async ({ name, label, permissions }) => {
+    try {
+      if (editingRole?.id) {
+        await updateCustomRole(editingRole.id, { label, permissions });
+        addToast('Role updated', 'success');
+      } else {
+        await createCustomRole({ name, label, permissions });
+        addToast('Role created', 'success');
+      }
+      setEditingRole(null);
+      await loadCustomRoles();
+    } catch (err) {
+      addToast(err.message || 'Failed to save role', 'error');
+    }
+  };
+
+  const handleDeleteCustomRole = async (role) => {
+    if (!window.confirm(`Delete role "${role.label}"? Employees with this role will become "employee".`)) return;
+    try {
+      await deleteCustomRole(role.id);
+      addToast('Role deleted', 'success');
+      await loadCustomRoles();
+    } catch (err) {
+      addToast(err.message || 'Failed to delete role', 'error');
+    }
+  };
 
   // Stats
-  const roleCounts = ALL_ROLES.reduce((acc, r) => {
+  const allRoleOptions = [...ALL_ROLES, ...customRoles.map(r => r.name)];
+  const roleCounts = allRoleOptions.reduce((acc, r) => {
     acc[r] = employees.filter(e => e.role === r).length;
     return acc;
   }, {});
@@ -155,7 +256,8 @@ export default function Admin() {
       await updateEmployee(emp.name, { role: newRole });
       setEmployees(p => p.map(e => e.name === emp.name ? { ...e, role: newRole } : e));
       setRoleEdits(p => { const n = { ...p }; delete n[emp.name]; return n; });
-      addToast(`${emp.employee_name} → ${ROLE_LABELS[newRole]}`, 'success');
+      const newRoleLabel = ROLE_LABELS[newRole] || customRoles.find(r => r.name === newRole)?.label || newRole;
+      addToast(`${emp.employee_name} → ${newRoleLabel}`, 'success');
     } catch { addToast('Failed to update role', 'error'); }
     finally { setSavingRole(p => ({ ...p, [emp.name]: false })); }
   };
@@ -202,7 +304,9 @@ export default function Admin() {
     )
   );
 
-  const rolePerms = selectedEmpObj ? (ROLE_PERMISSIONS[selectedEmpObj.role] || []) : [];
+  const rolePerms = selectedEmpObj
+    ? (ROLE_PERMISSIONS[selectedEmpObj.role] || customRoles.find(r => r.name === selectedEmpObj.role)?.permissions || [])
+    : [];
   const effectiveGranted = Object.values(PERM_GROUPS).flatMap(g => g.perms).filter(p => {
     const ov = pendingOverrides[p];
     return ov !== undefined ? ov : rolePerms.includes(p);
@@ -239,6 +343,9 @@ export default function Admin() {
           </button>
           <button className={`admin-tab${tab === 'permissions' ? ' active' : ''}`} onClick={() => setTab('permissions')}>
             Permissions
+          </button>
+          <button className={`admin-tab${tab === 'custom-roles' ? ' active' : ''}`} onClick={() => setTab('custom-roles')}>
+            Custom Roles
           </button>
         </div>
 
@@ -293,6 +400,11 @@ export default function Admin() {
                                 disabled={isSelf}
                               >
                                 {ALL_ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                                {customRoles.length > 0 && (
+                                  <optgroup label="Custom Roles">
+                                    {customRoles.map(r => <option key={r.name} value={r.name}>{r.label}</option>)}
+                                  </optgroup>
+                                )}
                               </select>
                             </td>
                             <td>
@@ -335,6 +447,82 @@ export default function Admin() {
               </table>
             </div>
           </>
+        )}
+
+        {/* ── Custom Roles ───────────────────────────────────────────────────── */}
+        {tab === 'custom-roles' && (
+          <div>
+            {editingRole !== null ? (
+              <RoleEditor
+                role={editingRole}
+                onSave={handleSaveCustomRole}
+                onCancel={() => setEditingRole(null)}
+              />
+            ) : (
+              <>
+                <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                    {customRoles.length} custom role{customRoles.length !== 1 ? 's' : ''} — assign them to employees from the Users &amp; Roles tab
+                  </span>
+                  <button className="btn btn-primary btn-sm" onClick={() => setEditingRole({})}>
+                    + New Role
+                  </button>
+                </div>
+                {customRolesLoading ? (
+                  <div style={{ padding: 20 }}><Skeleton height={60} /></div>
+                ) : customRoles.length === 0 ? (
+                  <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>🎭</div>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>No custom roles yet</div>
+                    <div style={{ fontSize: 13 }}>Create a role to define a custom permission set for any department or function.</div>
+                  </div>
+                ) : (
+                  <div className="table-wrap">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Label</th>
+                          <th>Role ID</th>
+                          <th>Permissions</th>
+                          <th>Employees</th>
+                          <th style={{ width: 120 }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {customRoles.map(r => {
+                          const empCount = employees.filter(e => e.role === r.name).length;
+                          return (
+                            <tr key={r.id}>
+                              <td>
+                                <span style={{ fontWeight: 600, background: '#0891b2', color: '#fff', padding: '2px 10px', borderRadius: 20, fontSize: 12 }}>
+                                  {r.label}
+                                </span>
+                              </td>
+                              <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-muted)' }}>{r.name}</td>
+                              <td style={{ fontSize: 13 }}>{(r.permissions || []).length} permission{(r.permissions || []).length !== 1 ? 's' : ''}</td>
+                              <td style={{ fontSize: 13 }}>{empCount}</td>
+                              <td>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <button className="btn btn-sm" onClick={() => setEditingRole(r)}>Edit</button>
+                                  <button
+                                    className="btn btn-sm"
+                                    style={{ background: 'var(--danger-light)', color: 'var(--danger)', border: '1px solid var(--danger)' }}
+                                    onClick={() => handleDeleteCustomRole(r)}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
 
         {/* ── Permissions ────────────────────────────────────────────────────── */}

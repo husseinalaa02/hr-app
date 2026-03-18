@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase, SUPABASE_MODE } from '../db/supabase';
 import { initDatabase, clearDatabase } from '../db/index';
 import { hasPermission as rbacHasPermission } from '../rbac/permissions';
-import { getPermissionOverrides } from '../api/admin';
+import { getPermissionOverrides, getCustomRoles } from '../api/admin';
 
 const AuthContext = createContext(null);
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
@@ -68,6 +68,7 @@ export function AuthProvider({ children }) {
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading]   = useState(true);
   const [permOverrides, setPermOverrides] = useState({});
+  const [customRoles, setCustomRoles]     = useState([]);
 
   // Fetch employee record for a Supabase Auth user
   const fetchEmployee = useCallback(async (authUser) => {
@@ -82,6 +83,7 @@ export function AuthProvider({ children }) {
 
       if (SUPABASE_MODE) {
         const { data: { session } } = await supabase.auth.getSession();
+        getCustomRoles().then(setCustomRoles).catch(() => {});
         if (session?.user) {
           const emp = await fetchEmployee(session.user);
           setUser(session.user);
@@ -236,7 +238,15 @@ export function AuthProvider({ children }) {
 
   const hasPermission = (permission) => {
     if (permission in permOverrides) return permOverrides[permission];
-    return rbacHasPermission(role, permission);
+    // Try built-in RBAC first
+    const result = rbacHasPermission(role, permission);
+    if (result) return true;
+    // If built-in role returned false, that's definitive
+    const BUILT_IN = ['admin','ceo','hr_manager','finance_manager','it_manager','audit_manager','employee'];
+    if (BUILT_IN.includes(role)) return false;
+    // Custom role: look up in loaded customRoles
+    const customRole = customRoles.find(r => r.name === role);
+    return customRole?.permissions?.includes(permission) ?? false;
   };
 
   const reloadPermissions = async () => {
@@ -251,7 +261,7 @@ export function AuthProvider({ children }) {
       user, employee, loading,
       login, logout, refreshEmployee, getAccessToken,
       isAdmin, isCEO, isFinance, isAudit, isHR,
-      hasPermission, permOverrides, reloadPermissions, demoMode: DEMO_MODE,
+      hasPermission, permOverrides, reloadPermissions, customRoles, demoMode: DEMO_MODE,
     }}>
       {children}
     </AuthContext.Provider>

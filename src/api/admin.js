@@ -1,5 +1,32 @@
 import { supabase, SUPABASE_MODE } from '../db/supabase';
 
+// ─── Custom Roles ─────────────────────────────────────────────────────────────
+
+export async function getCustomRoles() {
+  if (!SUPABASE_MODE) return [];
+  const { data } = await supabase.from('custom_roles').select('*').order('label');
+  return data || [];
+}
+
+export async function createCustomRole({ name, label, permissions }) {
+  const { data, error } = await supabase
+    .from('custom_roles').insert({ name, label, permissions }).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateCustomRole(id, { label, permissions }) {
+  const { data, error } = await supabase
+    .from('custom_roles').update({ label, permissions }).eq('id', id).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteCustomRole(id) {
+  const { error } = await supabase.from('custom_roles').delete().eq('id', id);
+  if (error) throw error;
+}
+
 // Load per-user permission overrides for one employee → { [permission]: boolean }
 export async function getPermissionOverrides(employeeId) {
   if (!SUPABASE_MODE) return {};

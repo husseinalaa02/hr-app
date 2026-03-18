@@ -200,6 +200,24 @@ create table if not exists notifications (
   created_at   timestamptz default now()
 );
 
+-- Custom Roles (admin-defined roles with arbitrary permission sets)
+create table if not exists custom_roles (
+  id          bigserial primary key,
+  name        text not null unique,   -- internal identifier, e.g. 'operations_manager'
+  label       text not null,          -- display name, e.g. 'Operations Manager'
+  permissions text[] not null default '{}',
+  created_at  timestamptz default now()
+);
+alter table custom_roles enable row level security;
+create policy "cr_admin_all" on custom_roles
+  for all to authenticated
+  using (auth_role() = 'admin')
+  with check (auth_role() = 'admin');
+-- All authenticated users can read custom roles (needed for permission checks)
+create policy "cr_select_all" on custom_roles
+  for select to authenticated
+  using (true);
+
 -- Per-user permission overrides (admin-only)
 create table if not exists employee_permissions (
   id           bigserial primary key,

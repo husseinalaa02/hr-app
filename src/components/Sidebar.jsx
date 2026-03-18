@@ -101,7 +101,7 @@ const ROLE_LABELS = {
 };
 
 export default function Sidebar({ open, onClose }) {
-  const { employee, logout } = useAuth();
+  const { employee, logout, customRoles } = useAuth();
   const { can, canAny, role } = usePermission();
   const navigate = useNavigate();
 
@@ -173,7 +173,7 @@ export default function Sidebar({ open, onClose }) {
               <Avatar name={employee.employee_name} image={employee.image} size={34} />
               <div className="sidebar-user-info">
                 <span className="sidebar-user-name">{employee.employee_name}</span>
-                <span className="sidebar-user-role">{ROLE_LABELS[role] || role}</span>
+                <span className="sidebar-user-role">{ROLE_LABELS[role] || (customRoles || []).find(r => r.name === role)?.label || role}</span>
               </div>
             </button>
           )}
