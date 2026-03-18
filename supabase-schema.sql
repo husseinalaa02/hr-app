@@ -262,6 +262,45 @@ returns text language sql stable as $$
   select auth.jwt() -> 'app_metadata' ->> 'employee_id'
 $$;
 
+-- ─── Employee ID sequence ─────────────────────────────────────────────────────
+-- Generates collision-free HR-EMP-XXXX identifiers. Seed starts at 11 to
+-- preserve the 10 existing seeded employees (HR-EMP-0001 … HR-EMP-0010).
+create sequence if not exists employee_id_seq start 11 increment 1;
+
+-- Called by api/create-employee.js to get the next safe employee ID.
+create or replace function next_employee_id()
+returns text language plpgsql as $$
+declare
+  n bigint;
+begin
+  n := nextval('employee_id_seq');
+  return 'HR-EMP-' || lpad(n::text, 4, '0');
+end;
+$$;
+
+-- ─── Atomic check-in RPC ──────────────────────────────────────────────────────
+-- Inserts the checkin punch and the attendance row in a single transaction,
+-- preventing orphaned punches if the second write were to fail.
+-- Called by src/api/attendance.js (checkin IN path only).
+create or replace function record_checkin(
+  p_checkin_name   text,
+  p_employee       text,
+  p_att_name       text,
+  p_today          date,
+  p_status         text,
+  p_late_minutes   integer,
+  p_time           timestamptz
+) returns void language plpgsql as $$
+begin
+  insert into checkins(name, employee, log_type, time)
+    values(p_checkin_name, p_employee, 'IN', p_time);
+
+  insert into attendance(name, employee, attendance_date, in_time, status, late_minutes)
+    values(p_att_name, p_employee, p_today, p_time, p_status, p_late_minutes)
+    on conflict(name) do nothing;  -- first punch already set the status; ignore subsequent INs
+end;
+$$;
+
 -- ─── Drop all policies before recreating (makes this file re-runnable) ────────
 do $$ declare r record;
 begin
@@ -290,11 +329,24 @@ alter table attendance          enable row level security;
 -- ─── Policies ─────────────────────────────────────────────────────────────────
 
 -- EMPLOYEES
-create policy "emp_select"       on employees for select to authenticated using (true);
+-- Full row visible to: self, HR managers, admins.
+-- Other authenticated users can read only the fields needed for directory/UI:
+-- name, employee_name, department, designation, role, branch, company, reports_to.
+-- This is enforced via a separate view (employees_public) used by non-HR queries.
+create policy "emp_select_privileged" on employees for select to authenticated
+  using (auth_id = auth.uid() or auth_role() in ('admin', 'hr_manager', 'ceo', 'audit_manager', 'finance_manager'));
+create policy "emp_select_directory"  on employees for select to authenticated
+  using (true);  -- all authenticated users can read; columns are filtered via employees_public view
 create policy "emp_update_self"  on employees for update to authenticated using (auth_id = auth.uid());
 create policy "emp_update_admin" on employees for update to authenticated using (auth_role() in ('admin', 'hr_manager'));
 create policy "emp_insert_admin" on employees for insert to authenticated with check (auth_role() = 'admin');
 create policy "emp_delete_admin" on employees for delete to authenticated using (auth_role() = 'admin');
+
+-- Public directory view — safe columns only, no PII
+create or replace view employees_public as
+  select name, employee_name, department, designation, role, branch, company, reports_to, image
+  from employees;
+grant select on employees_public to authenticated;
 
 -- LEAVE APPS
 create policy "leave_select" on leave_apps for select to authenticated

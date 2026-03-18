@@ -4,7 +4,13 @@
  * when the TTL has expired. This makes navigating between pages feel instant.
  */
 
-const store = new Map();
+const store      = new Map();
+const MAX_ENTRIES = 200;
+
+function evictOldest() {
+  // Map preserves insertion order — first key is the oldest
+  store.delete(store.keys().next().value);
+}
 
 /**
  * @param {string}   key      - unique cache key
@@ -21,12 +27,16 @@ export async function cached(key, fetcher, ttlMs = 60_000) {
       return entry.data;
     }
     // Stale — return cached data now and refresh in background
-    fetcher().then(data => store.set(key, { data, ts: Date.now() })).catch(() => {});
+    fetcher().then(data => {
+      if (store.size >= MAX_ENTRIES && !store.has(key)) evictOldest();
+      store.set(key, { data, ts: Date.now() });
+    }).catch(() => {});
     return entry.data;
   }
 
   // Cache miss — fetch, store, return
   const data = await fetcher();
+  if (store.size >= MAX_ENTRIES) evictOldest();
   store.set(key, { data, ts: now });
   return data;
 }

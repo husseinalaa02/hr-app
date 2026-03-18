@@ -10,12 +10,21 @@ import Badge from '../components/Badge';
 import { Skeleton } from '../components/Skeleton';
 import ErrorState from '../components/ErrorState';
 
+// Iraq work week: Sunday (0) → Thursday (4). Return the most recent Sunday.
 function getWeekStart() {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
+  const d   = new Date();
+  const day = d.getDay(); // 0 = Sun
+  d.setDate(d.getDate() - day);
+  d.setHours(0, 0, 0, 0);
   return d.toISOString().split('T')[0];
+}
+
+// Format a duration in minutes as "Xh Ym" or "Ym"
+function fmtMinutes(m) {
+  if (!m) return '0m';
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return h > 0 ? `${h}h ${r}m` : `${r}m`;
 }
 
 function Clock() {
@@ -109,37 +118,46 @@ function MissedPunchBanner({ record }) {
   );
 }
 
-// Build a full week array (Mon → today) merged with attendance records
+// Build a week array (Sun → Sat, Iraq work week) merged with attendance records.
+// Days after today are excluded. Fri + Sat are always "Off".
 function buildWeekRows(weekStart, records) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const rows = [];
-  const recMap = {};
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date());
+  const recMap   = {};
   for (const r of records) recMap[r.attendance_date] = r;
 
-  const start = new Date(weekStart);
+  const rows  = [];
+  const start = new Date(`${weekStart}T00:00:00`);
+
   for (let i = 0; i < 7; i++) {
-    const d = new Date(start);
+    const d   = new Date(start);
     d.setDate(start.getDate() + i);
-    if (d > today) break; // don't show future days
     const key = d.toISOString().split('T')[0];
+    if (key > todayStr) break; // don't show future days
+
     if (recMap[key]) {
       rows.push(recMap[key]);
     } else {
-      // Synthesize Off or Absent row for past days
-      const dayOfWeek = d.getDay();
-      const off = dayOfWeek === 5 || dayOfWeek === 6;
+      const dow = d.getDay(); // 5 = Fri, 6 = Sat
+      const off = dow === 5 || dow === 6;
       rows.push({
         name: `SYNTH-${key}`,
         attendance_date: key,
         in_time: null, out_time: null, working_hours: null,
-        status: off ? 'Off' : (d < today ? 'Absent' : null),
+        status: off ? 'Off' : (key < todayStr ? 'Absent' : null),
         late_minutes: 0,
         _synthetic: true,
       });
     }
   }
   return rows;
+
+}
+
+// Week end = Saturday (weekStart + 6 days)
+function getWeekEnd(weekStart) {
+  const d = new Date(`${weekStart}T00:00:00`);
+  d.setDate(d.getDate() + 6);
+  return d.toISOString().split('T')[0];
 }
 
 export default function Attendance() {
@@ -161,10 +179,11 @@ export default function Attendance() {
     setError(null);
     try {
       const weekStart = getWeekStart();
+      const weekEnd   = getWeekEnd(weekStart);
       const [ci, att, w, missed] = await Promise.all([
         getTodayCheckins(employee.name),
         getTodayAttendance(employee.name),
-        getWeeklyAttendance(employee.name, weekStart),
+        getWeeklyAttendance(employee.name, weekStart, weekEnd),
         getMissedCheckout(employee.name),
       ]);
       setCheckins(ci);
@@ -198,22 +217,15 @@ export default function Attendance() {
 
       if (nextAction === 'IN') {
         if (result.late) {
-          const label = result.minutes >= 60
-            ? `${Math.floor(result.minutes / 60)}h ${result.minutes % 60}m`
-            : `${result.minutes} min`;
-          addToast(`Checked in — ${label} late`, result.minutes <= 15 ? 'warning' : 'error');
+          addToast(`Checked in — ${fmtMinutes(result.minutes)} late`, result.minutes <= 15 ? 'warning' : 'error');
         } else {
           addToast('Checked in ✓ On Time', 'success');
         }
       } else {
         if (result.earlyLeaveMinutes > 0) {
-          const m = result.earlyLeaveMinutes;
-          const label = m >= 60 ? `${Math.floor(m/60)}h ${m%60}m` : `${m} min`;
-          addToast(`Checked out — ${label} before shift end`, 'warning');
+          addToast(`Checked out — ${fmtMinutes(result.earlyLeaveMinutes)} before shift end`, 'warning');
         } else if (result.overtimeMinutes > 0) {
-          const m = result.overtimeMinutes;
-          const label = m >= 60 ? `${Math.floor(m/60)}h ${m%60}m` : `${m} min`;
-          addToast(`Checked out — ${label} overtime`, 'info');
+          addToast(`Checked out — ${fmtMinutes(result.overtimeMinutes)} overtime`, 'info');
         } else {
           addToast('Checked out successfully', 'success');
         }
@@ -335,23 +347,17 @@ export default function Attendance() {
                     {a.status && <Badge status={a.status} />}
                     {a.status === 'Late' && a.late_minutes > 0 && (
                       <span style={{ fontSize: 11, color: 'var(--gray-500)', marginLeft: 5 }}>
-                        +{a.late_minutes >= 60
-                          ? `${Math.floor(a.late_minutes / 60)}h ${a.late_minutes % 60}m`
-                          : `${a.late_minutes}m`}
+                        +{fmtMinutes(a.late_minutes)}
                       </span>
                     )}
                     {a.status === 'Early Leave' && a.early_leave_minutes > 0 && (
                       <span style={{ fontSize: 11, color: 'var(--gray-500)', marginLeft: 5 }}>
-                        -{a.early_leave_minutes >= 60
-                          ? `${Math.floor(a.early_leave_minutes / 60)}h ${a.early_leave_minutes % 60}m`
-                          : `${a.early_leave_minutes}m`}
+                        -{fmtMinutes(a.early_leave_minutes)}
                       </span>
                     )}
                     {a.status === 'Overtime' && a.overtime_minutes > 0 && (
                       <span style={{ fontSize: 11, color: 'var(--gray-500)', marginLeft: 5 }}>
-                        +{a.overtime_minutes >= 60
-                          ? `${Math.floor(a.overtime_minutes / 60)}h ${a.overtime_minutes % 60}m`
-                          : `${a.overtime_minutes}m`}
+                        +{fmtMinutes(a.overtime_minutes)}
                       </span>
                     )}
                   </td>

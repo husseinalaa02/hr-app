@@ -206,17 +206,17 @@ export async function submitLeaveApplication(data) {
     const isHourly = data.is_hourly;
     // Date validation
     if (!isHourly && data.from_date && data.to_date && data.from_date > data.to_date) {
-      throw { response: { data: { message: 'End date must be on or after start date.' } } };
+      throw new Error('End date must be on or after start date.');
     }
     // Duplicate check
     const { data: dup } = await supabase.from('leave_apps')
       .select('name').eq('employee', data.employee).eq('leave_type', data.leave_type)
       .eq('from_date', data.from_date).neq('status', 'Rejected').maybeSingle();
-    if (dup) throw { response: { data: { message: `A ${data.leave_type} request for ${data.from_date} already exists.` } } };
+    if (dup) throw new Error(`A ${data.leave_type} request for ${data.from_date} already exists.`);
 
     if (isHourly) {
       const hrs = calcHours(data.from_time, data.to_time);
-      if (hrs <= 0) throw { response: { data: { message: 'To time must be after from time.' } } };
+      if (hrs <= 0) throw new Error('To time must be after from time.');
       const record = { name: `HLAPPL-${Date.now()}`, employee: data.employee, employee_name: data.employee_name, leave_type: 'Hourly Leave', from_date: data.from_date, from_time: data.from_time, to_time: data.to_time, total_hours: hrs, total_leave_days: 0, status: 'Open', description: data.description || '', is_hourly: true, approval_stage: 'Pending Manager', posting_date: data.from_date };
       const { data: inserted, error } = await supabase.from('leave_apps').insert(record).select().single();
       if (error) throw error;
@@ -241,7 +241,7 @@ export async function submitLeaveApplication(data) {
   if (DEMO) {
     // Validate dates
     if (!data.is_hourly && data.from_date && data.to_date && data.from_date > data.to_date) {
-      throw { response: { data: { message: 'End date must be on or after start date.' } } };
+      throw new Error('End date must be on or after start date.');
     }
     // Duplicate check
     const duplicate = await db.leave_apps
@@ -253,21 +253,21 @@ export async function submitLeaveApplication(data) {
       )
       .first();
     if (duplicate) {
-      throw { response: { data: { message: `A ${data.leave_type} request for ${data.from_date} already exists.` } } };
+      throw new Error(`A ${data.leave_type} request for ${data.from_date} already exists.`);
     }
     const isHourly = data.is_hourly;
     if (isHourly) {
       const hrs = calcHours(data.from_time, data.to_time);
-      if (hrs <= 0) throw { response: { data: { message: 'To time must be after from time.' } } };
+      if (hrs <= 0) throw new Error('To time must be after from time.');
       const bal = (await getLeaveBalance(data.employee)).find(b => b.is_hourly);
-      if (bal && hrs > bal.remaining) throw { response: { data: { message: `Only ${bal.remaining}h remaining.` } } };
+      if (bal && hrs > bal.remaining) throw new Error(`Only ${bal.remaining}h remaining.`);
       const record = { ...data, name: `HLAPPL-${Date.now()}`, status: 'Open', total_hours: hrs, leave_type: 'Hourly Leave', is_hourly: true, approval_stage: 'Pending Manager' };
       await db.leave_apps.put(record);
       return record;
     }
     const days = calcDays(data.from_date, data.to_date);
     const bal  = (await getLeaveBalance(data.employee)).find(b => b.leave_type === data.leave_type && !b.is_hourly);
-    if (bal && days > bal.remaining) throw { response: { data: { message: `Only ${bal.remaining} day(s) remaining for ${data.leave_type}.` } } };
+    if (bal && days > bal.remaining) throw new Error(`Only ${bal.remaining} day(s) remaining for ${data.leave_type}.`);
     const record = { ...data, name: `LAPPL-${Date.now()}`, status: 'Open', total_leave_days: days, is_hourly: false, approval_stage: 'Pending Manager' };
     await db.leave_apps.put(record);
     return record;

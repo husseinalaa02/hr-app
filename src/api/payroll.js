@@ -4,7 +4,7 @@ import { supabase, SUPABASE_MODE } from '../db/supabase';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
-// ─── Salary Calculation (Critical Logic) ──────────────────────────────────────
+// ─── Salary Calculation ────────────────────────────────────────────────────────
 // Daily Salary = (Base Salary + Additional Salary) ÷ 30
 // Final Salary = Daily Salary × Working Days
 // The additional salary is NEVER added separately — it is always part of the daily rate.
@@ -24,15 +24,18 @@ export const FRIDAY_DAY_FIXED = 25_000;
 
 // ─── Reads ────────────────────────────────────────────────────────────────────
 
-export async function getPayrollRecords({ employeeId = '', month = '', year = '' } = {}) {
+export async function getPayrollRecords({ employeeId = '', month = '', year = '', page = 1, pageSize = 200 } = {}) {
   if (SUPABASE_MODE) {
-    let query = supabase.from('payroll').select('*');
+    let query = supabase.from('payroll').select('*', { count: 'exact' });
     if (employeeId) query = query.eq('employee_id', employeeId);
     if (month && year) {
       const prefix = `${year}-${String(month).padStart(2, '0')}`;
       query = query.gte('period_start', `${prefix}-01`).lte('period_start', `${prefix}-31`);
     }
-    const { data, error } = await query.order('period_start', { ascending: false });
+    const from = (page - 1) * pageSize;
+    const { data, error } = await query
+      .order('period_start', { ascending: false })
+      .range(from, from + pageSize - 1);
     if (error) return [];
     return data || [];
   }
@@ -62,9 +65,9 @@ export async function getPayrollRecord(id) {
 // ─── Writes ───────────────────────────────────────────────────────────────────
 
 export async function createPayroll(data, performer = null) {
-  const base       = Number(data.base_salary)       || 0;
-  const additional = Number(data.additional_salary)  || 0;
-  const days       = Number(data.working_days)       || 30;
+  const base       = Number(data.base_salary)      || 0;
+  const additional = Number(data.additional_salary) || 0;
+  const days       = Number(data.working_days)      || 30;
 
   const friday_bonus    = Number(data.friday_bonus)    || 0;
   const extra_day_bonus = Number(data.extra_day_bonus) || 0;
@@ -84,14 +87,17 @@ export async function createPayroll(data, performer = null) {
     status:             'Draft',
     payroll_date:       data.payroll_date || data.period_end,
     submitted_by: null, submitted_by_name: null, submitted_at: null,
-    paid_by: null,      paid_by_name: null,      paid_at: null,
+    paid_by: null,      paid_by_name: null,       paid_at: null,
   };
 
   if (SUPABASE_MODE) {
     const { data: inserted, error } = await supabase.from('payroll').insert(record).select().single();
     if (error) throw error;
     if (performer) {
-      await supabase.from('payroll_log').insert({ payroll_id: inserted.id, action: 'Created', performed_by: performer.name, performed_by_name: performer.employee_name, notes: '' });
+      await supabase.from('payroll_log').insert({
+        payroll_id: inserted.id, action: 'Created',
+        performed_by: performer.name, performed_by_name: performer.employee_name, notes: '',
+      });
     }
     return inserted;
   }
@@ -113,7 +119,8 @@ export async function updatePayroll(id, data) {
     const friday_bonus    = data.friday_bonus    ?? existing.friday_bonus;
     const extra_day_bonus = data.extra_day_bonus ?? existing.extra_day_bonus;
     const calculated_salary = calcFinalSalary(base, additional, days) + friday_bonus + extra_day_bonus;
-    const updates = { ...data, base_salary: base, additional_salary: additional, working_days: days, friday_bonus, extra_day_bonus, calculated_salary };
+    const updates = { ...data, base_salary: base, additional_salary: additional, working_days: days,
+      friday_bonus, extra_day_bonus, calculated_salary };
     const { data: updated, error } = await supabase.from('payroll').update(updates).eq('id', id).select().single();
     if (error) throw error;
     return updated;
@@ -121,14 +128,12 @@ export async function updatePayroll(id, data) {
   if (DEMO) {
     const existing = await db.payroll.get(Number(id));
     if (!existing) return null;
-
     const base       = data.base_salary       ?? existing.base_salary;
     const additional = data.additional_salary  ?? existing.additional_salary;
     const days       = data.working_days       ?? existing.working_days;
     const friday_bonus    = data.friday_bonus    ?? existing.friday_bonus;
     const extra_day_bonus = data.extra_day_bonus ?? existing.extra_day_bonus;
     const calculated_salary = calcFinalSalary(base, additional, days) + friday_bonus + extra_day_bonus;
-
     const updated = { ...existing, ...data, base_salary: base, additional_salary: additional,
       working_days: days, friday_bonus, extra_day_bonus, calculated_salary };
     await db.payroll.put(updated);
@@ -148,41 +153,79 @@ export async function deletePayroll(id) {
 
 // Recalculate a payroll record's bonuses from approved day requests
 export async function recalculatePayroll(payrollId) {
-  const record = await db.payroll.get(Number(payrollId));
-  if (!record) return null;
+  if (SUPABASE_MODE) {
+    const { data: record, error: recErr } = await supabase
+      .from('payroll').select('*').eq('id', payrollId).single();
+    if (recErr || !record) return null;
 
-  const allRequests = await db.day_requests
-    .where('employee_id').equals(record.employee_id)
-    .filter(r =>
-      r.approval_status === 'Approved' &&
-      r.request_date >= record.period_start &&
-      r.request_date <= record.period_end
-    )
-    .toArray();
+    const { data: allRequests } = await supabase
+      .from('day_requests')
+      .select('request_type')
+      .eq('employee_id', record.employee_id)
+      .eq('approval_status', 'Approved')
+      .gte('request_date', record.period_start)
+      .lte('request_date', record.period_end);
 
-  const fridayCount = allRequests.filter(r => r.request_type === 'Friday Day').length;
-  const extraCount  = allRequests.filter(r => r.request_type === 'Extra Day').length;
+    const fridayCount     = (allRequests || []).filter(r => r.request_type === 'Friday Day').length;
+    const extraCount      = (allRequests || []).filter(r => r.request_type === 'Extra Day').length;
+    const friday_bonus    = fridayCount * FRIDAY_DAY_FIXED;
+    const extra_day_bonus = extraCount  * calcExtraDayValue(record.base_salary);
+    const calculated_salary = calcFinalSalary(record.base_salary, record.additional_salary, record.working_days)
+      + friday_bonus + extra_day_bonus;
 
-  const friday_bonus    = fridayCount * FRIDAY_DAY_FIXED;
-  const extra_day_bonus = extraCount  * calcExtraDayValue(record.base_salary);
-  const calculated_salary = calcFinalSalary(record.base_salary, record.additional_salary, record.working_days)
-    + friday_bonus + extra_day_bonus;
+    const { data: updated, error: updErr } = await supabase
+      .from('payroll')
+      .update({ friday_bonus, extra_day_bonus, calculated_salary })
+      .eq('id', payrollId)
+      .select()
+      .single();
+    if (updErr) throw updErr;
+    return updated;
+  }
 
-  const updated = { ...record, friday_bonus, extra_day_bonus, calculated_salary };
-  await db.payroll.put(updated);
-  return updated;
+  if (DEMO) {
+    const record = await db.payroll.get(Number(payrollId));
+    if (!record) return null;
+
+    const allRequests = await db.day_requests
+      .where('employee_id').equals(record.employee_id)
+      .filter(r =>
+        r.approval_status === 'Approved' &&
+        r.request_date >= record.period_start &&
+        r.request_date <= record.period_end
+      )
+      .toArray();
+
+    const fridayCount     = allRequests.filter(r => r.request_type === 'Friday Day').length;
+    const extraCount      = allRequests.filter(r => r.request_type === 'Extra Day').length;
+    const friday_bonus    = fridayCount * FRIDAY_DAY_FIXED;
+    const extra_day_bonus = extraCount  * calcExtraDayValue(record.base_salary);
+    const calculated_salary = calcFinalSalary(record.base_salary, record.additional_salary, record.working_days)
+      + friday_bonus + extra_day_bonus;
+
+    const updated = { ...record, friday_bonus, extra_day_bonus, calculated_salary };
+    await db.payroll.put(updated);
+    return updated;
+  }
+
+  throw new Error('No backend available');
 }
 
-// ─── Workflow Actions ─────────────────────────────────────────────────────────
+// ─── Workflow Actions ──────────────────────────────────────────────────────────
 
 async function addLog(payrollId, action, performedBy, performedByName, notes = '') {
-  const entry = { payroll_id: payrollId, action, performed_by: performedBy, performed_by_name: performedByName, timestamp: new Date().toISOString(), notes };
+  const entry = {
+    payroll_id: payrollId, action,
+    performed_by: performedBy, performed_by_name: performedByName,
+    timestamp: new Date().toISOString(), notes,
+  };
   if (DEMO) { await db.payroll_log.add(entry); return; }
 }
 
 export async function getPayrollLog(payrollId) {
   if (SUPABASE_MODE) {
-    const { data, error } = await supabase.from('payroll_log').select('*').eq('payroll_id', payrollId).order('timestamp');
+    const { data, error } = await supabase.from('payroll_log').select('*')
+      .eq('payroll_id', payrollId).order('timestamp');
     if (error) return [];
     return data || [];
   }
@@ -196,10 +239,17 @@ export async function getPayrollLog(payrollId) {
 export async function submitPayroll(id, performer) {
   if (SUPABASE_MODE) {
     const now = new Date().toISOString();
-    const updates = { status: 'Submitted', submitted_by: performer.name, submitted_by_name: performer.employee_name, submitted_at: now };
+    const updates = {
+      status: 'Submitted',
+      submitted_by: performer.name, submitted_by_name: performer.employee_name, submitted_at: now,
+    };
     const { data: updated, error } = await supabase.from('payroll').update(updates).eq('id', id).select().single();
     if (error) throw error;
-    await supabase.from('payroll_log').insert({ payroll_id: Number(id), action: 'Submitted to Finance', performed_by: performer.name, performed_by_name: performer.employee_name, notes: 'Submitted for payment processing' });
+    await supabase.from('payroll_log').insert({
+      payroll_id: Number(id), action: 'Submitted to Finance',
+      performed_by: performer.name, performed_by_name: performer.employee_name,
+      notes: 'Submitted for payment processing',
+    });
     return updated;
   }
   if (DEMO) {
@@ -207,7 +257,10 @@ export async function submitPayroll(id, performer) {
     if (!record) throw new Error('Payroll record not found');
     if (record.status !== 'Draft') throw new Error('Only Draft payroll can be submitted');
     const now = new Date().toISOString();
-    const updated = { ...record, status: 'Submitted', submitted_by: performer.name, submitted_by_name: performer.employee_name, submitted_at: now };
+    const updated = {
+      ...record, status: 'Submitted',
+      submitted_by: performer.name, submitted_by_name: performer.employee_name, submitted_at: now,
+    };
     await db.payroll.put(updated);
     await addLog(Number(id), 'Submitted to Finance', performer.name, performer.employee_name, 'Submitted for payment processing');
     return updated;
@@ -218,10 +271,17 @@ export async function submitPayroll(id, performer) {
 export async function markAsPaid(id, performer) {
   if (SUPABASE_MODE) {
     const now = new Date().toISOString();
-    const updates = { status: 'Paid', paid_by: performer.name, paid_by_name: performer.employee_name, paid_at: now };
+    const updates = {
+      status: 'Paid',
+      paid_by: performer.name, paid_by_name: performer.employee_name, paid_at: now,
+    };
     const { data: updated, error } = await supabase.from('payroll').update(updates).eq('id', id).select().single();
     if (error) throw error;
-    await supabase.from('payroll_log').insert({ payroll_id: Number(id), action: 'Marked as Paid', performed_by: performer.name, performed_by_name: performer.employee_name, notes: 'Salary payment processed' });
+    await supabase.from('payroll_log').insert({
+      payroll_id: Number(id), action: 'Marked as Paid',
+      performed_by: performer.name, performed_by_name: performer.employee_name,
+      notes: 'Salary payment processed',
+    });
     return updated;
   }
   if (DEMO) {
@@ -229,7 +289,10 @@ export async function markAsPaid(id, performer) {
     if (!record) throw new Error('Payroll record not found');
     if (record.status !== 'Submitted') throw new Error('Only Submitted payroll can be marked as Paid');
     const now = new Date().toISOString();
-    const updated = { ...record, status: 'Paid', paid_by: performer.name, paid_by_name: performer.employee_name, paid_at: now };
+    const updated = {
+      ...record, status: 'Paid',
+      paid_by: performer.name, paid_by_name: performer.employee_name, paid_at: now,
+    };
     await db.payroll.put(updated);
     await addLog(Number(id), 'Marked as Paid', performer.name, performer.employee_name, 'Salary payment processed');
     return updated;
@@ -237,18 +300,36 @@ export async function markAsPaid(id, performer) {
   throw new Error('No backend available');
 }
 
-// ─── Export payroll to CSV ────────────────────────────────────────────────────
+// ─── CSV Export ───────────────────────────────────────────────────────────────
+
+// Escapes a value for safe CSV output:
+//   - Wraps in quotes if it contains a comma, quote, or newline
+//   - Prefixes formula-triggering characters with a single quote (CSV injection defence)
+function csvEscape(val) {
+  const s    = String(val ?? '');
+  const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+  return safe.includes(',') || safe.includes('"') || safe.includes('\n')
+    ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
 export function exportPayrollCSV(records) {
-  const headers = ['Employee ID','Employee Name','Period','Base Salary','Additional Salary',
-    'Working Days','Friday Bonus','Extra Day Bonus','Calculated Salary','Status'];
+  const headers = [
+    'Employee ID', 'Employee Name', 'Period',
+    'Base Salary', 'Additional Salary', 'Working Days',
+    'Friday Bonus', 'Extra Day Bonus', 'Calculated Salary', 'Status',
+  ];
   const rows = records.map(r => [
     r.employee_id, r.employee_name,
     `${r.period_start} – ${r.period_end}`,
     r.base_salary, r.additional_salary, r.working_days,
     r.friday_bonus, r.extra_day_bonus, r.calculated_salary, r.status,
   ]);
-  const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
+
+  // UTF-8 BOM so Excel on Windows renders Arabic names correctly
+  const BOM = '\uFEFF';
+  const csv = BOM + [headers, ...rows].map(row => row.map(csvEscape).join(',')).join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;

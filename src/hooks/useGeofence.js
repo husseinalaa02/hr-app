@@ -77,11 +77,22 @@ export function useGeofence() {
   useEffect(() => {
     if (!isConfigured) return;
 
-    updatePosition();
-    intervalRef.current = setInterval(updatePosition, 30_000);
+    // Use a sequential setTimeout loop instead of setInterval so that a slow
+    // GPS response never causes two concurrent location requests.
+    let cancelled = false;
+
+    const poll = async () => {
+      await updatePosition();
+      if (!cancelled) {
+        intervalRef.current = setTimeout(poll, 30_000);
+      }
+    };
+
+    poll();
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      cancelled = true;
+      if (intervalRef.current) clearTimeout(intervalRef.current);
     };
   }, []);
 

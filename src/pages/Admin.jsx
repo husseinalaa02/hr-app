@@ -109,8 +109,6 @@ function StatCard({ label, value, color }) {
   );
 }
 
-const ALL_PERMS = Object.values(PERM_GROUPS).flatMap(g => g.perms);
-
 function RoleEditor({ role: roleObj, onSave, onCancel }) {
   const [label, setLabel] = useState(roleObj?.label || '');
   const [name, setName]   = useState(roleObj?.name  || '');
@@ -169,7 +167,7 @@ function RoleEditor({ role: roleObj, onSave, onCancel }) {
 }
 
 export default function Admin() {
-  const { employee: me } = useAuth();
+  const { employee: me, getAccessToken } = useAuth();
   const { addToast } = useToast();
   const [tab, setTab] = useState('roles');
   const [employees, setEmployees] = useState([]);
@@ -253,7 +251,21 @@ export default function Admin() {
     if (!newRole || newRole === emp.role) return;
     setSavingRole(p => ({ ...p, [emp.name]: true }));
     try {
+      // 1. Update the employees table (enforced by RLS)
       await updateEmployee(emp.name, { role: newRole });
+
+      // 2. Sync the new role into Supabase Auth app_metadata so JWT-based
+      //    RLS policies enforce it immediately on the next token refresh.
+      const token = await getAccessToken();
+      if (token) {
+        const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+        await fetch(`${API_BASE}/api/set-role`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ employee_id: emp.name, new_role: newRole }),
+        }).catch(() => {}); // non-fatal — role is set in employees table regardless
+      }
+
       setEmployees(p => p.map(e => e.name === emp.name ? { ...e, role: newRole } : e));
       setRoleEdits(p => { const n = { ...p }; delete n[emp.name]; return n; });
       const newRoleLabel = ROLE_LABELS[newRole] || customRoles.find(r => r.name === newRole)?.label || newRole;
