@@ -1,12 +1,21 @@
 import { db } from '../db/index';
+import { SUPABASE_MODE } from '../db/supabase';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
+function assertDemoOrThrow() {
+  if (SUPABASE_MODE && !DEMO) {
+    throw new Error('Appraisals are not yet available in production mode.');
+  }
+}
+
 export async function getAppraisalTemplates() {
+  assertDemoOrThrow();
   return db.appraisal_templates.toArray();
 }
 
 export async function getAppraisals({ employeeId = '', appraiserId = '', status = '' } = {}) {
+  assertDemoOrThrow();
   if (DEMO) {
     let rows = await db.appraisals.toArray();
     if (employeeId) rows = rows.filter(a => a.employee_id === employeeId);
@@ -18,10 +27,12 @@ export async function getAppraisals({ employeeId = '', appraiserId = '', status 
 }
 
 export async function getAppraisal(id) {
+  assertDemoOrThrow();
   return db.appraisals.get(Number(id));
 }
 
 export async function createAppraisal({ template_id, employee_id, employee_name, appraiser_id, appraiser_name, period }) {
+  assertDemoOrThrow();
   const template = await db.appraisal_templates.get(Number(template_id));
   const record = {
     template_id: Number(template_id),
@@ -41,6 +52,7 @@ export async function createAppraisal({ template_id, employee_id, employee_name,
 }
 
 export async function submitSelfAssessment(id, { scores, comment }) {
+  assertDemoOrThrow();
   const rec = await db.appraisals.get(Number(id));
   if (!rec) throw new Error('Appraisal not found');
   const updated = { ...rec, self_scores: scores, self_comment: comment, status: 'Self-Assessment Submitted', submitted_at: new Date().toISOString() };
@@ -49,6 +61,7 @@ export async function submitSelfAssessment(id, { scores, comment }) {
 }
 
 export async function submitManagerReview(id, { scores, comment }) {
+  assertDemoOrThrow();
   const rec = await db.appraisals.get(Number(id));
   if (!rec) throw new Error('Appraisal not found');
   // Calculate final score as average of manager ratings
@@ -62,6 +75,7 @@ export async function submitManagerReview(id, { scores, comment }) {
 }
 
 export async function saveManagerReviewDraft(id, { scores, comment }) {
+  assertDemoOrThrow();
   const rec = await db.appraisals.get(Number(id));
   if (!rec) throw new Error('Appraisal not found');
   const updated = { ...rec, manager_scores: scores, manager_comment: comment, status: 'Manager Review' };
@@ -70,6 +84,7 @@ export async function saveManagerReviewDraft(id, { scores, comment }) {
 }
 
 export async function saveSelfAssessmentDraft(id, { scores, comment }) {
+  assertDemoOrThrow();
   const rec = await db.appraisals.get(Number(id));
   if (!rec) throw new Error('Appraisal not found');
   const updated = { ...rec, self_scores: scores, self_comment: comment, status: 'In Progress' };

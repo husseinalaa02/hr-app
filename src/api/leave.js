@@ -181,10 +181,10 @@ export async function getLeaveBalance(employeeId) {
     if (allocs.length === 0) allocs = MOCK_ALLOCATIONS_V2.map(a => ({ ...a, employee: employeeId }));
     let approved = await db.leave_apps
       .where('employee').equals(employeeId)
-      .filter(l => l.status === 'Approved')
+      .filter(l => l.status === 'Approved' || l.status === 'Open')
       .toArray();
     if (approved.length === 0) {
-      approved = MOCK_LEAVE_APPLICATIONS.filter(l => l.employee === employeeId && l.status === 'Approved');
+      approved = MOCK_LEAVE_APPLICATIONS.filter(l => l.employee === employeeId && (l.status === 'Approved' || l.status === 'Open'));
     }
 
     return allocs.map(alloc => {

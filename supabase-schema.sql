@@ -238,6 +238,8 @@ create table if not exists attendance (
 alter table attendance add column if not exists late_minutes        numeric default 0;
 alter table attendance add column if not exists early_leave_minutes numeric default 0;
 alter table attendance add column if not exists overtime_minutes    numeric default 0;
+-- Revert audit_logs.details from jsonb back to text (JS callers pass plain strings, not JSON)
+alter table audit_logs alter column details type text using details::text;
 
 -- Notifications
 create table if not exists notifications (
@@ -280,8 +282,8 @@ create table if not exists audit_logs (
   action         text,
   resource_id    text,
   resource_label text,
-  details        jsonb,
-  changes        jsonb
+  details        text,     -- free-form description; keep as text since JS callers pass plain strings
+  changes        jsonb     -- structured before/after snapshot
 );
 
 -- ─── Employee ID sequence ─────────────────────────────────────────────────────
@@ -385,10 +387,15 @@ create policy "leave_select" on leave_apps for select to authenticated
   );
 create policy "leave_insert" on leave_apps for insert to authenticated
   with check (employee = auth_employee_id());
+-- Employees cannot update (prevents self-approval); only HR/admin drive status transitions.
+-- Employees cancel their own Open leaves via delete.
 create policy "leave_update" on leave_apps for update to authenticated
-  using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager'));
+  using (auth_role() in ('admin', 'hr_manager'));
 create policy "leave_delete" on leave_apps for delete to authenticated
-  using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager'));
+  using (
+    auth_role() in ('admin', 'hr_manager')
+    or (employee = auth_employee_id() and status = 'Open')
+  );
 
 -- LEAVE ALLOCS
 create policy "alloc_select" on leave_allocs for select to authenticated
@@ -431,8 +438,14 @@ create policy "exp_select" on expenses for select to authenticated
   using (employee_id = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'finance_manager', 'ceo'));
 create policy "exp_insert" on expenses for insert to authenticated
   with check (employee_id = auth_employee_id());
+-- Employees cannot update (prevents self-approval); they cancel via delete.
 create policy "exp_update" on expenses for update to authenticated
-  using (employee_id = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'finance_manager'));
+  using (auth_role() in ('admin', 'hr_manager', 'finance_manager'));
+create policy "exp_delete_self" on expenses for delete to authenticated
+  using (
+    auth_role() in ('admin', 'hr_manager', 'finance_manager')
+    or (employee_id = auth_employee_id() and status in ('Draft', 'Submitted'))
+  );
 
 -- ANNOUNCEMENTS
 create policy "ann_select" on announcements for select to authenticated using (true);

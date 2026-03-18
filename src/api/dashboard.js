@@ -22,14 +22,14 @@ export async function getAnnouncements() {
 
 export async function createAnnouncement({ title, content, notice_date }) {
   if (SUPABASE_MODE) {
-    const record = { name: `ANN-${Date.now()}`, title, content, notice_date, creation: new Date().toISOString() };
+    const record = { name: `ANN-${crypto.randomUUID()}`, title, content, notice_date, creation: new Date().toISOString() };
     const { data, error } = await supabase.from('announcements').insert(record).select().single();
     if (error) throw error;
     invalidate('announcements');
     return data;
   }
   if (DEMO) {
-    const record = { name: `ANN-${Date.now()}`, title, content, notice_date, creation: new Date().toISOString() };
+    const record = { name: `ANN-${crypto.randomUUID()}`, title, content, notice_date, creation: new Date().toISOString() };
     await db.announcements.put(record);
     invalidate('announcements');
     return record;

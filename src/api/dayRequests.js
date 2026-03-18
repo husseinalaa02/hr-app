@@ -12,7 +12,7 @@ export async function getDayRequests({ employeeId = '', managerId = '', status =
   if (SUPABASE_MODE) {
     let ids = [];
     if (managerId) {
-      const { data: reports } = await supabase.from('employees').select('name').eq('reports_to', managerId);
+      const { data: reports } = await supabase.from('employees_public').select('name').eq('reports_to', managerId);
       ids = (reports || []).map(e => e.name);
       if (employeeId && !ids.includes(employeeId)) ids.push(employeeId);
     } else if (employeeId) {
