@@ -207,8 +207,9 @@ function CreateAppraisalModal({ onClose, onCreated }) {
 }
 
 export default function Appraisals() {
-  const { employee, isAdmin } = useAuth();
-  const [tab, setTab] = useState(isAdmin ? 'all' : 'mine');
+  const { employee, hasPermission } = useAuth();
+  const canManage = hasPermission('appraisals:manage');
+  const [tab, setTab] = useState(canManage ? 'all' : 'mine');
   const [appraisals, setAppraisals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
@@ -236,13 +237,13 @@ export default function Appraisals() {
           <h1 className="page-title">Appraisals</h1>
           <p className="page-subtitle">Performance reviews and employee evaluations</p>
         </div>
-        {isAdmin && (
+        {canManage && (
           <button className="btn btn-primary" onClick={() => setModalMode('create')}>+ New Appraisal</button>
         )}
       </div>
       <div className="page-toolbar">
         <div className="tab-group">
-          {isAdmin && <button className={`tab-btn${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>All</button>}
+          {canManage && <button className={`tab-btn${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>All</button>}
           <button className={`tab-btn${tab === 'mine' ? ' active' : ''}`} onClick={() => setTab('mine')}>My Appraisals</button>
           <button className={`tab-btn${tab === 'review' ? ' active' : ''}`} onClick={() => setTab('review')}>To Review</button>
         </div>
@@ -263,7 +264,7 @@ export default function Appraisals() {
         ) : appraisals.map(a => {
           const canSelfAssess = a.employee_id === employee.name && ['Not Started', 'In Progress'].includes(a.status);
           const canReview     = a.appraiser_id === employee.name && a.status === 'Self-Assessment Submitted';
-          const canManagerReview = (isAdmin || a.appraiser_id === employee.name) && a.status === 'Manager Review';
+          const canManagerReview = (canManage || a.appraiser_id === employee.name) && a.status === 'Manager Review';
           return (
             <div key={a.id} className="leave-item-card">
               <div className="leave-item-top">

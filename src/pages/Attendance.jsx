@@ -10,11 +10,13 @@ import Badge from '../components/Badge';
 import { Skeleton } from '../components/Skeleton';
 import ErrorState from '../components/ErrorState';
 
-// Iraq work week: Sunday (0) → Thursday (4). Return the most recent Sunday.
+// Company work week: Saturday (6) → Thursday (4). Return the most recent Saturday.
 function getWeekStart() {
   const d   = new Date();
-  const day = d.getDay(); // 0 = Sun
-  d.setDate(d.getDate() - day);
+  const day = d.getDay(); // 0 = Sun, 6 = Sat
+  // Days since last Saturday: if today is Sat(6) → 0, Sun(0) → 1, Mon(1) → 2, ... Fri(5) → 6
+  const daysSinceSat = (day + 1) % 7;
+  d.setDate(d.getDate() - daysSinceSat);
   d.setHours(0, 0, 0, 0);
   return d.toISOString().split('T')[0];
 }
@@ -118,8 +120,8 @@ function MissedPunchBanner({ record }) {
   );
 }
 
-// Build a week array (Sun → Sat, Iraq work week) merged with attendance records.
-// Days after today are excluded. Fri + Sat are always "Off".
+// Build a week array (Sat → Fri, company work week) merged with attendance records.
+// Days after today are excluded. Friday is always "Off".
 function buildWeekRows(weekStart, records) {
   const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date());
   const recMap   = {};
@@ -137,8 +139,8 @@ function buildWeekRows(weekStart, records) {
     if (recMap[key]) {
       rows.push(recMap[key]);
     } else {
-      const dow = d.getDay(); // 5 = Fri, 6 = Sat
-      const off = dow === 5 || dow === 6;
+      const dow = d.getDay(); // 5 = Fri
+      const off = dow === 5;
       rows.push({
         name: `SYNTH-${key}`,
         attendance_date: key,
@@ -153,7 +155,7 @@ function buildWeekRows(weekStart, records) {
 
 }
 
-// Week end = Saturday (weekStart + 6 days)
+// Week end = Friday (weekStart + 6 days)
 function getWeekEnd(weekStart) {
   const d = new Date(`${weekStart}T00:00:00`);
   d.setDate(d.getDate() + 6);

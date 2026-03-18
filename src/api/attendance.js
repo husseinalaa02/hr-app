@@ -32,11 +32,11 @@ function localDayEnd() {
   return new Date(`${today}T23:59:59.999+03:00`).toISOString();
 }
 
-// Returns true for Friday (off) or Saturday (off) — Iraq work week is Sun–Thu
+// Returns true for Friday only — company work week is Sat–Thu
 export function isOffDay(date = new Date()) {
   const day = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Baghdad', weekday: 'short' })
     .format(date);
-  return day === 'Fri' || day === 'Sat';
+  return day === 'Fri';
 }
 
 // ─── Shift helpers ────────────────────────────────────────────────────────────

@@ -209,7 +209,8 @@ function EmployeeCard({ emp, onClick }) {
 
 export default function Employees() {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, hasPermission } = useAuth();
+  const canWrite = hasPermission('employees:write');
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [search, setSearch] = useState('');
@@ -251,7 +252,7 @@ export default function Employees() {
           <h1 className="page-title">Employee Directory</h1>
           <p className="page-subtitle">View and manage company employees</p>
         </div>
-        {isAdmin && (
+        {canWrite && (
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ New Employee</button>
         )}
       </div>

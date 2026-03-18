@@ -15,7 +15,8 @@ const STAGE_COLORS = {
 };
 
 export default function Recruitment() {
-  const { isAdmin } = useAuth();
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission('recruitment:manage');
   const { addToast } = useToast();
   const [tab, setTab] = useState('jobs');
   const [jobs, setJobs] = useState([]);
@@ -73,7 +74,7 @@ export default function Recruitment() {
           <h1 className="page-title">Recruitment</h1>
           <p className="page-subtitle">Manage job openings and track candidates</p>
         </div>
-        {isAdmin && tab === 'jobs' && (
+        {canManage && tab === 'jobs' && (
           <button className="btn btn-primary" onClick={() => setShowJobModal(true)}>+ New Job</button>
         )}
       </div>
@@ -86,7 +87,7 @@ export default function Recruitment() {
             Candidates {selectedJob && <span className="badge-count">{candidates.length}</span>}
           </button>
         </div>
-        {isAdmin && tab === 'candidates' && selectedJob && (
+        {canManage && tab === 'candidates' && selectedJob && (
           <button className="btn btn-primary" onClick={() => setShowCandModal(true)}>+ Add Candidate</button>
         )}
       </div>
@@ -152,7 +153,7 @@ export default function Recruitment() {
                     </span>
                   </div>
                 </div>
-                {isAdmin && c.status === 'Active' && (
+                {canManage && c.status === 'Active' && (
                   <div className="leave-item-actions" style={{ flexWrap: 'wrap', gap: 6 }}>
                     {STAGES.filter(s => s !== c.stage && s !== 'Rejected').map(s => (
                       <button key={s} className="btn btn-sm btn-secondary" style={{ fontSize: 11 }} onClick={() => handleMoveStage(c, s)}>

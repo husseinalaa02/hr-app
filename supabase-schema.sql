@@ -1,6 +1,19 @@
 -- ─── HR App – Supabase Schema ─────────────────────────────────────────────────
 -- Run this entire file in: Supabase → SQL Editor → New query → Run
 
+-- ─── Helper functions (defined first — referenced by RLS policies below) ──────
+create or replace function auth_role()
+returns text language sql stable as $$
+  select coalesce(auth.jwt() -> 'app_metadata' ->> 'role', 'employee')
+$$;
+
+create or replace function auth_employee_id()
+returns text language sql stable as $$
+  select auth.jwt() -> 'app_metadata' ->> 'employee_id'
+$$;
+
+-- ─── Tables ───────────────────────────────────────────────────────────────────
+
 -- Employees
 create table if not exists employees (
   name            text primary key,
@@ -208,15 +221,6 @@ create table if not exists custom_roles (
   permissions text[] not null default '{}',
   created_at  timestamptz default now()
 );
-alter table custom_roles enable row level security;
-create policy "cr_admin_all" on custom_roles
-  for all to authenticated
-  using (auth_role() = 'admin')
-  with check (auth_role() = 'admin');
--- All authenticated users can read custom roles (needed for permission checks)
-create policy "cr_select_all" on custom_roles
-  for select to authenticated
-  using (true);
 
 -- Per-user permission overrides (admin-only)
 create table if not exists employee_permissions (
@@ -227,15 +231,6 @@ create table if not exists employee_permissions (
   updated_at   timestamptz default now(),
   unique(employee_id, permission)
 );
-alter table employee_permissions enable row level security;
-create policy "ep_admin_all" on employee_permissions
-  for all to authenticated
-  using (auth_role() = 'admin')
-  with check (auth_role() = 'admin');
--- Current user can read their own overrides
-create policy "ep_self_read" on employee_permissions
-  for select to authenticated
-  using (employee_id = (select name from employees where auth_id = auth.uid()));
 
 -- Audit Logs
 create table if not exists audit_logs (
@@ -250,17 +245,6 @@ create table if not exists audit_logs (
   details        text,
   changes        jsonb
 );
-
--- ─── Helper functions (safe to re-run) ───────────────────────────────────────
-create or replace function auth_role()
-returns text language sql stable as $$
-  select coalesce(auth.jwt() -> 'app_metadata' ->> 'role', 'employee')
-$$;
-
-create or replace function auth_employee_id()
-returns text language sql stable as $$
-  select auth.jwt() -> 'app_metadata' ->> 'employee_id'
-$$;
 
 -- ─── Employee ID sequence ─────────────────────────────────────────────────────
 -- Generates collision-free HR-EMP-XXXX identifiers. Seed starts at 11 to
@@ -281,7 +265,6 @@ $$;
 -- ─── Atomic check-in RPC ──────────────────────────────────────────────────────
 -- Inserts the checkin punch and the attendance row in a single transaction,
 -- preventing orphaned punches if the second write were to fail.
--- Called by src/api/attendance.js (checkin IN path only).
 create or replace function record_checkin(
   p_checkin_name   text,
   p_employee       text,
@@ -301,7 +284,7 @@ begin
 end;
 $$;
 
--- ─── Drop all policies before recreating (makes this file re-runnable) ────────
+-- ─── Drop all existing policies (makes this file safe to re-run) ──────────────
 do $$ declare r record;
 begin
   for r in select policyname, tablename from pg_policies where schemaname = 'public' loop
@@ -310,43 +293,37 @@ begin
 end $$;
 
 -- ─── Enable RLS on all tables ─────────────────────────────────────────────────
-alter table employees           enable row level security;
-alter table leave_apps          enable row level security;
-alter table leave_allocs        enable row level security;
-alter table day_requests        enable row level security;
-alter table payroll             enable row level security;
-alter table payroll_log         enable row level security;
-alter table expenses            enable row level security;
-alter table announcements       enable row level security;
-alter table recruitment_jobs    enable row level security;
+alter table employees              enable row level security;
+alter table leave_apps             enable row level security;
+alter table leave_allocs           enable row level security;
+alter table day_requests           enable row level security;
+alter table payroll                enable row level security;
+alter table payroll_log            enable row level security;
+alter table expenses               enable row level security;
+alter table announcements          enable row level security;
+alter table recruitment_jobs       enable row level security;
 alter table recruitment_candidates enable row level security;
-alter table audit_logs          enable row level security;
-alter table notifications       enable row level security;
-alter table work_schedules      enable row level security;
-alter table checkins            enable row level security;
-alter table attendance          enable row level security;
+alter table audit_logs             enable row level security;
+alter table notifications          enable row level security;
+alter table work_schedules         enable row level security;
+alter table checkins               enable row level security;
+alter table attendance             enable row level security;
+alter table custom_roles           enable row level security;
+alter table employee_permissions   enable row level security;
 
 -- ─── Policies ─────────────────────────────────────────────────────────────────
 
 -- EMPLOYEES
--- Full row visible to: self, HR managers, admins.
--- Other authenticated users can read only the fields needed for directory/UI:
--- name, employee_name, department, designation, role, branch, company, reports_to.
--- This is enforced via a separate view (employees_public) used by non-HR queries.
+-- Full row visible to self, HR managers, admins.
+-- All other authenticated users can read via the employees_public view (no PII).
 create policy "emp_select_privileged" on employees for select to authenticated
   using (auth_id = auth.uid() or auth_role() in ('admin', 'hr_manager', 'ceo', 'audit_manager', 'finance_manager'));
 create policy "emp_select_directory"  on employees for select to authenticated
   using (true);  -- all authenticated users can read; columns are filtered via employees_public view
 create policy "emp_update_self"  on employees for update to authenticated using (auth_id = auth.uid());
 create policy "emp_update_admin" on employees for update to authenticated using (auth_role() in ('admin', 'hr_manager'));
-create policy "emp_insert_admin" on employees for insert to authenticated with check (auth_role() = 'admin');
-create policy "emp_delete_admin" on employees for delete to authenticated using (auth_role() = 'admin');
-
--- Public directory view — safe columns only, no PII
-create or replace view employees_public as
-  select name, employee_name, department, designation, role, branch, company, reports_to, image
-  from employees;
-grant select on employees_public to authenticated;
+create policy "emp_insert_admin" on employees for insert to authenticated with check (auth_role() in ('admin', 'hr_manager'));
+create policy "emp_delete_admin" on employees for delete to authenticated using (auth_role() in ('admin', 'hr_manager'));
 
 -- LEAVE APPS
 create policy "leave_select" on leave_apps for select to authenticated
@@ -362,7 +339,8 @@ create policy "leave_delete" on leave_apps for delete to authenticated
 create policy "alloc_select" on leave_allocs for select to authenticated
   using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'ceo'));
 create policy "alloc_write" on leave_allocs for all to authenticated
-  using (auth_role() in ('admin', 'hr_manager'));
+  using (auth_role() in ('admin', 'hr_manager'))
+  with check (auth_role() in ('admin', 'hr_manager'));
 
 -- DAY REQUESTS
 create policy "dr_select" on day_requests for select to authenticated
@@ -396,13 +374,16 @@ create policy "exp_update" on expenses for update to authenticated
 -- ANNOUNCEMENTS
 create policy "ann_select" on announcements for select to authenticated using (true);
 create policy "ann_write"  on announcements for all to authenticated
-  using (auth_role() in ('admin', 'hr_manager'));
+  using (auth_role() in ('admin', 'hr_manager'))
+  with check (auth_role() in ('admin', 'hr_manager'));
 
 -- RECRUITMENT
 create policy "recruit_jobs_access" on recruitment_jobs for all to authenticated
-  using (auth_role() in ('admin', 'hr_manager', 'ceo'));
+  using (auth_role() in ('admin', 'hr_manager', 'ceo'))
+  with check (auth_role() in ('admin', 'hr_manager', 'ceo'));
 create policy "recruit_cands_access" on recruitment_candidates for all to authenticated
-  using (auth_role() in ('admin', 'hr_manager', 'ceo'));
+  using (auth_role() in ('admin', 'hr_manager', 'ceo'))
+  with check (auth_role() in ('admin', 'hr_manager', 'ceo'));
 
 -- AUDIT LOGS
 create policy "audit_select" on audit_logs for select to authenticated
@@ -435,18 +416,41 @@ create policy "chk_insert" on checkins for insert to authenticated
 create policy "att_select" on attendance for select to authenticated
   using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'ceo'));
 create policy "att_upsert" on attendance for all to authenticated
-  using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager'));
+  using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager'))
+  with check (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager'));
+
+-- CUSTOM ROLES
+-- Admins can do everything; all authenticated users can read (needed for client-side permission checks)
+create policy "cr_admin_all" on custom_roles for all to authenticated
+  using (auth_role() = 'admin')
+  with check (auth_role() = 'admin');
+create policy "cr_select_all" on custom_roles for select to authenticated
+  using (true);
+
+-- EMPLOYEE PERMISSIONS
+-- Admins can do everything; employees can read their own overrides
+create policy "ep_admin_all" on employee_permissions for all to authenticated
+  using (auth_role() = 'admin')
+  with check (auth_role() = 'admin');
+create policy "ep_self_read" on employee_permissions for select to authenticated
+  using (employee_id = (select name from employees where auth_id = auth.uid()));
+
+-- ─── Public directory view — safe columns only, no PII ────────────────────────
+create or replace view employees_public as
+  select name, employee_name, department, designation, role, branch, company, reports_to, image
+  from employees;
+grant select on employees_public to authenticated;
 
 -- ─── Seed Data ────────────────────────────────────────────────────────────────
 
 -- Employees (password = username for test purposes)
 insert into employees (name, employee_name, department, designation, role, employment_type, date_of_joining, gender, date_of_birth, branch, cell_number, personal_email, company_email, user_id, password, reports_to) values
-  ('HR-EMP-0010', 'Hussein Alaa',       'Management',           'System Administrator', 'admin',            'Full-time', '2015-01-01', 'Male',   null,         'Baghdad HQ', '',                  '',                   'hussein@afaqalfiker.com', 'hussein', 'hussein', null),
-  ('HR-EMP-0009', 'Alaa Alghanimi',     'Management',           'CEO',                  'ceo',              'Full-time', '2015-01-01', 'Male',   '1975-03-10', 'Baghdad HQ', '+964 770 000 0001', 'alaa@gmail.com',     'alaa@afaqalfiker.com',    'alaa',    'alaa',    null),
-  ('HR-EMP-0002', 'Sara Al-Otaibi',     'Human Resources',      'HR Manager',           'hr_manager',       'Full-time', '2019-01-15', 'Female', '1988-04-20', 'Baghdad HQ', '+964 771 234 5678', 'sara@gmail.com',     'sara@afaqalfiker.com',    'sara',    'sara',    'HR-EMP-0009'),
-  ('HR-EMP-0003', 'Khalid Al-Zahrani',  'Finance',              'Finance Manager',      'finance_manager',  'Full-time', '2018-06-01', 'Male',   '1983-08-15', 'Baghdad HQ', '+964 772 345 6789', 'khalid@gmail.com',   'khalid@afaqalfiker.com',  'khalid',  'khalid',  'HR-EMP-0009'),
-  ('HR-EMP-0001', 'Ahmed Al-Rashidi',   'Information Technology','IT Manager',          'it_manager',       'Full-time', '2022-03-01', 'Male',   '1995-06-15', 'Baghdad HQ', '+964 770 123 4567', 'ahmed@gmail.com',    'ahmed@afaqalfiker.com',   'ahmed',   'ahmed',   'HR-EMP-0009'),
-  ('HR-EMP-0006', 'Reem Al-Dossari',    'Information Technology','Software Developer',  'employee',         'Full-time', '2023-09-01', 'Female', '2000-04-22', 'Baghdad HQ', '+964 775 678 9012', 'reem@gmail.com',     'reem@afaqalfiker.com',    'reem',    'reem',    'HR-EMP-0001')
+  ('HR-EMP-0010', 'Hussein Alaa',       'Management',            'System Administrator', 'admin',           'Full-time', '2015-01-01', 'Male',   null,         'Baghdad HQ', '',                  '',                   'hussein@afaqalfiker.com', 'hussein', 'hussein', null),
+  ('HR-EMP-0009', 'Alaa Alghanimi',     'Management',            'CEO',                  'ceo',             'Full-time', '2015-01-01', 'Male',   '1975-03-10', 'Baghdad HQ', '+964 770 000 0001', 'alaa@gmail.com',     'alaa@afaqalfiker.com',    'alaa',    'alaa',    null),
+  ('HR-EMP-0002', 'Sara Al-Otaibi',     'Human Resources',       'HR Manager',           'hr_manager',      'Full-time', '2019-01-15', 'Female', '1988-04-20', 'Baghdad HQ', '+964 771 234 5678', 'sara@gmail.com',     'sara@afaqalfiker.com',    'sara',    'sara',    'HR-EMP-0009'),
+  ('HR-EMP-0003', 'Khalid Al-Zahrani',  'Finance',               'Finance Manager',      'finance_manager', 'Full-time', '2018-06-01', 'Male',   '1983-08-15', 'Baghdad HQ', '+964 772 345 6789', 'khalid@gmail.com',   'khalid@afaqalfiker.com',  'khalid',  'khalid',  'HR-EMP-0009'),
+  ('HR-EMP-0001', 'Ahmed Al-Rashidi',   'Information Technology', 'IT Manager',           'it_manager',      'Full-time', '2022-03-01', 'Male',   '1995-06-15', 'Baghdad HQ', '+964 770 123 4567', 'ahmed@gmail.com',    'ahmed@afaqalfiker.com',   'ahmed',   'ahmed',   'HR-EMP-0009'),
+  ('HR-EMP-0006', 'Reem Al-Dossari',    'Information Technology', 'Software Developer',   'employee',        'Full-time', '2023-09-01', 'Female', '2000-04-22', 'Baghdad HQ', '+964 775 678 9012', 'reem@gmail.com',     'reem@afaqalfiker.com',    'reem',    'reem',    'HR-EMP-0001')
 on conflict (name) do nothing;
 
 -- Leave Allocations (for all employees)
