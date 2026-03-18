@@ -47,7 +47,7 @@ export async function getEmployee(id) {
 
 export async function getDirectReports(managerId) {
   if (SUPABASE_MODE) {
-    const { data, error } = await supabase.from('employees').select('*').eq('reports_to', managerId);
+    const { data, error } = await supabase.from('employees_public').select('*').eq('reports_to', managerId);
     if (error) return [];
     return data || [];
   }

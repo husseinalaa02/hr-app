@@ -21,25 +21,23 @@ export default function Reports() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      let employees, leaves, payroll, appraisals, expenses, dayRequests;
+      let employees, leaves, payroll, appraisals, expenses;
 
       if (SUPABASE_MODE) {
-        [employees, leaves, payroll, appraisals, expenses, dayRequests] = await Promise.all([
-          supabase.from('employees').select('name,department').then(r => r.data || []),
+        [employees, leaves, payroll, appraisals, expenses] = await Promise.all([
+          supabase.from('employees_public').select('name,department').then(r => r.data || []),
           supabase.from('leave_apps').select('*').then(r => r.data || []),
           supabase.from('payroll').select('*').then(r => r.data || []),
           supabase.from('appraisals').select('*').then(r => r.data || []),
           supabase.from('expenses').select('*').then(r => r.data || []),
-          supabase.from('day_requests').select('*').then(r => r.data || []),
         ]);
       } else {
-        [employees, leaves, payroll, appraisals, expenses, dayRequests] = await Promise.all([
+        [employees, leaves, payroll, appraisals, expenses] = await Promise.all([
           db.employees.toArray(),
           db.leave_apps.toArray(),
           db.payroll.toArray(),
           db.appraisals.toArray(),
           db.expenses.toArray(),
-          db.day_requests.toArray(),
         ]);
       }
 
@@ -66,7 +64,6 @@ export default function Reports() {
         payroll, payrollTotal, paidTotal,
         appraisals, appraisalByStatus,
         expenses, expenseTotal, pendingExpenses,
-        dayRequests,
       });
       setLoading(false);
     };

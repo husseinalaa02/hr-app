@@ -43,32 +43,14 @@ const PAGE_TITLES = {
 };
 
 function NetworkBanner() {
-  const { isOnline, pendingCount, syncing, runSync } = useNetwork();
-
-  if (isOnline && pendingCount === 0) return null;
-
-  if (!isOnline) {
-    return (
-      <div className="net-banner net-banner-offline">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01"/>
-        </svg>
-        <span>You're offline — data loads from local cache</span>
-        {pendingCount > 0 && <span className="net-badge">{pendingCount} pending</span>}
-      </div>
-    );
-  }
-
-  // Online but has pending ops
+  const { isOnline } = useNetwork();
+  if (isOnline) return null;
   return (
-    <div className="net-banner net-banner-pending">
+    <div className="net-banner net-banner-offline">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+        <line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01"/>
       </svg>
-      <span>{syncing ? 'Syncing…' : `${pendingCount} action${pendingCount > 1 ? 's' : ''} waiting to sync`}</span>
-      {!syncing && (
-        <button className="net-sync-btn" onClick={runSync}>Sync now</button>
-      )}
+      <span>You're offline — data loads from local cache</span>
     </div>
   );
 }

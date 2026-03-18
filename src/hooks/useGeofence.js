@@ -34,15 +34,21 @@ export function useGeofence() {
         distance: Math.round(dist),
         accuracy: Math.round(pos.coords.accuracy),
         error: null,
+        permanent: false,
       });
+      return false; // not permanent
     } catch (err) {
+      const isPermanent = err.code === 1 ||
+        err.message?.toLowerCase().includes('denied') ||
+        err.message?.toLowerCase().includes('permission');
       const msg =
-        (err.message?.toLowerCase().includes('denied') || err.code === 1)
+        isPermanent
           ? 'Location permission denied. Please allow location access in Settings.'
         : (err.message?.toLowerCase().includes('unavailable') || err.code === 2)
           ? 'Unable to determine your location. Make sure GPS is enabled.'
           : 'Location request timed out. Please try again.';
-      setState(s => ({ ...s, loading: false, allowed: false, error: msg }));
+      setState(s => ({ ...s, loading: false, allowed: false, error: msg, permanent: isPermanent }));
+      return isPermanent; // signal to stop polling
     }
   };
 
@@ -82,8 +88,8 @@ export function useGeofence() {
     let cancelled = false;
 
     const poll = async () => {
-      await updatePosition();
-      if (!cancelled) {
+      const permanent = await updatePosition();
+      if (!cancelled && !permanent) {
         intervalRef.current = setTimeout(poll, 30_000);
       }
     };

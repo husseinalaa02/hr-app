@@ -4,7 +4,7 @@ import { useToast } from '../context/ToastContext';
 import {
   getLeaveApplications, getPendingApprovals, getAllApprovedLeaves,
   submitLeaveApplication, updateLeaveStatus, getLeaveTypes,
-  getLeaveBalance, calcHours,
+  getLeaveBalance, calcHours, calcDays,
 } from '../api/leave';
 import Badge from '../components/Badge';
 import Modal from '../components/Modal';
@@ -47,7 +47,7 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
 
   const hours = isHourly ? calcHours(form.from_time, form.to_time) : 0;
   const days  = !isHourly && form.from_date && form.to_date
-    ? Math.max(1, Math.round((new Date(form.to_date) - new Date(form.from_date)) / 86400000) + 1)
+    ? calcDays(form.from_date, form.to_date)
     : 0;
 
   const hourlyBalance  = balance.find(b => b.is_hourly);

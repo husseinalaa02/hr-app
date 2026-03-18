@@ -51,6 +51,17 @@ export default async function handler(req, res) {
     return res.status(400).json({ message: 'employee_id and new_role are required' });
   }
 
+  // Validate new_role against known built-in roles or custom roles in the DB
+  const BUILT_IN_ROLES = ['admin', 'ceo', 'hr_manager', 'finance_manager',
+                          'it_manager', 'audit_manager', 'employee'];
+  if (!BUILT_IN_ROLES.includes(new_role)) {
+    const { count } = await supabaseAdmin.from('custom_roles')
+      .select('*', { count: 'exact', head: true }).eq('name', new_role);
+    if (!count) {
+      return res.status(400).json({ message: `Invalid role: "${new_role}"` });
+    }
+  }
+
   try {
     // Fetch the employee's Supabase Auth UUID
     const { data: emp, error: empErr } = await supabaseAdmin

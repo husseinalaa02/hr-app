@@ -5,9 +5,19 @@ import { addNotification, notifyRole } from './notifications';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
-function calcDays(from, to) {
-  return Math.max(1, Math.round((new Date(to) - new Date(from)) / 86400000) + 1);
+// Count working days (excluding Friday) between two YYYY-MM-DD strings
+export function calcDays(from, to) {
+  let count = 0;
+  const cur = new Date(from + 'T12:00:00');
+  const end = new Date(to   + 'T12:00:00');
+  while (cur <= end) {
+    if (cur.getDay() !== 5) count++; // 5 = Friday
+    cur.setDate(cur.getDate() + 1);
+  }
+  return Math.max(1, count);
 }
+
+const HOURLY_LEAVE_TYPE = 'Hourly Leave';
 
 export function calcHours(from_time, to_time) {
   const [fh, fm] = from_time.split(':').map(Number);
@@ -26,7 +36,9 @@ async function applyUnpaidLeaveDeduction(leave) {
     .filter(r => r.period_start <= leave.from_date && r.period_end >= leave.from_date)
     .toArray();
   for (const pr of payrollRecords) {
-    const deduction = Math.round((pr.base_salary + pr.additional_salary) / 30 * days);
+    if (pr.status === 'Paid') continue; // never mutate settled payroll
+    const periodDays = pr.working_days || 30;
+    const deduction  = Math.round((pr.base_salary + pr.additional_salary) / periodDays * days);
     await db.payroll.put({
       ...pr,
       working_days: Math.max(0, pr.working_days - days),
@@ -62,8 +74,8 @@ export async function getPendingApprovals({ managerId = null, includeHRQueue = f
   if (SUPABASE_MODE) {
     let rows = [];
     if (managerId) {
-      // Get direct reports
-      const { data: reports } = await supabase.from('employees').select('name').eq('reports_to', managerId);
+      // Get direct reports via employees_public (no PII needed, and accessible to all managers)
+      const { data: reports } = await supabase.from('employees_public').select('name').eq('reports_to', managerId);
       const reportIds = (reports || []).map(e => e.name);
       if (reportIds.length > 0) {
         const { data } = await supabase.from('leave_apps').select('*')
@@ -136,9 +148,13 @@ export async function getLeaveTypes() {
 
 export async function getLeaveBalance(employeeId) {
   if (SUPABASE_MODE) {
-    const { data: rawAllocs } = await supabase.from('leave_allocs').select('*').eq('employee', employeeId);
+    const currentYear = new Date().getFullYear();
+    const { data: rawAllocs } = await supabase.from('leave_allocs').select('*')
+      .eq('employee', employeeId).eq('leave_year', currentYear);
     const { data: approved } = await supabase.from('leave_apps').select('*')
-      .eq('employee', employeeId).eq('status', 'Approved');
+      .eq('employee', employeeId).eq('status', 'Approved')
+      .gte('from_date', `${currentYear}-01-01`)
+      .lte('from_date', `${currentYear}-12-31`);
     // Deduplicate: if the same leave_type appears more than once, merge by summing allocated
     const allocMap = {};
     for (const a of rawAllocs || []) {
@@ -188,9 +204,14 @@ export async function getLeaveBalance(employeeId) {
   return [];
 }
 
-export async function getAllApprovedLeaves() {
+export async function getAllApprovedLeaves({ year = new Date().getFullYear() } = {}) {
   if (SUPABASE_MODE) {
-    const { data, error } = await supabase.from('leave_apps').select('*').eq('status', 'Approved').order('from_date', { ascending: false });
+    const { data, error } = await supabase.from('leave_apps').select('*')
+      .eq('status', 'Approved')
+      .gte('from_date', `${year}-01-01`)
+      .lte('from_date', `${year}-12-31`)
+      .order('from_date', { ascending: false })
+      .limit(500);
     if (error) return [];
     return data || [];
   }
@@ -206,28 +227,37 @@ export async function getAllApprovedLeaves() {
 export async function submitLeaveApplication(data) {
   if (SUPABASE_MODE) {
     const isHourly = data.is_hourly;
+    const currentYear = new Date().getFullYear();
     // Date validation
     if (!isHourly && data.from_date && data.to_date && data.from_date > data.to_date) {
       throw new Error('End date must be on or after start date.');
     }
-    // Duplicate check
-    const { data: dup } = await supabase.from('leave_apps')
-      .select('name').eq('employee', data.employee).eq('leave_type', data.leave_type)
-      .eq('from_date', data.from_date).neq('status', 'Rejected').maybeSingle();
-    if (dup) throw new Error(`A ${data.leave_type} request for ${data.from_date} already exists.`);
+    // Overlap duplicate check (catches same-date AND overlapping ranges)
+    if (!isHourly) {
+      const { data: dup } = await supabase.from('leave_apps')
+        .select('name').eq('employee', data.employee).eq('leave_type', data.leave_type)
+        .neq('status', 'Rejected')
+        .lte('from_date', data.to_date)
+        .gte('to_date',   data.from_date)
+        .maybeSingle();
+      if (dup) throw new Error(`An overlapping ${data.leave_type} request already exists for that period.`);
+    }
 
     if (isHourly) {
       const hrs = calcHours(data.from_time, data.to_time);
       if (hrs <= 0) throw new Error('To time must be after from time.');
-      // Server-side balance check for hourly leave
+      // Server-side balance check — include Open (pending) leaves so they can't be double-submitted
       const { data: hourlyAlloc } = await supabase.from('leave_allocs')
-        .select('total_leaves_allocated').eq('employee', data.employee).eq('leave_type', 'Hourly Leave').eq('is_hourly', true);
+        .select('total_leaves_allocated')
+        .eq('employee', data.employee).eq('leave_type', HOURLY_LEAVE_TYPE).eq('is_hourly', true)
+        .eq('leave_year', currentYear);
       const { data: hourlyUsed } = await supabase.from('leave_apps')
-        .select('total_hours').eq('employee', data.employee).eq('leave_type', 'Hourly Leave').eq('status', 'Approved').eq('is_hourly', true);
+        .select('total_hours').eq('employee', data.employee).eq('leave_type', HOURLY_LEAVE_TYPE)
+        .in('status', ['Approved', 'Open']).eq('is_hourly', true);
       const allocatedHrs = (hourlyAlloc || []).reduce((s, r) => s + r.total_leaves_allocated, 0);
       const usedHrs      = (hourlyUsed  || []).reduce((s, r) => s + (r.total_hours || 0), 0);
       if (hrs > allocatedHrs - usedHrs) throw new Error(`Only ${Math.max(0, allocatedHrs - usedHrs)}h remaining.`);
-      const record = { name: `HLAPPL-${Date.now()}`, employee: data.employee, employee_name: data.employee_name, leave_type: 'Hourly Leave', from_date: data.from_date, from_time: data.from_time, to_time: data.to_time, total_hours: hrs, total_leave_days: 0, status: 'Open', description: data.description || '', is_hourly: true, approval_stage: 'Pending Manager', posting_date: data.from_date };
+      const record = { name: `HLAPPL-${crypto.randomUUID()}`, employee: data.employee, employee_name: data.employee_name, leave_type: HOURLY_LEAVE_TYPE, from_date: data.from_date, from_time: data.from_time, to_time: data.to_time, total_hours: hrs, total_leave_days: 0, status: 'Open', description: data.description || '', is_hourly: true, approval_stage: 'Pending Manager', posting_date: data.from_date };
       const { data: inserted, error } = await supabase.from('leave_apps').insert(record).select().single();
       if (error) throw error;
       notifyRole(['hr_manager', 'admin'], {
@@ -238,17 +268,20 @@ export async function submitLeaveApplication(data) {
       return inserted;
     }
     const days = calcDays(data.from_date, data.to_date);
-    // Server-side balance check for daily leave
+    // Server-side balance check — include Open (pending) to prevent double-submission bypass
     const { data: balRows } = await supabase.from('leave_allocs')
-      .select('total_leaves_allocated').eq('employee', data.employee).eq('leave_type', data.leave_type).eq('is_hourly', false);
+      .select('total_leaves_allocated')
+      .eq('employee', data.employee).eq('leave_type', data.leave_type).eq('is_hourly', false)
+      .eq('leave_year', currentYear);
     const { data: usedRows } = await supabase.from('leave_apps')
-      .select('total_leave_days').eq('employee', data.employee).eq('leave_type', data.leave_type).eq('status', 'Approved').eq('is_hourly', false);
+      .select('total_leave_days').eq('employee', data.employee).eq('leave_type', data.leave_type)
+      .in('status', ['Approved', 'Open']).eq('is_hourly', false);
     const allocated = (balRows  || []).reduce((s, r) => s + r.total_leaves_allocated, 0);
     const used      = (usedRows || []).reduce((s, r) => s + (r.total_leave_days || 0), 0);
     if (allocated > 0 && days > allocated - used) {
       throw new Error(`Only ${Math.max(0, allocated - used)} day(s) remaining for ${data.leave_type}.`);
     }
-    const record = { name: `LAPPL-${Date.now()}`, employee: data.employee, employee_name: data.employee_name, leave_type: data.leave_type, from_date: data.from_date, to_date: data.to_date, total_leave_days: days, total_hours: 0, status: 'Open', description: data.description || '', is_hourly: false, approval_stage: 'Pending Manager', posting_date: data.from_date };
+    const record = { name: `LAPPL-${crypto.randomUUID()}`, employee: data.employee, employee_name: data.employee_name, leave_type: data.leave_type, from_date: data.from_date, to_date: data.to_date, total_leave_days: days, total_hours: 0, status: 'Open', description: data.description || '', is_hourly: false, approval_stage: 'Pending Manager', posting_date: data.from_date };
     const { data: inserted, error } = await supabase.from('leave_apps').insert(record).select().single();
     if (error) throw error;
     notifyRole(['hr_manager', 'admin'], {
@@ -281,14 +314,14 @@ export async function submitLeaveApplication(data) {
       if (hrs <= 0) throw new Error('To time must be after from time.');
       const bal = (await getLeaveBalance(data.employee)).find(b => b.is_hourly);
       if (bal && hrs > bal.remaining) throw new Error(`Only ${bal.remaining}h remaining.`);
-      const record = { ...data, name: `HLAPPL-${Date.now()}`, status: 'Open', total_hours: hrs, leave_type: 'Hourly Leave', is_hourly: true, approval_stage: 'Pending Manager' };
+      const record = { ...data, name: `HLAPPL-${crypto.randomUUID()}`, status: 'Open', total_hours: hrs, leave_type: HOURLY_LEAVE_TYPE, is_hourly: true, approval_stage: 'Pending Manager' };
       await db.leave_apps.put(record);
       return record;
     }
     const days = calcDays(data.from_date, data.to_date);
     const bal  = (await getLeaveBalance(data.employee)).find(b => b.leave_type === data.leave_type && !b.is_hourly);
     if (bal && days > bal.remaining) throw new Error(`Only ${bal.remaining} day(s) remaining for ${data.leave_type}.`);
-    const record = { ...data, name: `LAPPL-${Date.now()}`, status: 'Open', total_leave_days: days, is_hourly: false, approval_stage: 'Pending Manager' };
+    const record = { ...data, name: `LAPPL-${crypto.randomUUID()}`, status: 'Open', total_leave_days: days, is_hourly: false, approval_stage: 'Pending Manager' };
     await db.leave_apps.put(record);
     return record;
   }

@@ -17,7 +17,7 @@ export async function getAnnouncements() {
       return rows.length > 0 ? rows : [...MOCK_ANNOUNCEMENTS];
     }
     return [];
-  }, 300_000); // 5 min — announcements change rarely
+  }, 1_800_000); // 30 min — announcements change rarely
 }
 
 export async function createAnnouncement({ title, content, notice_date }) {

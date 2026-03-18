@@ -11,20 +11,24 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// ── Rate limiter (in-memory; resets on cold start — sufficient for migration) ─
-const ATTEMPTS  = new Map();
 const MAX_TRIES = 10;
 const WINDOW_MS = 15 * 60 * 1000;
 
-function checkRateLimit(ip) {
-  const now   = Date.now();
-  const entry = ATTEMPTS.get(ip) || { count: 0, since: now };
-  if (now - entry.since > WINDOW_MS) {
-    ATTEMPTS.set(ip, { count: 1, since: now });
-    return true;
-  }
-  if (entry.count >= MAX_TRIES) return false;
-  ATTEMPTS.set(ip, { ...entry, count: entry.count + 1 });
+// ── Persistent rate limiter using audit_logs (survives Vercel cold starts) ────
+async function checkRateLimit(ip) {
+  const since = new Date(Date.now() - WINDOW_MS).toISOString();
+  const { count } = await supabaseAdmin
+    .from('audit_logs')
+    .select('*', { count: 'exact', head: true })
+    .eq('action', 'MIGRATE_AUTH_ATTEMPT')
+    .eq('user_id', ip)
+    .gte('timestamp', since);
+  if ((count || 0) >= MAX_TRIES) return false;
+  // Log this attempt
+  await supabaseAdmin.from('audit_logs').insert({
+    action: 'MIGRATE_AUTH_ATTEMPT', user_id: ip, resource: 'auth',
+    details: { endpoint: 'migrate-auth' },
+  }).catch(() => {});
   return true;
 }
 
@@ -52,10 +56,10 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')   return res.status(405).end();
 
-  // Rate limit by client IP
+  // Rate limit by client IP (persistent across Vercel cold starts via audit_logs)
   const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown')
     .split(',')[0].trim();
-  if (!checkRateLimit(ip)) {
+  if (!(await checkRateLimit(ip))) {
     return res.status(429).json({ message: 'Too many attempts. Try again in 15 minutes.' });
   }
 

@@ -39,7 +39,7 @@ create table if not exists employees (
 
 -- Leave Applications
 create table if not exists leave_apps (
-  name            text primary key,
+  name            text primary key default ('LAPPL-' || gen_random_uuid()),
   employee        text references employees(name) on delete cascade,
   employee_name   text,
   leave_type      text,
@@ -63,8 +63,10 @@ create table if not exists leave_allocs (
   employee                text references employees(name) on delete cascade,
   leave_type              text,
   total_leaves_allocated  numeric default 0,
-  is_hourly               boolean default false
+  is_hourly               boolean default false,
+  leave_year              int not null default extract(year from now())::int
 );
+alter table leave_allocs add column if not exists leave_year int not null default extract(year from now())::int;
 
 -- Day Requests (Friday / Extra Day)
 create table if not exists day_requests (
@@ -178,7 +180,7 @@ create table if not exists work_schedules (
 
 -- Check-in Events (individual IN/OUT punches)
 create table if not exists checkins (
-  name        text primary key,
+  name        text primary key default ('CHK-' || gen_random_uuid()),
   employee    text references employees(name) on delete cascade,
   log_type    text,
   time        timestamptz default now()
@@ -316,11 +318,11 @@ alter table employee_permissions   enable row level security;
 
 -- EMPLOYEES
 -- Full row visible to self, HR managers, admins.
--- All other authenticated users can read via the employees_public view (no PII).
+-- Regular employees read their OWN full record only; directory queries go through employees_public view.
 create policy "emp_select_privileged" on employees for select to authenticated
   using (auth_id = auth.uid() or auth_role() in ('admin', 'hr_manager', 'ceo', 'audit_manager', 'finance_manager'));
-create policy "emp_select_directory"  on employees for select to authenticated
-  using (true);  -- all authenticated users can read; columns are filtered via employees_public view
+-- NOTE: emp_select_directory (using true) was removed — it exposed all PII columns to all users.
+-- Non-privileged roles use the employees_public view for directory/dropdown queries.
 create policy "emp_update_self"  on employees for update to authenticated using (auth_id = auth.uid());
 create policy "emp_update_admin" on employees for update to authenticated using (auth_role() in ('admin', 'hr_manager'));
 create policy "emp_insert_admin" on employees for insert to authenticated with check (auth_role() in ('admin', 'hr_manager'));
@@ -328,7 +330,15 @@ create policy "emp_delete_admin" on employees for delete to authenticated using 
 
 -- LEAVE APPS
 create policy "leave_select" on leave_apps for select to authenticated
-  using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'ceo'));
+  using (
+    employee = auth_employee_id()
+    or auth_role() in ('admin', 'hr_manager', 'ceo')
+    or exists (
+      select 1 from employees mgr
+      where mgr.name = leave_apps.employee
+        and mgr.reports_to = auth_employee_id()
+    )
+  );
 create policy "leave_insert" on leave_apps for insert to authenticated
   with check (employee = auth_employee_id());
 create policy "leave_update" on leave_apps for update to authenticated
@@ -345,7 +355,15 @@ create policy "alloc_write" on leave_allocs for all to authenticated
 
 -- DAY REQUESTS
 create policy "dr_select" on day_requests for select to authenticated
-  using (employee_id = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'ceo'));
+  using (
+    employee_id = auth_employee_id()
+    or auth_role() in ('admin', 'hr_manager', 'ceo')
+    or exists (
+      select 1 from employees mgr
+      where mgr.name = day_requests.employee_id
+        and mgr.reports_to = auth_employee_id()
+    )
+  );
 create policy "dr_insert" on day_requests for insert to authenticated
   with check (employee_id = auth_employee_id());
 create policy "dr_update" on day_requests for update to authenticated
@@ -389,19 +407,31 @@ create policy "recruit_cands_access" on recruitment_candidates for all to authen
 -- AUDIT LOGS
 create policy "audit_select" on audit_logs for select to authenticated
   using (auth_role() in ('admin', 'audit_manager', 'ceo'));
-create policy "audit_insert" on audit_logs for insert to authenticated with check (true);
+create policy "audit_insert" on audit_logs for insert to authenticated
+  with check (user_id = auth_employee_id());
 
 -- NOTIFICATIONS
 create policy "notif_select" on notifications for select to authenticated
   using (recipient_id = auth_employee_id());
 create policy "notif_insert" on notifications for insert to authenticated
-  with check (true);
+  with check (
+    auth_role() in ('admin', 'hr_manager')
+    or recipient_id = auth_employee_id()
+  );
 create policy "notif_update" on notifications for update to authenticated
   using (recipient_id = auth_employee_id());
 
 -- WORK SCHEDULES
 create policy "ws_select" on work_schedules for select to authenticated
-  using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'ceo'));
+  using (
+    employee = auth_employee_id()
+    or auth_role() in ('admin', 'hr_manager', 'ceo')
+    or exists (
+      select 1 from employees mgr
+      where mgr.name = work_schedules.employee
+        and mgr.reports_to = auth_employee_id()
+    )
+  );
 create policy "ws_insert" on work_schedules for insert to authenticated
   with check (auth_role() in ('admin', 'hr_manager'));
 create policy "ws_delete" on work_schedules for delete to authenticated
@@ -415,7 +445,15 @@ create policy "chk_insert" on checkins for insert to authenticated
 
 -- ATTENDANCE
 create policy "att_select" on attendance for select to authenticated
-  using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'ceo'));
+  using (
+    employee = auth_employee_id()
+    or auth_role() in ('admin', 'hr_manager', 'ceo')
+    or exists (
+      select 1 from employees mgr
+      where mgr.name = attendance.employee
+        and mgr.reports_to = auth_employee_id()
+    )
+  );
 create policy "att_upsert" on attendance for all to authenticated
   using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager'))
   with check (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager'));
@@ -441,6 +479,14 @@ create or replace view employees_public as
   select name, employee_name, department, designation, role, branch, company, reports_to, image, cell_number
   from employees;
 grant select on employees_public to authenticated;
+
+-- ─── Performance Indexes ──────────────────────────────────────────────────────
+create index if not exists idx_checkins_employee_time    on checkins(employee, time);
+create index if not exists idx_attendance_employee_date  on attendance(employee, attendance_date);
+create index if not exists idx_leave_apps_employee       on leave_apps(employee, status, from_date);
+create index if not exists idx_payroll_employee_period   on payroll(employee_id, period_start);
+create index if not exists idx_day_requests_employee     on day_requests(employee_id, approval_status);
+create index if not exists idx_notifications_recipient   on notifications(recipient_id, read, created_at);
 
 -- ─── Seed Data ────────────────────────────────────────────────────────────────
 

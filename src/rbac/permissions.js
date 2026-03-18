@@ -107,10 +107,13 @@ export const ROLE_PERMISSIONS = {
     'payroll:write',
     'payroll:process',
     'payroll:export',
+    'leave:read',
+    'leave:write',
     'expenses:read',
     'expenses:approve',
     'reports:finance',
     'reports:hr',
+    'reports:executive',
     'employees:read',
     'payslips:read',
     'announcements:read',
@@ -174,11 +177,14 @@ export const ROLE_PERMISSIONS = {
 };
 
 // ─── hasPermission ─────────────────────────────────────────────────────────────
+// Pre-build Set for O(1) lookup — permissions are checked on every render
+export const ROLE_PERMISSION_SETS = Object.fromEntries(
+  Object.entries(ROLE_PERMISSIONS).map(([role, perms]) => [role, new Set(perms)])
+);
+
 export function hasPermission(role, permission) {
   if (!role || !permission) return false;
-  const perms = ROLE_PERMISSIONS[role];
-  if (!perms) return false;
-  return perms.includes(permission);
+  return ROLE_PERMISSION_SETS[role]?.has(permission) ?? false;
 }
 
 // ─── Route → Required Permission Map ──────────────────────────────────────────

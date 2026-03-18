@@ -53,47 +53,41 @@ async function getTodayShift(employeeId) {
   return data || null;
 }
 
-// Returns { late, minutes, earlyEntry, earlyMinutes }
+// Returns { late, minutes }
 async function checkLateness(employeeId, checkinTime) {
   const shift = await getTodayShift(employeeId);
-  if (!shift?.start_time) return { late: false, minutes: 0, earlyEntry: false, earlyMinutes: 0 };
+  if (!shift?.start_time) return { late: false, minutes: 0 };
 
-  const [h, m]   = shift.start_time.split(':').map(Number);
-  const checkin  = new Date(checkinTime);
-  const shiftStart = new Date(checkin);
-  shiftStart.setHours(h, m, 0, 0);
-
-  if (checkin < shiftStart) {
-    return {
-      late: false, minutes: 0,
-      earlyEntry: true,
-      earlyMinutes: Math.round((shiftStart - checkin) / 60_000),
-    };
-  }
+  // Build shift start in Baghdad timezone explicitly (avoids setHours() local-tz bug)
+  const todayBaghdad = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' })
+    .format(new Date(checkinTime));
+  const shiftStart = new Date(`${todayBaghdad}T${shift.start_time}:00+03:00`);
+  const checkin    = new Date(checkinTime);
 
   if (checkin <= new Date(shiftStart.getTime() + GRACE_MS)) {
-    return { late: false, minutes: 0, earlyEntry: false, earlyMinutes: 0 };
+    return { late: false, minutes: 0 };
   }
 
   const minutes = Math.round((checkin - shiftStart) / 60_000);
-  return { late: true, minutes, earlyEntry: false, earlyMinutes: 0 };
+  return { late: true, minutes };
 }
 
 // Returns { earlyLeaveMinutes, overtimeMinutes }
 function calcCheckout(checkoutTime, shiftEndStr, shiftStartStr) {
   if (!shiftEndStr) return { earlyLeaveMinutes: 0, overtimeMinutes: 0 };
 
-  const [eh, em]  = shiftEndStr.split(':').map(Number);
-  const checkout  = new Date(checkoutTime);
-  const shiftEnd  = new Date(checkout);
-  shiftEnd.setHours(eh, em, 0, 0);
+  // Build shift end in Baghdad timezone explicitly (avoids setHours() local-tz bug)
+  const todayBaghdad = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' })
+    .format(new Date(checkoutTime));
+  let shiftEnd = new Date(`${todayBaghdad}T${shiftEndStr}:00+03:00`);
 
-  // Midnight crossover: if end time is lexicographically less than start time
+  // Midnight crossover: if end time is lexicographically before start time
   // the shift runs into the next calendar day (e.g. 22:00 → 06:00)
   if (shiftStartStr && shiftEndStr < shiftStartStr) {
-    shiftEnd.setDate(shiftEnd.getDate() + 1);
+    shiftEnd = new Date(shiftEnd.getTime() + 86_400_000);
   }
 
+  const checkout = new Date(checkoutTime);
   if (checkout < shiftEnd) {
     return { earlyLeaveMinutes: Math.round((shiftEnd - checkout) / 60_000), overtimeMinutes: 0 };
   }
@@ -125,7 +119,7 @@ function calcCumulativeHours(punches) {
 export async function checkin(employeeId, logType) {
   const time      = utcNow();
   const today     = localToday();
-  const localName = `CHK-${Date.now()}`;
+  const localName = `CHK-${crypto.randomUUID()}`;
 
   if (SUPABASE_MODE) {
     // ── Guard: fetch last punch today ────────────────────────────────────────
@@ -156,9 +150,17 @@ export async function checkin(employeeId, logType) {
     const attName = `ATT-${employeeId}-${today}`;
 
     if (logType === 'IN') {
-      // ── Check-In: insert attendance row for the first punch ───────────────
-      const { late, minutes, earlyEntry, earlyMinutes } = await checkLateness(employeeId, time);
+      // ── Lateness applies only to first IN of the day (not break re-entries) ─
+      const { count: inCount } = await supabase.from('checkins')
+        .select('*', { count: 'exact', head: true })
+        .eq('employee', employeeId).eq('log_type', 'IN')
+        .gte('time', localDayStart()).lte('time', localDayEnd());
+      const isFirstCheckin = (inCount === 0);
+      const { late, minutes } = isFirstCheckin
+        ? await checkLateness(employeeId, time)
+        : { late: false, minutes: 0 };
 
+      // ── Check-In: insert attendance row for the first punch ───────────────
       const { error: insErr } = await supabase.from('attendance').insert({
         name:          attName,
         employee:      employeeId,
@@ -186,7 +188,7 @@ export async function checkin(employeeId, logType) {
         }).catch(() => {});
       }
 
-      return { late, minutes, earlyEntry, earlyMinutes };
+      return { late, minutes };
 
     } else {
       // ── Check-Out: recalculate cumulative hours from all punches today ─────

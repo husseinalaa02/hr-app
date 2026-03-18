@@ -225,7 +225,7 @@ export default function Attendance() {
         if (result.late) {
           addToast(`Checked in — ${fmtMinutes(result.minutes)} late`, result.minutes <= 15 ? 'warning' : 'error');
         } else {
-          addToast('Checked in ✓ On Time', 'success');
+          addToast('Checked in', 'success');
         }
       } else {
         if (result.earlyLeaveMinutes > 0) {
@@ -347,7 +347,7 @@ export default function Attendance() {
                 <tr key={a.name} style={a._synthetic ? { opacity: 0.6 } : undefined}>
                   <td>{a.attendance_date}</td>
                   <td>{formatTime(a.in_time) || '—'}</td>
-                  <td>{formatTime(a.out_time) || (isCheckedIn && a.attendance_date === (new Date().toISOString().split('T')[0]) ? <em style={{color:'var(--gray-400)'}}>open</em> : '—')}</td>
+                  <td>{formatTime(a.out_time) || (isCheckedIn && a.attendance_date === baghdadFmt.format(new Date()) ? <em style={{color:'var(--gray-400)'}}>open</em> : '—')}</td>
                   <td>{a.working_hours ? `${Number(a.working_hours).toFixed(1)}h` : '—'}</td>
                   <td>
                     {a.status && <Badge status={a.status} />}
@@ -356,7 +356,7 @@ export default function Attendance() {
                         +{fmtMinutes(a.late_minutes)}
                       </span>
                     )}
-                    {a.status === 'Early Leave' && a.early_leave_minutes > 0 && (
+                    {a.early_leave_minutes > 0 && (
                       <span style={{ fontSize: 11, color: 'var(--gray-500)', marginLeft: 5 }}>
                         -{fmtMinutes(a.early_leave_minutes)}
                       </span>
