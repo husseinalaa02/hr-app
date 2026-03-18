@@ -152,7 +152,7 @@ export async function getLeaveBalance(employeeId) {
     const { data: rawAllocs } = await supabase.from('leave_allocs').select('*')
       .eq('employee', employeeId).eq('leave_year', currentYear);
     const { data: approved } = await supabase.from('leave_apps').select('*')
-      .eq('employee', employeeId).eq('status', 'Approved')
+      .eq('employee', employeeId).in('status', ['Approved', 'Open'])
       .gte('from_date', `${currentYear}-01-01`)
       .lte('from_date', `${currentYear}-12-31`);
     // Deduplicate: if the same leave_type appears more than once, merge by summing allocated
@@ -302,11 +302,12 @@ export async function submitLeaveApplication(data) {
       .filter(l =>
         l.status !== 'Rejected' &&
         l.leave_type === data.leave_type &&
-        l.from_date === data.from_date
+        l.from_date <= data.to_date &&
+        l.to_date   >= data.from_date
       )
       .first();
     if (duplicate) {
-      throw new Error(`A ${data.leave_type} request for ${data.from_date} already exists.`);
+      throw new Error(`An overlapping ${data.leave_type} request already exists for that period.`);
     }
     const isHourly = data.is_hourly;
     if (isHourly) {

@@ -9,7 +9,8 @@ export async function getNotifications(recipientId) {
       .from('notifications')
       .select('*')
       .eq('recipient_id', recipientId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(50);
     return data || [];
   }
   if (DEMO) {
@@ -77,35 +78,16 @@ export async function addNotification({ recipient_id, title, message, type = 'in
 
 // Fan-out: create one notification per employee that has the given role(s),
 // including custom-role employees whose custom_role.notify_as matches a target role.
+// Uses a security-definer Postgres function so the employee lookup bypasses RLS
+// (regular employees can't query the employees table by role via the anon key).
 export async function notifyRole(roles, { title, message, type = 'info' }) {
   const roleList = Array.isArray(roles) ? roles : [roles];
   if (SUPABASE_MODE) {
-    // Built-in roles
-    const { data: builtIn } = await supabase
-      .from('employees')
-      .select('name')
-      .in('role', roleList);
-
-    // Custom roles with notify_as pointing to a target role
-    const { data: customMatches } = await supabase
-      .from('custom_roles')
-      .select('name')
-      .in('notify_as', roleList);
-
-    let recipients = (builtIn || []).map(e => e.name);
-
-    if (customMatches?.length) {
-      const customRoleNames = customMatches.map(r => r.name);
-      const { data: customEmps } = await supabase
-        .from('employees')
-        .select('name')
-        .in('role', customRoleNames);
-      recipients = [...new Set([...recipients, ...(customEmps || []).map(e => e.name)])];
-    }
-
-    if (!recipients.length) return;
-    await supabase.from('notifications').insert(
-      recipients.map(id => ({ recipient_id: id, title, message, type }))
-    );
+    await supabase.rpc('notify_roles', {
+      p_roles:   roleList,
+      p_title:   title,
+      p_message: message,
+      p_type:    type,
+    }).catch(() => {});
   }
 }

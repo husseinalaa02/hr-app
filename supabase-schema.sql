@@ -12,6 +12,28 @@ returns text language sql stable as $$
   select auth.jwt() -> 'app_metadata' ->> 'employee_id'
 $$;
 
+-- Fan-out notifications to all employees with a given role (or custom role whose
+-- notify_as maps to that role). Runs as security definer so it bypasses RLS on
+-- the employees table — callers (incl. regular employees) only need INSERT on notifications.
+create or replace function notify_roles(
+  p_roles    text[],
+  p_title    text,
+  p_message  text,
+  p_type     text default 'info'
+) returns void language plpgsql security definer as $$
+begin
+  insert into notifications(recipient_id, title, message, type)
+  select distinct e.name, p_title, p_message, p_type
+  from employees e
+  where
+    e.role = any(p_roles)
+    or exists (
+      select 1 from custom_roles cr
+      where cr.name = e.role and cr.notify_as = any(p_roles)
+    );
+end;
+$$;
+
 -- ─── Tables ───────────────────────────────────────────────────────────────────
 
 -- Employees
@@ -163,6 +185,19 @@ create table if not exists recruitment_candidates (
   applied_at date default current_date
 );
 
+-- Timesheets (project/task hour logs)
+create table if not exists timesheets (
+  name          text primary key,
+  employee      text references employees(name) on delete cascade,
+  employee_name text,
+  start_date    date,
+  end_date      date,
+  time_logs     jsonb default '[]',
+  total_hours   numeric default 0,
+  status        text default 'Draft',
+  created_at    timestamptz default now()
+);
+
 -- Work Schedules
 create table if not exists work_schedules (
   id               bigserial primary key,
@@ -245,7 +280,7 @@ create table if not exists audit_logs (
   action         text,
   resource_id    text,
   resource_label text,
-  details        text,
+  details        jsonb,
   changes        jsonb
 );
 
@@ -297,6 +332,7 @@ end $$;
 
 -- ─── Enable RLS on all tables ─────────────────────────────────────────────────
 alter table employees              enable row level security;
+alter table timesheets             enable row level security;
 alter table leave_apps             enable row level security;
 alter table leave_allocs           enable row level security;
 alter table day_requests           enable row level security;
@@ -315,6 +351,14 @@ alter table custom_roles           enable row level security;
 alter table employee_permissions   enable row level security;
 
 -- ─── Policies ─────────────────────────────────────────────────────────────────
+
+-- TIMESHEETS
+create policy "ts_select" on timesheets for select to authenticated
+  using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager', 'ceo'));
+create policy "ts_insert" on timesheets for insert to authenticated
+  with check (employee = auth_employee_id());
+create policy "ts_update" on timesheets for update to authenticated
+  using (employee = auth_employee_id() or auth_role() in ('admin', 'hr_manager'));
 
 -- EMPLOYEES
 -- Full row visible to self, HR managers, admins.
@@ -487,6 +531,7 @@ create index if not exists idx_leave_apps_employee       on leave_apps(employee,
 create index if not exists idx_payroll_employee_period   on payroll(employee_id, period_start);
 create index if not exists idx_day_requests_employee     on day_requests(employee_id, approval_status);
 create index if not exists idx_notifications_recipient   on notifications(recipient_id, read, created_at);
+create index if not exists idx_timesheets_employee       on timesheets(employee, start_date);
 
 -- ─── Seed Data ────────────────────────────────────────────────────────────────
 

@@ -141,39 +141,38 @@ export async function checkin(employeeId, logType) {
       throw new Error('You have not checked in yet');
     }
 
-    // ── Save the individual punch event ──────────────────────────────────────
-    const { error: chkErr } = await supabase.from('checkins').insert({
-      name: localName, employee: employeeId, log_type: logType, time,
-    });
-    if (chkErr) throw chkErr;
-
     const attName = `ATT-${employeeId}-${today}`;
 
     if (logType === 'IN') {
-      // ── Lateness applies only to first IN of the day (not break re-entries) ─
+      // ── Count existing INs BEFORE inserting — determines first punch vs break re-entry ─
       const { count: inCount } = await supabase.from('checkins')
         .select('*', { count: 'exact', head: true })
         .eq('employee', employeeId).eq('log_type', 'IN')
         .gte('time', localDayStart()).lte('time', localDayEnd());
       const isFirstCheckin = (inCount === 0);
+
       const { late, minutes } = isFirstCheckin
         ? await checkLateness(employeeId, time)
         : { late: false, minutes: 0 };
 
-      // ── Check-In: insert attendance row for the first punch ───────────────
-      const { error: insErr } = await supabase.from('attendance').insert({
-        name:          attName,
-        employee:      employeeId,
-        attendance_date: today,
-        in_time:       time,
-        status:        late ? 'Late' : 'Present',
-        late_minutes:  minutes,
-      });
-
-      // 23505 = unique_violation: attendance row already exists for today (multi-punch day).
-      // This is expected — the first punch already set the status. Skip silently.
-      if (insErr && insErr.code !== '23505') {
-        throw insErr;
+      if (isFirstCheckin) {
+        // ── First punch: atomic RPC inserts checkin + attendance in one transaction ──
+        const { error: rpcErr } = await supabase.rpc('record_checkin', {
+          p_checkin_name: localName,
+          p_employee:     employeeId,
+          p_att_name:     attName,
+          p_today:        today,
+          p_status:       late ? 'Late' : 'Present',
+          p_late_minutes: minutes,
+          p_time:         time,
+        });
+        if (rpcErr) throw rpcErr;
+      } else {
+        // ── Break re-entry: just insert the checkin punch (attendance row already set) ──
+        const { error: chkErr } = await supabase.from('checkins').insert({
+          name: localName, employee: employeeId, log_type: logType, time,
+        });
+        if (chkErr) throw chkErr;
       }
 
       if (late) {
@@ -191,7 +190,12 @@ export async function checkin(employeeId, logType) {
       return { late, minutes };
 
     } else {
-      // ── Check-Out: recalculate cumulative hours from all punches today ─────
+      // ── Check-Out: insert punch then recalculate cumulative hours ─────────
+      const { error: chkErr } = await supabase.from('checkins').insert({
+        name: localName, employee: employeeId, log_type: logType, time,
+      });
+      if (chkErr) throw chkErr;
+
       const { data: todayPunches } = await supabase
         .from('checkins')
         .select('log_type, time')

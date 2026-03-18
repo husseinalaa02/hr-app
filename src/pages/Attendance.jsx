@@ -38,9 +38,9 @@ function Clock() {
     return () => clearInterval(t);
   }, []);
 
-  const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const weekday = time.toLocaleDateString([], { weekday: 'long' });
-  const dateStr = time.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' });
+  const timeStr = time.toLocaleTimeString('en-IQ', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Baghdad' });
+  const weekday = time.toLocaleDateString('en-IQ', { weekday: 'long', timeZone: 'Asia/Baghdad' });
+  const dateStr = time.toLocaleDateString('en-IQ', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'Asia/Baghdad' });
 
   return (
     <div className="clock-block">

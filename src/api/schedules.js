@@ -13,7 +13,7 @@ export const SHIFT_PRESETS = {
 // Returns the current (latest) schedule for each employee in the given list
 export async function getSchedules(employeeIds = []) {
   if (SUPABASE_MODE) {
-    let q = supabase.from('work_schedules').select('*').order('effective_date', { ascending: false });
+    let q = supabase.from('work_schedules').select('*').order('effective_date', { ascending: false }).limit(2000);
     if (employeeIds.length) q = q.in('employee', employeeIds);
     const { data, error } = await q;
     if (error) throw error;

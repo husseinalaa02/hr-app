@@ -21,8 +21,7 @@ export default function Login() {
       await login(email, password);
       navigate('/', { replace: true });
     } catch (err) {
-      const msg = err.response?.data?.message || 'Invalid credentials. Please try again.';
-      addToast(msg, 'error');
+      addToast(err.message || 'Invalid credentials. Please try again.', 'error');
     } finally {
       setLoading(false);
     }

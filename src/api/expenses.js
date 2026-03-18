@@ -72,13 +72,16 @@ export async function saveDraftExpense({ employee_id, employee_name, expense_typ
 
 export async function approveExpense(id, approverName) {
   if (SUPABASE_MODE) {
+    const { data: existing } = await supabase.from('expenses').select('status').eq('id', id).single();
+    if (!existing) throw new Error('Expense not found');
+    if (existing.status !== 'Submitted') throw new Error('Only submitted expenses can be approved');
     const { data: updated, error } = await supabase.from('expenses').update({ status: 'Approved', approved_by: approverName, approved_at: new Date().toISOString() }).eq('id', id).select().single();
     if (error) throw error;
     if (updated?.employee_id) {
       addNotification({
         recipient_id: updated.employee_id,
         title: 'Expense Approved',
-        message: `Your ${updated.expense_type} expense of $${updated.amount} has been approved.`,
+        message: `Your ${updated.expense_type} expense of ${Number(updated.amount).toLocaleString()} IQD has been approved.`,
         type: 'expense',
       }).catch(() => {});
     }
@@ -102,7 +105,7 @@ export async function rejectExpense(id) {
       addNotification({
         recipient_id: updated.employee_id,
         title: 'Expense Rejected',
-        message: `Your ${updated.expense_type} expense of $${updated.amount} has been rejected.`,
+        message: `Your ${updated.expense_type} expense of ${Number(updated.amount).toLocaleString()} IQD has been rejected.`,
         type: 'expense',
       }).catch(() => {});
     }
