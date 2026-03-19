@@ -36,7 +36,8 @@ async function checkRateLimit(ip) {
 const ALLOWED_ORIGINS = new Set([
   process.env.FRONTEND_URL,
   process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`,
-  'capacitor://localhost',   // Capacitor iOS / Android
+  'capacitor://localhost',   // Capacitor iOS
+  'http://localhost',        // Capacitor Android WebView
   'http://localhost:5173',   // Vite dev
   'http://localhost:4173',   // Vite preview
 ].filter(Boolean));
@@ -55,6 +56,12 @@ export default async function handler(req, res) {
   setCors(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')   return res.status(405).end();
+
+  // Kill switch — disable once all employees have been migrated to Supabase Auth.
+  // Set MIGRATION_ENABLED=true in Vercel env to activate; remove it to decommission.
+  if (process.env.MIGRATION_ENABLED !== 'true') {
+    return res.status(410).json({ error: 'Migration endpoint is disabled' });
+  }
 
   // Rate limit by client IP (persistent across Vercel cold starts via audit_logs)
   const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown')

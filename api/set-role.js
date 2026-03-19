@@ -15,9 +15,10 @@ const supabaseAdmin = createClient(
 const ALLOWED_ORIGINS = new Set([
   process.env.FRONTEND_URL,
   process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`,
-  'capacitor://localhost',
-  'http://localhost:5173',
-  'http://localhost:4173',
+  'capacitor://localhost',   // Capacitor iOS
+  'http://localhost',        // Capacitor Android WebView
+  'http://localhost:5173',   // Vite dev
+  'http://localhost:4173',   // Vite preview
 ].filter(Boolean));
 
 function setCors(req, res) {
@@ -83,6 +84,14 @@ export default async function handler(req, res) {
       app_metadata: { role: new_role, employee_id: emp.name },
     });
     if (error) throw error;
+
+    // Audit trail — non-fatal
+    await supabaseAdmin.from('audit_logs').insert({
+      action: 'ROLE_CHANGE',
+      user_id: employee_id,
+      resource: 'employees',
+      details: `role changed to ${new_role} by ${user.app_metadata?.employee_id || user.id}`,
+    }).catch(() => {});
 
     return res.status(200).json({ updated: true });
   } catch (err) {

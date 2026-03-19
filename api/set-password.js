@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { validatePassword } from './_validate.js';
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -8,9 +9,10 @@ const supabaseAdmin = createClient(
 const ALLOWED_ORIGINS = new Set([
   process.env.FRONTEND_URL,
   process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`,
-  'capacitor://localhost',
-  'http://localhost:5173',
-  'http://localhost:4173',
+  'capacitor://localhost',   // Capacitor iOS
+  'http://localhost',        // Capacitor Android WebView
+  'http://localhost:5173',   // Vite dev
+  'http://localhost:4173',   // Vite preview
 ].filter(Boolean));
 
 function setCors(req, res) {
@@ -55,9 +57,8 @@ export default async function handler(req, res) {
   if (!employee_id || !new_password) {
     return res.status(400).json({ message: 'employee_id and new_password are required' });
   }
-  if (new_password.length < 8) {
-    return res.status(400).json({ message: 'Password must be at least 8 characters' });
-  }
+  const pwError = validatePassword(new_password);
+  if (pwError) return res.status(400).json({ message: pwError });
 
   try {
     const { data: targetEmp, error: empError } = await supabaseAdmin
@@ -81,6 +82,14 @@ export default async function handler(req, res) {
       password: new_password,
     });
     if (error) throw error;
+
+    // Audit trail — non-fatal
+    await supabaseAdmin.from('audit_logs').insert({
+      action: 'PASSWORD_RESET',
+      user_id: employee_id,
+      resource: 'auth',
+      details: `password reset by ${requesterRole} ${user.app_metadata?.employee_id || user.id}`,
+    }).catch(() => {});
 
     return res.status(200).json({ success: true });
   } catch (err) {

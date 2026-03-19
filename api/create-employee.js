@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { validatePassword } from './_validate.js';
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -8,9 +9,10 @@ const supabaseAdmin = createClient(
 const ALLOWED_ORIGINS = new Set([
   process.env.FRONTEND_URL,
   process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`,
-  'capacitor://localhost',
-  'http://localhost:5173',
-  'http://localhost:4173',
+  'capacitor://localhost',   // Capacitor iOS
+  'http://localhost',        // Capacitor Android WebView
+  'http://localhost:5173',   // Vite dev
+  'http://localhost:4173',   // Vite preview
 ].filter(Boolean));
 
 function setCors(req, res) {
@@ -44,9 +46,8 @@ export default async function handler(req, res) {
   if (!employee_data?.user_id || !password) {
     return res.status(400).json({ message: 'user_id and password are required' });
   }
-  if (password.length < 8) {
-    return res.status(400).json({ message: 'Password must be at least 8 characters' });
-  }
+  const pwError = validatePassword(password);
+  if (pwError) return res.status(400).json({ message: pwError });
 
   // Sanitise user_id — must be alphanumeric + underscores/dots only
   const userId = employee_data.user_id.toLowerCase().trim();
