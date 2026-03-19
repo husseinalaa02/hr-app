@@ -51,6 +51,7 @@ const DEMO_PROFILES = {
   khalid:  { name: 'HR-EMP-0003', employee_name: 'Khalid Al-Zahrani', department: 'Finance', designation: 'Finance Manager', cell_number: '+964 772 345 6789', image: '', company: 'AFAQ ALFIKER', date_of_joining: '2018-06-01', gender: 'Male', date_of_birth: '1983-08-15', employment_type: 'Full-time', branch: 'Baghdad HQ', personal_email: 'khalid@gmail.com', company_email: 'khalid@afaqalfiker.com', reports_to: 'HR-EMP-0009', employee_type: 'Office', role: 'finance_manager' },
   ahmed:   { name: 'HR-EMP-0001', employee_name: 'Ahmed Al-Rashidi', department: 'Information Technology', designation: 'IT Manager', cell_number: '+964 770 123 4567', image: '', company: 'AFAQ ALFIKER', date_of_joining: '2022-03-01', gender: 'Male', date_of_birth: '1995-06-15', employment_type: 'Full-time', branch: 'Baghdad HQ', personal_email: 'ahmed@gmail.com', company_email: 'ahmed@afaqalfiker.com', reports_to: 'HR-EMP-0009', employee_type: 'Office', role: 'it_manager' },
   reem:    { name: 'HR-EMP-0006', employee_name: 'Reem Al-Dossari', department: 'Information Technology', designation: 'Software Developer', cell_number: '+964 775 678 9012', image: '', company: 'AFAQ ALFIKER', date_of_joining: '2023-09-01', gender: 'Female', date_of_birth: '2000-04-22', employment_type: 'Full-time', branch: 'Baghdad HQ', personal_email: 'reem@gmail.com', company_email: 'reem@afaqalfiker.com', reports_to: 'HR-EMP-0001', employee_type: 'Office', role: 'employee' },
+  audit:   { name: 'HR-EMP-0011', employee_name: 'Audit User', department: 'Finance', designation: 'Audit Manager', cell_number: '', image: '', company: 'AFAQ ALFIKER', date_of_joining: '2020-01-01', gender: 'Male', date_of_birth: '', employment_type: 'Full-time', branch: 'Baghdad HQ', personal_email: '', company_email: 'audit@afaqalfiker.com', reports_to: 'HR-EMP-0009', employee_type: 'Office', role: 'audit_manager' },
 };
 
 function getDemoProfile(id) {
@@ -61,6 +62,7 @@ function getDemoProfile(id) {
   if (raw === 'khalid' || raw === 'finance_manager') return DEMO_PROFILES.khalid;
   if (raw === 'ahmed' || raw === 'itmanager') return DEMO_PROFILES.ahmed;
   if (raw === 'reem') return DEMO_PROFILES.reem;
+  if (raw === 'audit' || raw === 'audit_manager') return DEMO_PROFILES.audit;
   return null;
 }
 

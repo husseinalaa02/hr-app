@@ -462,6 +462,8 @@
   "errors": {
     "failedLoad": "Failed to load data",
     "actionFailed": "Action failed",
-    "tryAgain": "Please try again"
+    "tryAgain": "Please try again",
+    "somethingWentWrong": "Something went wrong",
+    "offline": "You're offline — data loads from local cache"
   }
 }

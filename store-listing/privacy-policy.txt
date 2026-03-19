@@ -1,0 +1,51 @@
+PRIVACY POLICY
+AFAQ ALFIKER HR Application
+Last updated: March 19, 2026
+
+1. INTRODUCTION
+AFAQ ALFIKER ("we", "our", or "us") operates the AFAQ ALFIKER HR mobile application (the "App"). This Privacy Policy explains how we collect, use, and protect information when you use the App.
+
+This App is intended for use exclusively by AFAQ ALFIKER employees and authorized personnel.
+
+2. INFORMATION WE COLLECT
+
+a) Account Information
+When you log in, we process your employee ID, name, department, designation, and company email address as stored in the company HR system.
+
+b) Location Data
+The App uses your device's GPS location solely to verify that attendance check-ins occur within the designated office geofence zone. Location data is used only at the moment of check-in and is not continuously tracked or stored beyond the check-in record.
+
+c) Usage Data
+We may collect basic technical information such as device type and app version for troubleshooting purposes. We do not collect analytics or advertising data.
+
+3. HOW WE USE YOUR INFORMATION
+We use collected information only to:
+- Authenticate your identity and provide access to HR features
+- Record attendance check-ins and check-outs
+- Process leave, expense, and day requests
+- Deliver payslip and appraisal information to authorized employees
+- Send real-time HR notifications relevant to your employment
+
+4. DATA SHARING
+We do not sell, trade, or share your personal data with any third parties outside of AFAQ ALFIKER. Data is stored securely using Supabase cloud infrastructure with encryption in transit (TLS) and at rest.
+
+5. DATA RETENTION
+Your data is retained for the duration of your employment and for the period required by applicable labor laws and company policy after termination.
+
+6. YOUR RIGHTS
+As an employee, you may request access to, correction of, or deletion of your personal data by contacting the HR department at:
+hr@afaqalfiker.com
+
+7. SECURITY
+We implement industry-standard security measures including encrypted connections, role-based access controls, and rate-limited authentication to protect your data.
+
+8. CHILDREN'S PRIVACY
+This App is not intended for individuals under the age of 18. We do not knowingly collect data from minors.
+
+9. CHANGES TO THIS POLICY
+We may update this Privacy Policy from time to time. Changes will be communicated through the App or via company email.
+
+10. CONTACT US
+If you have any questions about this Privacy Policy, please contact:
+AFAQ ALFIKER — HR Department
+Email: hr@afaqalfiker.com

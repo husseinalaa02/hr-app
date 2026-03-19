@@ -69,7 +69,7 @@ export function buildCalculatedSalary(base, additional, days, fridayBonus, extra
 
 export async function getPayrollRecords({ employeeId = '', month = '', year = '', page = 1, pageSize = 200 } = {}) {
   if (SUPABASE_MODE) {
-    let query = supabase.from('payroll').select('*', { count: 'exact' });
+    let query = supabase.from('payroll').select('*');
     if (employeeId) query = query.eq('employee_id', employeeId);
     if (month && year) {
       const prefix = `${year}-${String(month).padStart(2, '0')}`;
@@ -79,7 +79,7 @@ export async function getPayrollRecords({ employeeId = '', month = '', year = ''
     const { data, error } = await query
       .order('period_start', { ascending: false })
       .range(from, from + pageSize - 1);
-    if (error) return [];
+    if (error) throw error;
     return data || [];
   }
   if (DEMO) {
@@ -98,7 +98,10 @@ export async function getPayrollRecords({ employeeId = '', month = '', year = ''
 export async function getPayrollRecord(id) {
   if (SUPABASE_MODE) {
     const { data, error } = await supabase.from('payroll').select('*').eq('id', id).single();
-    if (error) return null;
+    if (error) {
+      if (error.code === 'PGRST116') return null; // not found
+      throw error;
+    }
     return data;
   }
   if (DEMO) return db.payroll.get(Number(id));
@@ -145,10 +148,7 @@ export async function createPayroll(data, performer = null) {
     const { data: inserted, error } = await supabase.from('payroll').insert(record).select().single();
     if (error) throw error;
     if (performer) {
-      await supabase.from('payroll_log').insert({
-        payroll_id: inserted.id, action: 'Created',
-        performed_by: performer.name, performed_by_name: performer.employee_name, notes: '',
-      });
+      await addLog(inserted.id, 'Created', performer.name, performer.employee_name, '');
     }
     return inserted;
   }
@@ -282,12 +282,20 @@ export async function recalculatePayroll(payrollId) {
 // ─── Workflow Actions ──────────────────────────────────────────────────────────
 
 async function addLog(payrollId, action, performedBy, performedByName, notes = '') {
-  const entry = {
-    payroll_id: payrollId, action,
-    performed_by: performedBy, performed_by_name: performedByName,
-    timestamp: new Date().toISOString(), notes,
-  };
-  if (DEMO) { await db.payroll_log.add(entry); return; }
+  if (SUPABASE_MODE) {
+    await supabase.from('payroll_log').insert({
+      payroll_id: payrollId, action,
+      performed_by: performedBy, performed_by_name: performedByName, notes,
+    }).catch(() => {});
+    return;
+  }
+  if (DEMO) {
+    await db.payroll_log.add({
+      payroll_id: payrollId, action,
+      performed_by: performedBy, performed_by_name: performedByName,
+      timestamp: new Date().toISOString(), notes,
+    });
+  }
 }
 
 export async function getPayrollLog(payrollId) {
@@ -316,11 +324,7 @@ export async function submitPayroll(id, performer) {
     };
     const { data: updated, error } = await supabase.from('payroll').update(updates).eq('id', id).select().single();
     if (error) throw error;
-    await supabase.from('payroll_log').insert({
-      payroll_id: Number(id), action: 'Submitted to Finance',
-      performed_by: performer.name, performed_by_name: performer.employee_name,
-      notes: 'Submitted for payment processing',
-    });
+    await addLog(Number(id), 'Submitted to Finance', performer.name, performer.employee_name, 'Submitted for payment processing');
     return updated;
   }
   if (DEMO) {
@@ -351,11 +355,7 @@ export async function markAsPaid(id, performer) {
     };
     const { data: updated, error } = await supabase.from('payroll').update(updates).eq('id', id).select().single();
     if (error) throw error;
-    await supabase.from('payroll_log').insert({
-      payroll_id: Number(id), action: 'Marked as Paid',
-      performed_by: performer.name, performed_by_name: performer.employee_name,
-      notes: 'Salary payment processed',
-    });
+    await addLog(Number(id), 'Marked as Paid', performer.name, performer.employee_name, 'Salary payment processed');
     return updated;
   }
   if (DEMO) {

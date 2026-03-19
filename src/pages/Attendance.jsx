@@ -11,6 +11,8 @@ import { Skeleton } from '../components/Skeleton';
 import ErrorState from '../components/ErrorState';
 import { useTranslation } from 'react-i18next';
 
+const baghdadFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' });
+
 // Company work week: Saturday (6) → Thursday (4). Return the most recent Saturday.
 function getWeekStart() {
   const now = new Date();
@@ -120,8 +122,6 @@ function MissedPunchBanner({ record, t }) {
   );
 }
 
-const baghdadFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' });
-
 // Build a week array (Sat → Fri, company work week) merged with attendance records.
 // Days after today are excluded. Friday is always "Off".
 function buildWeekRows(weekStart, records) {
@@ -141,8 +141,8 @@ function buildWeekRows(weekStart, records) {
     if (recMap[key]) {
       rows.push(recMap[key]);
     } else {
-      const dow = d.getDay(); // 5 = Fri
-      const off = dow === 5;
+      const off = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Asia/Baghdad' })
+        .format(new Date(key + 'T12:00:00+03:00')) === 'Fri';
       rows.push({
         name: `SYNTH-${key}`,
         attendance_date: key,

@@ -25,7 +25,8 @@ export default function Reports() {
     setLoading(true);
     setLoadError(null);
     try {
-      const { employees, leaves, payroll, appraisals, expenses } = await getReportData();
+      const currentYear = new Date().getFullYear();
+      const { employees, leaves, payroll, appraisals, expenses } = await getReportData({ year: currentYear });
 
       const deptMap = {};
       employees.forEach(e => { deptMap[e.department] = (deptMap[e.department] || 0) + 1; });

@@ -85,6 +85,9 @@ export default async function handler(req, res) {
     });
     if (error) throw error;
 
+    // Keep employees table in sync with JWT so frontend RBAC matches server enforcement
+    await supabaseAdmin.from('employees').update({ role: new_role }).eq('name', employee_id);
+
     // Audit trail — non-fatal
     await supabaseAdmin.from('audit_logs').insert({
       action: 'ROLE_CHANGE',

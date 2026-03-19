@@ -29,13 +29,25 @@ const Admin          = lazy(() => import('./pages/Admin'));
 
 function NetworkBanner() {
   const { isOnline } = useNetwork();
+  const { t } = useTranslation();
   if (isOnline) return null;
   return (
     <div className="net-banner net-banner-offline">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01"/>
       </svg>
-      <span>You're offline — data loads from local cache</span>
+      <span>{t('errors.offline')}</span>
+    </div>
+  );
+}
+
+function ErrorFallback({ error, onRetry }) {
+  const { t } = useTranslation();
+  return (
+    <div style={{ padding: 32, textAlign: 'center' }}>
+      <h2 style={{ color: 'var(--danger, #c62828)', marginBottom: 8 }}>{t('errors.somethingWentWrong')}</h2>
+      <p style={{ color: 'var(--gray-600)', marginBottom: 16 }}>{error.message}</p>
+      <button className="btn btn-secondary" onClick={onRetry}>{t('common.retry')}</button>
     </div>
   );
 }
@@ -45,13 +57,7 @@ class ErrorBoundary extends Component {
   static getDerivedStateFromError(error) { return { error }; }
   render() {
     if (this.state.error) {
-      return (
-        <div style={{ padding: 32, textAlign: 'center' }}>
-          <h2 style={{ color: 'var(--danger, #c62828)', marginBottom: 8 }}>Something went wrong</h2>
-          <p style={{ color: 'var(--gray-600)', marginBottom: 16 }}>{this.state.error.message}</p>
-          <button className="btn btn-secondary" onClick={() => this.setState({ error: null })}>Try again</button>
-        </div>
-      );
+      return <ErrorFallback error={this.state.error} onRetry={() => this.setState({ error: null })} />;
     }
     return this.props.children;
   }

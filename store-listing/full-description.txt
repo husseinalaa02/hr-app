@@ -1,0 +1,39 @@
+AFAQ ALFIKER HR Management System
+
+The official HR app for AFAQ ALFIKER employees — everything you need to manage your work life in one place.
+
+KEY FEATURES
+
+📍 Attendance & Check-In
+Clock in and out directly from your phone. Location-based geofencing ensures check-ins happen only from the office. View your weekly attendance history at a glance.
+
+🗓 Leave Requests
+Submit leave requests in seconds — annual leave, sick leave, emergency leave and more. Track approval status in real time.
+
+📋 Day Requests
+Request remote work, early departure, or late arrival directly from the app.
+
+💰 Payslips & Payroll
+Access your monthly payslips securely anytime. View salary breakdowns, deductions, and net pay.
+
+🧾 Expense Claims
+Submit and track expense reimbursement requests with ease.
+
+⭐ Appraisals
+View your performance appraisals and ratings submitted by your manager.
+
+🔔 Real-Time Notifications
+Get instant notifications for approvals, rejections, payroll releases, and announcements.
+
+👥 Employee Directory
+Browse the company directory, view team members' profiles, departments, and contact information.
+
+📊 Reports (Managers & HR)
+HR managers and admins can access detailed reports on attendance, leaves, expenses, and headcount.
+
+SECURE & RELIABLE
+- Role-based access control (Employee, HR Manager, Finance, CEO, Admin)
+- Secure login with rate-limit protection
+- Data encrypted in transit and at rest
+
+Designed exclusively for AFAQ ALFIKER staff.

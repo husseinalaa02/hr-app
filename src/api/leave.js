@@ -74,13 +74,15 @@ async function applyUnpaidLeaveDeduction(leave) {
     .toArray();
   for (const pr of payrollRecords) {
     if (pr.status === 'Paid') continue; // never mutate settled payroll
-    const periodDays = pr.working_days || 30;
-    const deduction  = Math.round((pr.base_salary + pr.additional_salary) / periodDays * days);
-    await db.payroll.put({
-      ...pr,
-      working_days: Math.max(0, pr.working_days - days),
-      calculated_salary: Math.max(0, pr.calculated_salary - deduction),
-    });
+    const newDays   = Math.max(0, pr.working_days - days);
+    const newSalary = Math.max(0,
+      Math.round(((pr.base_salary + (pr.additional_salary || 0)) / 30) * newDays)
+      + (pr.friday_bonus    || 0)
+      + (pr.extra_day_bonus || 0)
+      - (pr.late_deductions    || 0)
+      - (pr.absence_deductions || 0)
+    );
+    await db.payroll.put({ ...pr, working_days: newDays, calculated_salary: newSalary });
   }
 }
 
@@ -88,7 +90,9 @@ async function applyUnpaidLeaveDeduction(leave) {
 
 export async function getLeaveApplications(employeeId, { status = '' } = {}) {
   if (SUPABASE_MODE) {
-    let query = supabase.from('leave_apps').select('*').eq('employee', employeeId);
+    let query = supabase.from('leave_apps')
+      .select('name, leave_type, from_date, to_date, total_leave_days, total_hours, is_hourly, status, approval_stage, description, from_time, to_time, posting_date, is_auto_deduction')
+      .eq('employee', employeeId);
     if (status) query = query.eq('status', status);
     const { data, error } = await query.order('from_date', { ascending: false });
     if (error) throw error;
@@ -176,8 +180,11 @@ export async function getPendingApprovals({ managerId = null, includeHRQueue = f
 }
 
 export async function getLeaveTypes() {
+  const FALLBACK = ['Annual Leave', 'Sick Leave', 'Casual Leave', 'Hourly Leave', 'Emergency Leave', 'Unpaid Leave'];
   if (SUPABASE_MODE) {
-    return ['Annual Leave', 'Sick Leave', 'Casual Leave', 'Hourly Leave', 'Emergency Leave', 'Unpaid Leave'];
+    const { data } = await supabase.from('leave_allocs').select('leave_type').limit(500);
+    const types = [...new Set((data || []).map(r => r.leave_type).filter(Boolean))].sort();
+    return types.length ? types : FALLBACK;
   }
   if (DEMO) return ['Annual Leave', 'Sick Leave', 'Casual Leave', 'Emergency Leave', 'Unpaid Leave'];
   return [];
@@ -290,7 +297,7 @@ export async function getAllApprovedLeaves({ year = new Date().getFullYear() } =
 export async function submitLeaveApplication(data) {
   if (SUPABASE_MODE) {
     const isHourly = data.is_hourly;
-    const currentYear = new Date().getFullYear();
+    const currentYear = parseInt(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date()).slice(0, 4), 10);
     // Date validation
     if (!isHourly && data.from_date && data.to_date && data.from_date > data.to_date) {
       throw new Error('End date must be on or after start date.');
@@ -423,17 +430,23 @@ export async function updateLeaveStatus(name, action, actorRole = 'manager') {
         .gte('period_end', existing.from_date);
       for (const pr of (prs || [])) {
         if (pr.status === 'Paid') continue; // never mutate a settled payroll record
-        const periodDays = pr.working_days || 30;
-        const deduction  = Math.round((pr.base_salary + pr.additional_salary) / periodDays * days);
+        const newDays   = Math.max(0, pr.working_days - days);
+        const newSalary = Math.max(0,
+          Math.round(((pr.base_salary + (pr.additional_salary || 0)) / 30) * newDays)
+          + (pr.friday_bonus    || 0)
+          + (pr.extra_day_bonus || 0)
+          - (pr.late_deductions    || 0)
+          - (pr.absence_deductions || 0)
+        );
         await supabase.from('payroll').update({
-          working_days:       Math.max(0, pr.working_days - days),
-          calculated_salary:  Math.max(0, pr.calculated_salary - deduction),
+          working_days:      newDays,
+          calculated_salary: newSalary,
         }).eq('id', pr.id);
         // Log the deduction for audit trail
         await supabase.from('payroll_log').insert({
           payroll_id: pr.id, action: 'Unpaid Leave Deduction',
           performed_by: existing.employee, performed_by_name: existing.employee_name,
-          notes: `Deducted ${deduction} IQD (${days}d unpaid leave from ${existing.from_date})`,
+          notes: `Deducted ${newSalary} IQD (${days}d unpaid leave from ${existing.from_date})`,
         }).catch(() => {});
       }
     } else {
