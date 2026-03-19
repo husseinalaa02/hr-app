@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getDayRequests, createDayRequest, managerApproveDayRequest, hrApproveDayRequest, rejectDayRequest, REQUEST_TYPES } from '../api/dayRequests';
@@ -34,6 +35,7 @@ function TypeBadge({ type }) {
 }
 
 export default function DayRequests() {
+  const { t } = useTranslation();
   const { employee, isAdmin, isAudit, isHR, hasPermission } = useAuth();
   const canApprove = hasPermission('day_requests:approve');
   const { addToast } = useToast();
@@ -165,24 +167,30 @@ export default function DayRequests() {
     <div className="page-content">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Day Requests</h1>
-          <p className="page-subtitle">Friday & Extra Day work requests</p>
+          <h1 className="page-title">{t('dayRequests.title')}</h1>
+          <p className="page-subtitle">{t('dayRequests.subtitle')}</p>
         </div>
         {!isAudit && (
-          <button className="btn btn-primary" onClick={openModal}>+ New Request</button>
+          <button className="btn btn-primary" onClick={openModal}>+ {t('dayRequests.newRequest')}</button>
         )}
       </div>
 
       {/* Filter Tabs */}
       <div className="filter-tabs">
-        {['All', 'Pending Manager', 'Pending HR', 'Approved', 'Rejected'].map(f => (
+        {[
+          { key: 'All',             label: t('dayRequests.all') },
+          { key: 'Pending Manager', label: t('dayRequests.pendingManager') },
+          { key: 'Pending HR',      label: t('dayRequests.pendingHR') },
+          { key: 'Approved',        label: t('dayRequests.approved') },
+          { key: 'Rejected',        label: t('dayRequests.rejected') },
+        ].map(({ key, label }) => (
           <button
-            key={f}
-            className={`filter-tab${filter === f ? ' active' : ''}`}
-            onClick={() => setFilter(f)}
+            key={key}
+            className={`filter-tab${filter === key ? ' active' : ''}`}
+            onClick={() => setFilter(key)}
           >
-            {f}
-            <span className="filter-tab-count">{counts[f]}</span>
+            {label}
+            <span className="filter-tab-count">{counts[key]}</span>
           </button>
         ))}
       </div>
@@ -192,7 +200,7 @@ export default function DayRequests() {
         <div className="loading-center"><span className="spinner" /></div>
       ) : filtered.length === 0 ? (
         <div className="empty-state">
-          <p>No {filter !== 'All' ? filter.toLowerCase() : ''} requests found</p>
+          <p>{t('dayRequests.noRequests')}</p>
         </div>
       ) : (
         <div className="request-list">
@@ -224,14 +232,14 @@ export default function DayRequests() {
                     onClick={() => handleManagerApprove(req.id)}
                     disabled={actionId === req.id}
                   >
-                    {actionId === req.id ? <span className="spinner-sm" /> : '→ Send to HR'}
+                    {actionId === req.id ? <span className="spinner-sm" /> : t('dayRequests.sendToHR')}
                   </button>
                   <button
                     className="btn btn-sm btn-danger"
                     onClick={() => handleReject(req.id)}
                     disabled={actionId === req.id}
                   >
-                    Reject
+                    {t('dayRequests.reject')}
                   </button>
                 </div>
               )}
@@ -242,14 +250,14 @@ export default function DayRequests() {
                     onClick={() => handleHRApprove(req.id)}
                     disabled={actionId === req.id}
                   >
-                    {actionId === req.id ? <span className="spinner-sm" /> : '✓ Final Approve'}
+                    {actionId === req.id ? <span className="spinner-sm" /> : t('dayRequests.finalApprove')}
                   </button>
                   <button
                     className="btn btn-sm btn-danger"
                     onClick={() => handleReject(req.id)}
                     disabled={actionId === req.id}
                   >
-                    Reject
+                    {t('dayRequests.reject')}
                   </button>
                 </div>
               )}
@@ -263,20 +271,20 @@ export default function DayRequests() {
         <div className="modal-backdrop" onClick={() => !submitting && setShowModal(false)}>
           <div className="modal modal-md" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <span className="modal-title">New Day Request</span>
+              <span className="modal-title">{t('dayRequests.newDayRequest')}</span>
               <button className="modal-close" onClick={() => setShowModal(false)} disabled={submitting}>✕</button>
             </div>
             <div className="modal-body">
               <div className="form-grid">
                 {isAdmin && (
                   <div className="form-group">
-                    <label className="form-label">Employee *</label>
+                    <label className="form-label">{t('dayRequests.employee')} *</label>
                     <select
                       className="form-input"
                       value={form.employee_id}
                       onChange={e => handleEmpChange(e.target.value)}
                     >
-                      <option value="">— Select Employee —</option>
+                      <option value="">{t('dayRequests.selectEmployee')}</option>
                       {employees.map(e => (
                         <option key={e.name} value={e.name}>{e.employee_name}</option>
                       ))}
@@ -285,20 +293,20 @@ export default function DayRequests() {
                 )}
 
                 <div className="form-group">
-                  <label className="form-label">Request Type *</label>
+                  <label className="form-label">{t('dayRequests.requestType')} *</label>
                   <select
                     className="form-input"
                     value={form.request_type}
                     onChange={e => setForm(f => ({ ...f, request_type: e.target.value }))}
                   >
-                    {REQUEST_TYPES.map(t => (
-                      <option key={t} value={t}>{t}</option>
+                    {REQUEST_TYPES.map(rt => (
+                      <option key={rt} value={rt}>{rt}</option>
                     ))}
                   </select>
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Date *</label>
+                  <label className="form-label">{t('dayRequests.date')} *</label>
                   <input
                     type="date"
                     className="form-input"
@@ -308,11 +316,11 @@ export default function DayRequests() {
                 </div>
 
                 <div className="form-group form-group-full">
-                  <label className="form-label">Notes</label>
+                  <label className="form-label">{t('dayRequests.reason')}</label>
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="Reason for working this day…"
+                    placeholder={t('dayRequests.notesPlaceholder')}
                     value={form.notes}
                     onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                   />
@@ -321,17 +329,17 @@ export default function DayRequests() {
                 <div className="form-group form-group-full">
                   <div className="info-box">
                     {form.request_type === 'Friday Day'
-                      ? 'Friday Day: Fixed payment of 25,000 IQD will be added to payroll upon approval.'
-                      : 'Extra Day: Base Salary ÷ 30 will be added to payroll upon approval.'
+                      ? t('dayRequests.fridayDayInfo')
+                      : t('dayRequests.extraDayInfo')
                     }
                   </div>
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-                <button className="btn btn-secondary" onClick={() => setShowModal(false)} disabled={submitting}>Cancel</button>
+                <button className="btn btn-secondary" onClick={() => setShowModal(false)} disabled={submitting}>{t('common.cancel')}</button>
                 <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
-                  {submitting ? <span className="spinner-sm" /> : 'Submit Request'}
+                  {submitting ? <span className="spinner-sm" /> : t('dayRequests.submitRequest')}
                 </button>
               </div>
             </div>
