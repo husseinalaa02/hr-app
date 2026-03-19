@@ -2,12 +2,12 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEmployees, getDepartments, createEmployee, addDepartment, deleteDepartment } from '../api/employees';
 import { useAuth } from '../context/AuthContext';
-
 import { useToast } from '../context/ToastContext';
 import Avatar from '../components/Avatar';
 import { SkeletonCard } from '../components/Skeleton';
 import ErrorState from '../components/ErrorState';
 import Modal from '../components/Modal';
+import { useTranslation } from 'react-i18next';
 
 const EMPTY_FORM = {
   employee_name: '', department: '', designation: '', gender: '',
@@ -17,36 +17,37 @@ const EMPTY_FORM = {
 
 function CreatedCredentialsModal({ emp, onClose }) {
   const [copied, setCopied] = useState('');
+  const { t } = useTranslation();
   const copy = (text, key) => {
     navigator.clipboard?.writeText(text);
     setCopied(key);
     setTimeout(() => setCopied(''), 2000);
   };
   return (
-    <Modal title="Employee Created" onClose={onClose}>
+    <Modal title={t('employees.employeeCreated')} onClose={onClose}>
       <div style={{ padding: '4px 0 8px' }}>
         <p style={{ fontSize: 14, color: 'var(--gray-600)', marginBottom: 20 }}>
-          Share these login credentials with <strong>{emp.employee_name}</strong>.
+          {t('employees.shareCredentials')} <strong>{emp.employee_name}</strong>.
         </p>
         {[
-          { label: 'Login (User ID)', value: emp.user_id, key: 'uid' },
-          { label: 'Password', value: emp.password, key: 'pwd' },
+          { label: t('employees.loginUserId2'), value: emp.user_id, key: 'uid' },
+          { label: t('employees.password'), value: emp.password, key: 'pwd' },
         ].map(({ label, value, key }) => (
           <div key={key} style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>{label}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--gray-50)', border: '1.5px solid var(--gray-200)', borderRadius: 10, padding: '10px 14px' }}>
               <span style={{ flex: 1, fontFamily: 'monospace', fontSize: 15, fontWeight: 700, color: 'var(--gray-800)', wordBreak: 'break-all' }}>{value || '—'}</span>
               <button onClick={() => copy(value, key)} style={{ background: copied === key ? '#059669' : 'var(--primary)', color: '#fff', border: 'none', borderRadius: 7, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                {copied === key ? 'Copied!' : 'Copy'}
+                {copied === key ? t('common.copied') : t('common.copy')}
               </button>
             </div>
           </div>
         ))}
         <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#92400e', marginTop: 8 }}>
-          Save these credentials — the password is not shown again.
+          {t('employees.saveCredentials')}
         </div>
         <div className="form-actions" style={{ marginTop: 20 }}>
-          <button className="btn btn-primary" onClick={onClose}>Done</button>
+          <button className="btn btn-primary" onClick={onClose}>{t('common.done')}</button>
         </div>
       </div>
     </Modal>
@@ -60,6 +61,7 @@ function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
   const [isCustomDept, setIsCustomDept] = useState(false);
   const { addToast } = useToast();
   const { getAccessToken } = useAuth();
+  const { t } = useTranslation();
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -76,7 +78,7 @@ function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
       onCreated(emp);
       setCreatedEmp({ ...emp, password: form.password });
     } catch (err) {
-      addToast(err.message || 'Failed to create employee', 'error');
+      addToast(err.message || t('employees.failedCreate'), 'error');
     } finally {
       setSaving(false);
     }
@@ -87,26 +89,26 @@ function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
   }
 
   return (
-    <Modal title="Create New Employee" onClose={onClose} size="lg">
+    <Modal title={t('employees.createEmployee')} onClose={onClose} size="lg">
       <form onSubmit={handle} className="form-stack">
         <div className="form-row">
           <div className="form-group">
-            <label>Full Name *</label>
-            <input className="form-input" value={form.employee_name} onChange={e => set('employee_name', e.target.value)} required placeholder="e.g. Mohammed Al-Harbi" />
+            <label>{t('employees.fullName')} *</label>
+            <input className="form-input" value={form.employee_name} onChange={e => set('employee_name', e.target.value)} required placeholder={t('employees.fullNamePlaceholder')} />
           </div>
           <div className="form-group">
-            <label>Gender</label>
+            <label>{t('employees.gender')}</label>
             <select className="form-input" value={form.gender} onChange={e => set('gender', e.target.value)}>
-              <option value="">Select</option>
-              <option>Male</option>
-              <option>Female</option>
+              <option value="">{t('employees.selectGender')}</option>
+              <option value="Male">{t('employees.male')}</option>
+              <option value="Female">{t('employees.female')}</option>
             </select>
           </div>
         </div>
 
         <div className="form-row">
           <div className="form-group">
-            <label>Department</label>
+            <label>{t('employees.department')}</label>
             <select className="form-input" value={isCustomDept ? '__new__' : form.department}
               onChange={e => {
                 if (e.target.value === '__new__') {
@@ -117,84 +119,84 @@ function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
                   set('department', e.target.value);
                 }
               }}>
-              <option value="">Select department</option>
+              <option value="">{t('employees.selectDepartment')}</option>
               {departments.map(d => <option key={d} value={d}>{d}</option>)}
-              <option value="__new__">+ Other (type below)</option>
+              <option value="__new__">{t('employees.otherDept')}</option>
             </select>
             {isCustomDept && (
-              <input className="form-input" style={{ marginTop: 6 }} placeholder="Enter department name"
+              <input className="form-input" style={{ marginTop: 6 }} placeholder={t('employees.enterDept')}
                 value={form.department} onChange={e => set('department', e.target.value)} autoFocus />
             )}
           </div>
           <div className="form-group">
-            <label>Designation</label>
-            <input className="form-input" value={form.designation} onChange={e => set('designation', e.target.value)} placeholder="e.g. Software Engineer" />
+            <label>{t('employees.designation')}</label>
+            <input className="form-input" value={form.designation} onChange={e => set('designation', e.target.value)} placeholder={t('employees.designationPlaceholder')} />
           </div>
         </div>
 
         <div className="form-row">
           <div className="form-group">
-            <label>Employment Type</label>
+            <label>{t('employees.employmentType')}</label>
             <select className="form-input" value={form.employment_type} onChange={e => set('employment_type', e.target.value)}>
-              <option>Full-time</option>
-              <option>Part-time</option>
-              <option>Contract</option>
-              <option>Intern</option>
+              <option value="Full-time">{t('employees.fullTime')}</option>
+              <option value="Part-time">{t('employees.partTime')}</option>
+              <option value="Contract">{t('employees.contract')}</option>
+              <option value="Intern">{t('employees.intern')}</option>
             </select>
           </div>
           <div className="form-group">
-            <label>Employee Type</label>
+            <label>{t('employees.employeeType')}</label>
             <select className="form-input" value={form.employee_type} onChange={e => set('employee_type', e.target.value)}>
-              <option value="Office">Office (21 days annual leave)</option>
-              <option value="Field">Field (12 days annual leave)</option>
+              <option value="Office">{t('employees.officeType')}</option>
+              <option value="Field">{t('employees.fieldType')}</option>
             </select>
           </div>
         </div>
 
         <div className="form-row">
           <div className="form-group">
-            <label>Date of Joining</label>
+            <label>{t('employees.dateOfJoining')}</label>
             <input type="date" className="form-input" value={form.date_of_joining} onChange={e => set('date_of_joining', e.target.value)} />
           </div>
         </div>
 
         <div className="form-row">
           <div className="form-group">
-            <label>Branch</label>
-            <input className="form-input" value={form.branch} onChange={e => set('branch', e.target.value)} placeholder="e.g. Riyadh HQ" />
+            <label>{t('employees.branch')}</label>
+            <input className="form-input" value={form.branch} onChange={e => set('branch', e.target.value)} placeholder={t('employees.branchPlaceholder')} />
           </div>
           <div className="form-group">
-            <label>Phone</label>
-            <input type="tel" className="form-input" value={form.cell_number} onChange={e => set('cell_number', e.target.value)} placeholder="+964 7XX XXX XXXX" />
+            <label>{t('employees.phone')}</label>
+            <input type="tel" className="form-input" value={form.cell_number} onChange={e => set('cell_number', e.target.value)} placeholder={t('employees.phonePlaceholder')} />
           </div>
         </div>
 
         <div className="form-row">
           <div className="form-group">
-            <label>Personal Email</label>
+            <label>{t('employees.personalEmail')}</label>
             <input type="email" className="form-input" value={form.personal_email} onChange={e => set('personal_email', e.target.value)} />
           </div>
           <div className="form-group">
-            <label>Company Email</label>
+            <label>{t('employees.companyEmail')}</label>
             <input type="email" className="form-input" value={form.company_email} onChange={e => set('company_email', e.target.value)} />
           </div>
         </div>
 
         <div className="form-row">
           <div className="form-group">
-            <label>Login User ID *</label>
-            <input className="form-input" value={form.user_id} onChange={e => handleUserIdChange(e.target.value)} required placeholder="e.g. ahmed.ali" />
+            <label>{t('employees.loginUserId')} *</label>
+            <input className="form-input" value={form.user_id} onChange={e => handleUserIdChange(e.target.value)} required placeholder={t('employees.loginUserIdPlaceholder')} />
           </div>
           <div className="form-group">
-            <label>Password *</label>
-            <input type="password" className="form-input" value={form.password} onChange={e => set('password', e.target.value)} required placeholder="Set initial password" />
+            <label>{t('employees.password')} *</label>
+            <input type="password" className="form-input" value={form.password} onChange={e => set('password', e.target.value)} required placeholder={t('employees.passwordPlaceholder')} />
           </div>
         </div>
 
         <div className="form-group">
-          <label>Reports To</label>
+          <label>{t('employees.reportsTo')}</label>
           <select className="form-input" value={form.reports_to} onChange={e => set('reports_to', e.target.value)}>
-            <option value="">— No Manager —</option>
+            <option value="">{t('employees.noManager')}</option>
             {employees.map(e => (
               <option key={e.name} value={e.name}>{e.employee_name} ({e.designation})</option>
             ))}
@@ -202,9 +204,9 @@ function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
         </div>
 
         <div className="form-actions">
-          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
           <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? <span className="spinner-sm" /> : 'Create Employee'}
+            {saving ? <span className="spinner-sm" /> : t('employees.createBtn')}
           </button>
         </div>
       </form>
@@ -217,6 +219,7 @@ function ManageDepartmentsModal({ departments, onClose, onChanged }) {
   const [saving, setSaving]   = useState(false);
   const [deleting, setDeleting] = useState('');
   const { addToast } = useToast();
+  const { t } = useTranslation();
 
   const handleAdd = async () => {
     if (!newName.trim()) return;
@@ -225,9 +228,9 @@ function ManageDepartmentsModal({ departments, onClose, onChanged }) {
       await addDepartment(newName.trim());
       setNewName('');
       onChanged();
-      addToast(`Department "${newName.trim()}" added`, 'success');
+      addToast(t('employees.deptAdded', { name: newName.trim() }), 'success');
     } catch (e) {
-      addToast(e.message || 'Failed to add department', 'error');
+      addToast(e.message || t('employees.failedAddDept'), 'error');
     } finally { setSaving(false); }
   };
 
@@ -236,33 +239,33 @@ function ManageDepartmentsModal({ departments, onClose, onChanged }) {
     try {
       await deleteDepartment(name);
       onChanged();
-      addToast(`Department "${name}" removed`, 'success');
+      addToast(t('employees.deptRemoved', { name }), 'success');
     } catch (e) {
-      addToast(e.message || 'Failed to delete department', 'error');
+      addToast(e.message || t('employees.failedDeleteDept'), 'error');
     } finally { setDeleting(''); }
   };
 
   return (
-    <Modal title="Manage Departments" onClose={onClose}>
+    <Modal title={t('employees.manageDeptTitle')} onClose={onClose}>
       <div style={{ minWidth: 320 }}>
         {/* Add new */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
           <input
             className="form-input"
             style={{ flex: 1 }}
-            placeholder="New department name"
+            placeholder={t('employees.newDeptPlaceholder')}
             value={newName}
             onChange={e => setNewName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAdd()}
           />
           <button className="btn btn-primary" onClick={handleAdd} disabled={saving || !newName.trim()}>
-            {saving ? <span className="spinner-sm" /> : 'Add'}
+            {saving ? <span className="spinner-sm" /> : t('employees.addDept')}
           </button>
         </div>
 
         {/* List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
-          {departments.length === 0 && <p className="text-muted" style={{ fontSize: 13 }}>No departments yet.</p>}
+          {departments.length === 0 && <p className="text-muted" style={{ fontSize: 13 }}>{t('employees.noDepartments')}</p>}
           {departments.map(d => (
             <div key={d} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 8, padding: '8px 12px' }}>
               <span style={{ fontSize: 14, fontWeight: 500 }}>{d}</span>
@@ -301,6 +304,7 @@ export default function Employees() {
   const navigate = useNavigate();
   const { isAdmin, hasPermission } = useAuth();
   const canWrite = hasPermission('employees:write');
+  const { t } = useTranslation();
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [search, setSearch] = useState('');
@@ -321,7 +325,7 @@ export default function Employees() {
       setEmployees(emps);
       if (!departments.length) setDepartments(depts);
     } catch (e) {
-      setError(e.message || 'Failed to load employees');
+      setError(e.message || t('errors.failedLoad'));
     } finally {
       setLoading(false);
     }
@@ -343,15 +347,15 @@ export default function Employees() {
     <div className="page-content">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Employee Directory</h1>
-          <p className="page-subtitle">View and manage company employees</p>
+          <h1 className="page-title">{t('employees.title')}</h1>
+          <p className="page-subtitle">{t('employees.subtitle')}</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {isAdmin && (
-            <button className="btn btn-secondary" onClick={() => setShowDepts(true)}>Manage Departments</button>
+            <button className="btn btn-secondary" onClick={() => setShowDepts(true)}>{t('employees.manageDepartments')}</button>
           )}
           {canWrite && (
-            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ New Employee</button>
+            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>{t('employees.newEmployee')}</button>
           )}
         </div>
       </div>
@@ -359,7 +363,7 @@ export default function Employees() {
         <input
           type="search"
           className="form-input search-input"
-          placeholder="Search by name…"
+          placeholder={t('employees.searchPlaceholder')}
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
@@ -368,7 +372,7 @@ export default function Employees() {
           value={department}
           onChange={e => setDepartment(e.target.value)}
         >
-          <option value="">All Departments</option>
+          <option value="">{t('employees.allDepartments')}</option>
           {departments.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
       </div>
@@ -379,7 +383,7 @@ export default function Employees() {
         {loading ? (
           Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)
         ) : employees.length === 0 ? (
-          <p className="text-muted">No employees found.</p>
+          <p className="text-muted">{t('employees.noEmployees')}</p>
         ) : (
           employees.map(emp => (
             <EmployeeCard key={emp.name} emp={emp} onClick={id => navigate(`/employees/${id}`)} />

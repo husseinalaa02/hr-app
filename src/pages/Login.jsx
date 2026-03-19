@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useTranslation } from 'react-i18next';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -9,6 +10,7 @@ export default function Login() {
   const { login } = useAuth();
   const { addToast } = useToast();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,7 +23,7 @@ export default function Login() {
       await login(email, password);
       navigate('/', { replace: true });
     } catch (err) {
-      addToast(err.message || 'Invalid credentials. Please try again.', 'error');
+      addToast(err.message || t('login.invalidCredentials'), 'error');
     } finally {
       setLoading(false);
     }
@@ -33,16 +35,16 @@ export default function Login() {
         <div className="login-brand">
           <img src="/afaq_logo.png" alt="AFAQ ALFIKER" className="login-logo-img" />
           <h2>AFAQ ALFIKER</h2>
-          <p>HR Management System</p>
+          <p>{t('login.title')}</p>
         </div>
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">{t('login.email')}</label>
             <input
               id="email"
               type="text"
               className="form-input"
-              placeholder="your@email.com or Administrator"
+              placeholder={t('login.emailPlaceholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -50,7 +52,7 @@ export default function Login() {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">{t('login.password')}</label>
             <input
               id="password"
               type="password"
@@ -62,11 +64,11 @@ export default function Login() {
             />
           </div>
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? <span className="spinner-sm" /> : 'Sign In'}
+            {loading ? <span className="spinner-sm" /> : t('login.signIn')}
           </button>
           {DEMO && (
             <div className="demo-notice">
-              <strong>Demo Mode</strong> — any password works<br />
+              <strong>{t('login.demoMode')}</strong> — {t('login.demoNote')}<br />
               <code>hussein</code> Admin &nbsp;·&nbsp;
               <code>alaa</code> CEO &nbsp;·&nbsp;
               <code>sara</code> HR Manager &nbsp;·&nbsp;

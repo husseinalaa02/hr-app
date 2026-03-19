@@ -9,6 +9,7 @@ import { useGeofence } from '../hooks/useGeofence';
 import Badge from '../components/Badge';
 import { Skeleton } from '../components/Skeleton';
 import ErrorState from '../components/ErrorState';
+import { useTranslation } from 'react-i18next';
 
 // Company work week: Saturday (6) → Thursday (4). Return the most recent Saturday.
 function getWeekStart() {
@@ -63,14 +64,14 @@ function GeoIcon() {
   );
 }
 
-function GeofenceIndicator({ geo }) {
+function GeofenceIndicator({ geo, t }) {
   if (!geo.configured) return null;
 
   if (geo.loading) {
     return (
       <div className="geo-indicator geo-loading">
         <span className="geo-pulse" />
-        <span>Finding your location…</span>
+        <span>{t('attendance.findingLocation')}</span>
       </div>
     );
   }
@@ -90,8 +91,8 @@ function GeofenceIndicator({ geo }) {
     return (
       <div className="geo-indicator geo-ok">
         <GeoIcon />
-        <span>You're at the office</span>
-        <span className="geo-distance">{geo.distance}m away</span>
+        <span>{t('attendance.youAreAtOffice')}</span>
+        <span className="geo-distance">{geo.distance}m {t('attendance.away')}</span>
       </div>
     );
   }
@@ -99,13 +100,13 @@ function GeofenceIndicator({ geo }) {
   return (
     <div className="geo-indicator geo-blocked">
       <GeoIcon />
-      <span>Outside office zone</span>
-      <span className="geo-distance">{geo.distance}m · limit {geo.radius}m</span>
+      <span>{t('attendance.outsideOfficeZone')}</span>
+      <span className="geo-distance">{geo.distance}m · {t('attendance.limit')} {geo.radius}m</span>
     </div>
   );
 }
 
-function MissedPunchBanner({ record }) {
+function MissedPunchBanner({ record, t }) {
   if (!record) return null;
   const date = new Date(record.attendance_date).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
   const inTime = new Date(record.in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -114,10 +115,7 @@ function MissedPunchBanner({ record }) {
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
       </svg>
-      <span>
-        You forgot to check out on <strong>{date}</strong> (checked in at {inTime}).
-        Please submit a regularization request.
-      </span>
+      <span>{t('attendance.missedCheckout', { date, time: inTime })}</span>
     </div>
   );
 }
@@ -170,6 +168,7 @@ export default function Attendance() {
   const { employee } = useAuth();
   const { addToast } = useToast();
   const geo = useGeofence();
+  const { t } = useTranslation();
 
   const [checkins, setCheckins]         = useState([]);
   const [todayAtt, setTodayAtt]         = useState(null);
@@ -197,7 +196,7 @@ export default function Attendance() {
       setWeekly(buildWeekRows(weekStart, w));
       setMissedRecord(missed);
     } catch (e) {
-      setError(e.message || 'Failed to load attendance');
+      setError(e.message || t('errors.failedLoad'));
     } finally {
       setLoading(false);
     }
@@ -217,12 +216,12 @@ export default function Attendance() {
 
   const handleCheckin = async () => {
     if (geoBlocked) {
-      addToast('You must be at the office to check in.', 'error');
+      addToast(t('attendance.mustBeAtOffice'), 'error');
       return;
     }
     // GPS error: location could not be verified — warn but allow the check-in
     if (geo.configured && geo.error) {
-      addToast('Location unavailable — check-in recorded without geofence verification.', 'warning');
+      addToast(t('attendance.locationUnavailable'), 'warning');
     }
     setActionLoading(true);
     try {
@@ -230,23 +229,23 @@ export default function Attendance() {
 
       if (nextAction === 'IN') {
         if (result.late) {
-          addToast(`Checked in — ${fmtMinutes(result.minutes)} late`, result.minutes <= 15 ? 'warning' : 'error');
+          addToast(t('attendance.lateToast', { duration: fmtMinutes(result.minutes) }), result.minutes <= 15 ? 'warning' : 'error');
         } else {
-          addToast('Checked in', 'success');
+          addToast(t('attendance.checkedInToast'), 'success');
         }
       } else {
         if (result.earlyLeaveMinutes > 0) {
-          addToast(`Checked out — ${fmtMinutes(result.earlyLeaveMinutes)} before shift end`, 'warning');
+          addToast(t('attendance.earlyLeaveToast', { duration: fmtMinutes(result.earlyLeaveMinutes) }), 'warning');
         } else if (result.overtimeMinutes > 0) {
-          addToast(`Checked out — ${fmtMinutes(result.overtimeMinutes)} overtime`, 'info');
+          addToast(t('attendance.overtimeToast', { duration: fmtMinutes(result.overtimeMinutes) }), 'info');
         } else {
-          addToast('Checked out successfully', 'success');
+          addToast(t('attendance.checkedOutToast'), 'success');
         }
       }
 
       await load();
     } catch (err) {
-      addToast(err.message || 'Action failed', 'error');
+      addToast(err.message || t('errors.actionFailed'), 'error');
     } finally {
       setActionLoading(false);
     }
@@ -268,12 +267,12 @@ export default function Attendance() {
       <div className="checkin-card">
 
         {/* Missed checkout banner */}
-        <MissedPunchBanner record={missedRecord} />
+        <MissedPunchBanner record={missedRecord} t={t} />
 
         {/* Off-day notice */}
         {offDay && (
           <div className="offday-notice">
-            <span>Today is a non-working day — you can still check in if assigned a shift.</span>
+            <span>{t('attendance.offDayNotice')}</span>
           </div>
         )}
 
@@ -281,7 +280,7 @@ export default function Attendance() {
         <Clock />
 
         {/* Geofence status */}
-        <GeofenceIndicator geo={geo} />
+        <GeofenceIndicator geo={geo} t={t} />
 
         {/* Check-in button */}
         <button
@@ -296,17 +295,17 @@ export default function Attendance() {
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
               </svg>
-              Outside Zone
+              {t('attendance.outsideZone')}
             </>
           ) : geo.loading && geo.configured ? (
-            <><span className="spinner-sm" style={{ borderTopColor: 'var(--primary)', borderColor: 'rgba(12,68,124,0.15)' }} /> Locating…</>
-          ) : isCheckedIn ? 'Check Out' : 'Check In'}
+            <><span className="spinner-sm" style={{ borderTopColor: 'var(--primary)', borderColor: 'rgba(12,68,124,0.15)' }} /> {t('attendance.locating')}</>
+          ) : isCheckedIn ? t('attendance.checkOut') : t('attendance.checkIn')}
         </button>
 
         {/* Today's log */}
         <div className="today-log">
           <div className="log-item">
-            <span className="log-label">Check In</span>
+            <span className="log-label">{t('attendance.checkIn')}</span>
             {inTime
               ? <span className="log-value">{inTime}</span>
               : <span className="log-value log-empty">—</span>
@@ -314,7 +313,7 @@ export default function Attendance() {
           </div>
           <div className="log-divider" />
           <div className="log-item">
-            <span className="log-label">Check Out</span>
+            <span className="log-label">{t('attendance.checkOut')}</span>
             {outTime
               ? <span className="log-value">{outTime}</span>
               : <span className="log-value log-empty">—</span>
@@ -327,16 +326,16 @@ export default function Attendance() {
 
       {/* Weekly table */}
       <div className="card">
-        <div className="card-header"><h3>This Week</h3></div>
+        <div className="card-header"><h3>{t('attendance.thisWeek')}</h3></div>
         <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Check In</th>
-                <th>Check Out</th>
-                <th>Hours</th>
-                <th>Status</th>
+                <th>{t('attendance.date')}</th>
+                <th>{t('attendance.checkIn')}</th>
+                <th>{t('attendance.checkOut')}</th>
+                <th>{t('attendance.hours')}</th>
+                <th>{t('attendance.status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -349,12 +348,12 @@ export default function Attendance() {
                   </tr>
                 ))
               ) : weekly.length === 0 ? (
-                <tr><td colSpan={5} className="text-center text-muted">No records this week</td></tr>
+                <tr><td colSpan={5} className="text-center text-muted">{t('attendance.noRecordsThisWeek')}</td></tr>
               ) : weekly.map((a) => (
                 <tr key={a.name} style={a._synthetic ? { opacity: 0.6 } : undefined}>
                   <td>{a.attendance_date}</td>
                   <td>{formatTime(a.in_time) || '—'}</td>
-                  <td>{formatTime(a.out_time) || (isCheckedIn && a.attendance_date === baghdadFmt.format(new Date()) ? <em style={{color:'var(--gray-400)'}}>open</em> : '—')}</td>
+                  <td>{formatTime(a.out_time) || (isCheckedIn && a.attendance_date === baghdadFmt.format(new Date()) ? <em style={{color:'var(--gray-400)'}}>{t('attendance.open')}</em> : '—')}</td>
                   <td>{a.working_hours ? `${Number(a.working_hours).toFixed(1)}h` : '—'}</td>
                   <td>
                     {a.status && <Badge status={a.status} />}

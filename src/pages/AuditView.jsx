@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getAuditLogs } from '../api/auditLog';
 import { usePermission } from '../rbac/usePermission';
 
@@ -122,6 +123,7 @@ function exportToCSV(logs) {
 }
 
 export default function AuditView() {
+  const { t } = useTranslation();
   const { can, role } = usePermission();
   const canExport = can('payroll:export') || role === 'admin' || role === 'ceo';
 
@@ -158,8 +160,8 @@ export default function AuditView() {
     <div className="page-content">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Audit Trail</h1>
-          <p className="page-subtitle">Read-only — system activity log</p>
+          <h1 className="page-title">{t('audit.title')}</h1>
+          <p className="page-subtitle">{t('audit.subtitle')}</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <span style={{
@@ -189,7 +191,7 @@ export default function AuditView() {
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
-              Export CSV
+              {t('reports.export')}
             </button>
           )}
         </div>
@@ -278,19 +280,19 @@ export default function AuditView() {
 
           {logs.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-              No audit logs match the current filters.
+              {t('audit.noEntries')}
             </div>
           ) : (
             <div className="table-wrap">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Timestamp</th>
-                    <th>User</th>
+                    <th>{t('audit.timestamp')}</th>
+                    <th>{t('common.name')}</th>
                     <th>Role</th>
-                    <th>Action</th>
+                    <th>{t('audit.action')}</th>
                     <th>Resource</th>
-                    <th>Details</th>
+                    <th>{t('audit.details')}</th>
                     <th>IP Address</th>
                   </tr>
                 </thead>

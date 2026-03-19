@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getExpenses, submitExpense, saveDraftExpense, approveExpense, rejectExpense, deleteExpense, EXPENSE_TYPE_LIST } from '../api/expenses';
@@ -16,6 +17,7 @@ const STATUS_COLOR = {
 function fmt(n) { return Number(n).toLocaleString() + ' IQD'; }
 
 export default function Expenses() {
+  const { t } = useTranslation();
   const { employee, isAdmin } = useAuth();
   const { addToast } = useToast();
   const [tab, setTab] = useState('mine');
@@ -63,10 +65,10 @@ export default function Expenses() {
     <div className="page-content">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Expenses</h1>
-          <p className="page-subtitle">Submit and track expense reimbursements</p>
+          <h1 className="page-title">{t('expenses.title')}</h1>
+          <p className="page-subtitle">{t('expenses.subtitle')}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ New Expense</button>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ {t('expenses.newExpense')}</button>
       </div>
       <div className="page-toolbar">
         <div className="tab-group">
@@ -89,7 +91,7 @@ export default function Expenses() {
             <div key={i} className="leave-item-card"><Skeleton height={14} width="50%" /><Skeleton height={12} width="70%" style={{ marginTop: 8 }} /></div>
           ))
         ) : rows.length === 0 ? (
-          <div className="card"><p className="text-center text-muted" style={{ padding: '32px 16px' }}>No expenses found</p></div>
+          <div className="card"><p className="text-center text-muted" style={{ padding: '32px 16px' }}>{t('expenses.noExpenses')}</p></div>
         ) : rows.map(e => (
           <div key={e.id} className="leave-item-card">
             <div className="leave-item-top">
@@ -114,7 +116,7 @@ export default function Expenses() {
                 </>
               )}
               {e.employee_id === employee.name && e.status === 'Draft' && (
-                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(e.id)}>Delete</button>
+                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(e.id)}>{t('common.delete')}</button>
               )}
             </div>
           </div>
@@ -122,7 +124,7 @@ export default function Expenses() {
       </div>
 
       {showModal && (
-        <Modal title="New Expense" onClose={() => setShowModal(false)}>
+        <Modal title={t('expenses.newExpense')} onClose={() => setShowModal(false)}>
           <ExpenseForm employee={employee} onClose={() => setShowModal(false)} onCreated={load} />
         </Modal>
       )}
@@ -131,6 +133,7 @@ export default function Expenses() {
 }
 
 function ExpenseForm({ employee, onClose, onCreated }) {
+  const { t } = useTranslation();
   const { addToast } = useToast();
   const [form, setForm] = useState({ expense_type: '', amount: '', expense_date: '', description: '' });
   const [saving, setSaving] = useState(false);
@@ -153,7 +156,7 @@ function ExpenseForm({ employee, onClose, onCreated }) {
   return (
     <form className="form-stack" onSubmit={e => handle(e, false)}>
       <div className="form-group">
-        <label>Expense Type *</label>
+        <label>{t('expenses.expenseType')} *</label>
         <select className="form-input" value={form.expense_type} onChange={e => set('expense_type', e.target.value)} required>
           <option value="">Select type</option>
           {EXPENSE_TYPE_LIST.map(t => <option key={t} value={t}>{t}</option>)}
@@ -161,22 +164,22 @@ function ExpenseForm({ employee, onClose, onCreated }) {
       </div>
       <div className="form-row">
         <div className="form-group">
-          <label>Amount (IQD) *</label>
+          <label>{t('expenses.amount')} (IQD) *</label>
           <input type="number" className="form-input" value={form.amount} onChange={e => set('amount', e.target.value)} required min="1" />
         </div>
         <div className="form-group">
-          <label>Date *</label>
+          <label>{t('expenses.expenseDate')} *</label>
           <input type="date" className="form-input" value={form.expense_date} onChange={e => set('expense_date', e.target.value)} required />
         </div>
       </div>
       <div className="form-group">
-        <label>Description</label>
+        <label>{t('expenses.description')}</label>
         <textarea className="form-input" rows={2} value={form.description} onChange={e => set('description', e.target.value)} />
       </div>
       <div className="form-actions">
-        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
         <button type="button" className="btn btn-secondary" onClick={e => handle(e, true)} disabled={saving}>Save Draft</button>
-        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? <span className="spinner-sm" /> : 'Submit'}</button>
+        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? <span className="spinner-sm" /> : t('expenses.submitExpense')}</button>
       </div>
     </form>
   );

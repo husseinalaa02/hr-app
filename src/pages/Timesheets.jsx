@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getEmployees } from '../api/employees';
@@ -46,6 +47,7 @@ function ShiftBadge({ shift_type, start_time, end_time }) {
 }
 
 function AssignScheduleModal({ employees, onClose, onAssigned, preselectedEmployee }) {
+  const { t } = useTranslation();
   const { employee: me } = useAuth();
   const { addToast } = useToast();
   const [empId, setEmpId] = useState(preselectedEmployee?.name || '');
@@ -153,12 +155,12 @@ function AssignScheduleModal({ employees, onClose, onAssigned, preselectedEmploy
         </div>
 
         <div className="form-group">
-          <label>Notes</label>
+          <label>{t('timesheets.notes')}</label>
           <input className="form-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional note" />
         </div>
 
         <div className="form-actions">
-          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
           <button type="submit" className="btn btn-primary" disabled={saving}>
             {saving ? <span className="spinner-sm" /> : 'Assign Schedule'}
           </button>
@@ -169,6 +171,7 @@ function AssignScheduleModal({ employees, onClose, onAssigned, preselectedEmploy
 }
 
 function ScheduleHistoryModal({ employee, onClose }) {
+  const { t } = useTranslation();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -183,7 +186,7 @@ function ScheduleHistoryModal({ employee, onClose }) {
       {loading ? (
         <div style={{ padding: 16 }}><Skeleton height={14} /><Skeleton height={14} style={{ marginTop: 8 }} /></div>
       ) : history.length === 0 ? (
-        <p className="text-muted" style={{ padding: 16 }}>No schedule history.</p>
+        <p className="text-muted" style={{ padding: 16 }}>{t('timesheets.noEntries')}</p>
       ) : (
         <div className="table-wrap">
           <table className="data-table">
@@ -191,9 +194,9 @@ function ScheduleHistoryModal({ employee, onClose }) {
               <tr>
                 <th>Effective Date</th>
                 <th>Shift</th>
-                <th>Hours</th>
+                <th>{t('timesheets.hours')}</th>
                 <th>Assigned By</th>
-                <th>Notes</th>
+                <th>{t('timesheets.notes')}</th>
               </tr>
             </thead>
             <tbody>
@@ -215,6 +218,7 @@ function ScheduleHistoryModal({ employee, onClose }) {
 }
 
 export default function Timesheets() {
+  const { t } = useTranslation();
   const { employee, isAdmin, isHR } = useAuth();
   const { addToast } = useToast();
 
@@ -256,12 +260,12 @@ export default function Timesheets() {
     <div className="page-content">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Work Schedules</h1>
-          <p className="page-subtitle">View and manage employee shift assignments</p>
+          <h1 className="page-title">{t('timesheets.title')}</h1>
+          <p className="page-subtitle">{t('timesheets.subtitle')}</p>
         </div>
         {(canManage) && (
           <button className="btn btn-primary" onClick={() => { setEditTarget(null); setShowAssign(true); }}>
-            + Assign Schedule
+            + {t('timesheets.newEntry')}
           </button>
         )}
       </div>
@@ -305,11 +309,11 @@ export default function Timesheets() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Employee</th>
+                  <th>{t('common.name')}</th>
                   <th>Current Shift</th>
-                  <th>Effective Date</th>
+                  <th>{t('timesheets.date')}</th>
                   <th>Assigned By</th>
-                  <th></th>
+                  <th>{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>

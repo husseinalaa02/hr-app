@@ -10,6 +10,7 @@ import Badge from '../components/Badge';
 import Modal from '../components/Modal';
 import { Skeleton } from '../components/Skeleton';
 import ErrorState from '../components/ErrorState';
+import { useTranslation } from 'react-i18next';
 
 const BALANCE_COLORS = {
   'Annual Leave':  '#0C447C',
@@ -19,11 +20,12 @@ const BALANCE_COLORS = {
 };
 
 function BalanceBar({ label, remaining, allocated, unit, color, annualMax, monthly }) {
+  const { t } = useTranslation();
   const pct = allocated > 0 ? Math.max(0, (remaining / allocated) * 100) : 0;
   const subLabel = monthly
-    ? '(monthly quota)'
+    ? `(${t('leave.monthlyQuota').replace(/[()]/g, '')})`
     : annualMax && allocated < annualMax
-      ? `(accrued ${allocated}/${annualMax} for the year)`
+      ? t('leave.accrued', { allocated, max: annualMax })
       : null;
   return (
     <div className="balance-bar-item">
@@ -33,7 +35,7 @@ function BalanceBar({ label, remaining, allocated, unit, color, annualMax, month
           {subLabel && <span style={{ fontSize: 10, color: 'var(--gray-400)', marginLeft: 5 }}>{subLabel}</span>}
         </span>
         <span className="balance-bar-value" style={{ color }}>
-          <strong>{typeof remaining === 'number' ? remaining.toFixed(remaining % 1 ? 1 : 0) : remaining}</strong> / {allocated} {unit} left
+          <strong>{typeof remaining === 'number' ? remaining.toFixed(remaining % 1 ? 1 : 0) : remaining}</strong> / {allocated} {unit} {t('leave.daysLeft')}
         </span>
       </div>
       <div className="balance-bar-track">
@@ -50,6 +52,7 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
   const [isHourly, setIsHourly] = useState(false);
   const [saving, setSaving] = useState(false);
   const { addToast } = useToast();
+  const { t } = useTranslation();
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -65,14 +68,14 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
 
   const handle = async (e) => {
     e.preventDefault();
-    if (isHourly && hours <= 0) { addToast('To time must be after from time.', 'error'); return; }
+    if (isHourly && hours <= 0) { addToast(t('leave.toTimeError'), 'error'); return; }
     if (!isHourly && form.from_date && form.to_date && form.to_date < form.from_date) {
-      addToast('End date must be on or after start date.', 'error'); return;
+      addToast(t('leave.endDateError'), 'error'); return;
     }
-    if (!isHourly && days === 0) { addToast('Please select valid start and end dates.', 'error'); return; }
+    if (!isHourly && days === 0) { addToast(t('leave.validDatesError'), 'error'); return; }
     if (insufficient) {
       addToast(
-        `Not enough balance. Only ${selectedBal.remaining} ${selectedBal.unit} remaining.`,
+        t('leave.notEnoughBalance', { remaining: selectedBal.remaining, unit: selectedBal.unit }),
         'error'
       );
       return;
@@ -82,7 +85,7 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
       await onSubmit({ ...form, is_hourly: isHourly });
       onClose();
     } catch (err) {
-      addToast(err.message || 'Failed to submit leave', 'error');
+      addToast(err.message || t('errors.actionFailed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -98,28 +101,28 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
           className={`mode-btn ${!isHourly ? 'active' : ''}`}
           onClick={() => setIsHourly(false)}
         >
-          📅 Full / Multi Day
+          {t('leave.fullDay')}
         </button>
         <button
           type="button"
           className={`mode-btn ${isHourly ? 'active' : ''}`}
           onClick={() => setIsHourly(true)}
         >
-          ⏱ Hourly
+          {t('leave.hourly')}
         </button>
       </div>
 
       {/* Leave type — only for daily */}
       {!isHourly && (
         <div className="form-group">
-          <label>Leave Type *</label>
+          <label>{t('leave.leaveType')} *</label>
           <select className="form-input" value={form.leave_type} onChange={e => set('leave_type', e.target.value)} required>
-            <option value="">Select leave type</option>
-            {leaveTypes.map(t => {
-              const bal = balance.find(b => b.leave_type === t && !b.is_hourly);
+            <option value="">{t('leave.selectLeaveType')}</option>
+            {leaveTypes.map(lt => {
+              const bal = balance.find(b => b.leave_type === lt && !b.is_hourly);
               return (
-                <option key={t} value={t}>
-                  {t}{bal ? ` (${bal.remaining} days left)` : ''}
+                <option key={lt} value={lt}>
+                  {lt}{bal ? ` (${bal.remaining} ${t('leave.daysLeft')})` : ''}
                 </option>
               );
             })}
@@ -129,7 +132,7 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
 
       {isHourly && hourlyBalance && (
         <div className="hourly-balance-hint">
-          <span>⏱ This month's hourly leave:</span>
+          <span>{t('leave.monthlyHourlyLeave')}</span>
           <strong style={{ color: '#6a1b9a' }}>{hourlyBalance.remaining.toFixed(1)}h / {hourlyBalance.allocated}h</strong>
         </div>
       )}
@@ -137,13 +140,13 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
       {/* Date(s) */}
       <div className={isHourly ? 'form-group' : 'form-row'}>
         <div className="form-group">
-          <label>{isHourly ? 'Date *' : 'From Date *'}</label>
+          <label>{isHourly ? t('leave.date') : t('leave.fromDate')} *</label>
           <input type="date" className="form-input" value={form.from_date}
             onChange={e => set('from_date', e.target.value)} required />
         </div>
         {!isHourly && (
           <div className="form-group">
-            <label>To Date *</label>
+            <label>{t('leave.toDate')} *</label>
             <input type="date" className="form-input" value={form.to_date}
               min={form.from_date || undefined}
               onChange={e => set('to_date', e.target.value)} required />
@@ -155,12 +158,12 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
       {isHourly && (
         <div className="form-row">
           <div className="form-group">
-            <label>From Time *</label>
+            <label>{t('leave.fromTime')} *</label>
             <input type="time" className="form-input" value={form.from_time}
               onChange={e => set('from_time', e.target.value)} required />
           </div>
           <div className="form-group">
-            <label>To Time *</label>
+            <label>{t('leave.toTime')} *</label>
             <input type="time" className="form-input" value={form.to_time}
               onChange={e => set('to_time', e.target.value)} required />
           </div>
@@ -171,27 +174,27 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
       {(requested > 0) && (
         <div className={`days-preview ${insufficient ? 'days-preview-error' : 'days-preview-ok'}`}>
           {isHourly
-            ? `${hours.toFixed(1)} hour(s) requested`
-            : `${days} day(s) requested`}
+            ? t('leave.hoursRequested', { count: hours.toFixed(1) })
+            : t('leave.daysRequested', { count: days })}
           {selectedBal && !insufficient && (
-            <span> — {(selectedBal.remaining - requested).toFixed(isHourly ? 1 : 0)} {selectedBal.unit} will remain after</span>
+            <span> {t('leave.willRemain', { count: (selectedBal.remaining - requested).toFixed(isHourly ? 1 : 0), unit: selectedBal.unit })}</span>
           )}
           {insufficient && (
-            <span> — exceeds balance ({selectedBal.remaining} {selectedBal.unit} left)</span>
+            <span> {t('leave.exceedsBalance', { count: selectedBal.remaining, unit: selectedBal.unit })}</span>
           )}
         </div>
       )}
 
       <div className="form-group">
-        <label>Reason</label>
+        <label>{t('leave.reason')}</label>
         <textarea className="form-input" rows={2} value={form.description}
           onChange={e => set('description', e.target.value)} />
       </div>
 
       <div className="form-actions">
-        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
         <button type="submit" className="btn btn-primary" disabled={saving || insufficient}>
-          {saving ? <span className="spinner-sm" /> : 'Submit Request'}
+          {saving ? <span className="spinner-sm" /> : t('leave.submitRequest')}
         </button>
       </div>
     </form>
@@ -202,6 +205,7 @@ export default function LeaveRequests() {
   const { employee, isAdmin, isHR, hasPermission } = useAuth();
   const canApprove = hasPermission('leave:approve');
   const { addToast } = useToast();
+  const { t } = useTranslation();
   const [tab, setTab] = useState(isAdmin ? 'pending' : 'my');
   const [myLeaves, setMyLeaves] = useState([]);
   const [pending, setPending] = useState([]);
@@ -230,7 +234,7 @@ export default function LeaveRequests() {
         try { setAllApproved(await getAllApprovedLeaves()); } catch {}
       }
     } catch (e) {
-      setError(e.message || 'Failed to load leave data');
+      setError(e.message || t('errors.failedLoad'));
     } finally {
       setLoading(false);
     }
@@ -240,7 +244,7 @@ export default function LeaveRequests() {
 
   const handleSubmit = async (form) => {
     await submitLeaveApplication({ employee: employee.name, employee_name: employee.employee_name, ...form });
-    addToast('Leave request submitted', 'success');
+    addToast(t('leave.submitted'), 'success');
     load();
   };
 
@@ -251,7 +255,7 @@ export default function LeaveRequests() {
       addToast(`Leave ${action.toLowerCase()}`, 'success');
       load();
     } catch (err) {
-      addToast(err.message || 'Action failed', 'error');
+      addToast(err.message || t('errors.actionFailed'), 'error');
     }
   };
 
@@ -262,18 +266,18 @@ export default function LeaveRequests() {
 
       <div className="page-header">
         <div>
-          <h1 className="page-title">Leave Requests</h1>
-          <p className="page-subtitle">Manage time off, approvals, and leave balances</p>
+          <h1 className="page-title">{t('leave.title')}</h1>
+          <p className="page-subtitle">{t('leave.subtitle')}</p>
         </div>
         {tab === 'my' && (
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ New Request</button>
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>{t('leave.newRequest')}</button>
         )}
       </div>
 
       {/* Balance panel */}
       {!isAdmin && (
         <div className="card" style={{ marginBottom: 20 }}>
-          <div className="card-header"><h3>Leave Balance</h3></div>
+          <div className="card-header"><h3>{t('leave.leaveBalance')}</h3></div>
           <div className="card-body">
             {loading ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -301,15 +305,15 @@ export default function LeaveRequests() {
 
       <div className="page-toolbar">
         <div className="tab-group">
-          <button className={`tab-btn${tab === 'my' ? ' active' : ''}`} onClick={() => setTab('my')}>My Leaves</button>
+          <button className={`tab-btn${tab === 'my' ? ' active' : ''}`} onClick={() => setTab('my')}>{t('leave.myLeaves')}</button>
           {canApprove && (
             <button className={`tab-btn${tab === 'pending' ? ' active' : ''}`} onClick={() => setTab('pending')}>
-              Team Approvals {pending.length > 0 && <span className="badge-count">{pending.length}</span>}
+              {t('leave.teamApprovals')} {pending.length > 0 && <span className="badge-count">{pending.length}</span>}
             </button>
           )}
           {isAdmin && (
             <button className={`tab-btn${tab === 'approved' ? ' active' : ''}`} onClick={() => setTab('approved')}>
-              All Approved {allApproved.length > 0 && <span className="badge-count">{allApproved.length}</span>}
+              {t('leave.allApproved')} {allApproved.length > 0 && <span className="badge-count">{allApproved.length}</span>}
             </button>
           )}
         </div>
@@ -328,13 +332,13 @@ export default function LeaveRequests() {
         ) : rows.length === 0 ? (
           <div className="card">
             <p className="text-center text-muted" style={{ padding: '32px 16px' }}>
-              {tab === 'pending'  ? 'No pending requests from your team'
-               : tab === 'approved' ? 'No approved leave records found'
-               : 'No leave records found'}
+              {tab === 'pending'  ? t('leave.noPending')
+               : tab === 'approved' ? t('leave.noApproved')
+               : t('leave.noLeave')}
             </p>
           </div>
         ) : rows.map(l => {
-          const isHourly = !!l.total_hours;
+          const isHourlyLeave = !!l.total_hours;
           return (
             <div key={l.name} className="leave-item-card">
               <div className="leave-item-top">
@@ -345,16 +349,16 @@ export default function LeaveRequests() {
                   {(tab === 'pending' && l.approval_stage) && (
                     <div style={{ fontSize: 11, fontWeight: 600, marginTop: 2,
                       color: l.approval_stage === 'Pending HR' ? '#7c3aed' : '#b45309' }}>
-                      {l.approval_stage === 'Pending HR' ? '⏳ Awaiting HR Approval' : '⏳ Awaiting Manager Approval'}
+                      {l.approval_stage === 'Pending HR' ? t('leave.awaitingHR') : t('leave.awaitingManager')}
                     </div>
                   )}
                   <div className="leave-item-type">
                     {l.leave_type}
-                    {isHourly && <span className="hourly-tag">Hourly</span>}
+                    {isHourlyLeave && <span className="hourly-tag">{t('leave.hourly').replace('⏱ ', '')}</span>}
                   </div>
                   <div className="leave-item-dates">
                     {l.from_date}
-                    {isHourly && l.from_time
+                    {isHourlyLeave && l.from_time
                       ? <span> · {l.from_time}–{l.to_time}</span>
                       : l.to_date && l.to_date !== l.from_date
                         ? <span> → {l.to_date}</span>
@@ -362,8 +366,8 @@ export default function LeaveRequests() {
                   </div>
                 </div>
                 <div className="leave-item-right">
-                  <span className={`duration-badge ${isHourly ? 'hourly' : 'daily'}`}>
-                    {isHourly ? `${l.total_hours}h` : `${l.total_leave_days}d`}
+                  <span className={`duration-badge ${isHourlyLeave ? 'hourly' : 'daily'}`}>
+                    {isHourlyLeave ? `${l.total_hours}h` : `${l.total_leave_days}d`}
                   </span>
                   <Badge status={l.status} />
                 </div>
@@ -376,10 +380,10 @@ export default function LeaveRequests() {
                 return canActNow ? (
                   <div className="leave-item-actions">
                     <button className="btn btn-sm btn-success" onClick={() => handleAction(l, 'Approved')}>
-                      ✓ Approve
+                      {t('leave.approve')}
                     </button>
                     <button className="btn btn-sm btn-danger" onClick={() => handleAction(l, 'Rejected')}>
-                      ✕ Reject
+                      {t('leave.reject')}
                     </button>
                   </div>
                 ) : null;
@@ -390,7 +394,7 @@ export default function LeaveRequests() {
       </div>
 
       {showModal && (
-        <Modal title="New Leave Request" onClose={() => setShowModal(false)}>
+        <Modal title={t('leave.newLeaveRequest')} onClose={() => setShowModal(false)}>
           <LeaveForm leaveTypes={leaveTypes} balance={balance} onSubmit={handleSubmit} onClose={() => setShowModal(false)} />
         </Modal>
       )}

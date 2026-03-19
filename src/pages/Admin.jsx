@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getAllEmployeesWithOverrides, savePermissionOverrides, getCustomRoles, createCustomRole, updateCustomRole, deleteCustomRole } from '../api/admin';
@@ -110,6 +111,7 @@ function StatCard({ label, value, color }) {
 }
 
 function RoleEditor({ role: roleObj, onSave, onCancel }) {
+  const { t } = useTranslation();
   const [label, setLabel] = useState(roleObj?.label || '');
   const [name, setName]   = useState(roleObj?.name  || '');
   const [perms, setPerms] = useState(roleObj?.permissions || []);
@@ -158,15 +160,16 @@ function RoleEditor({ role: roleObj, onSave, onCancel }) {
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <button className="btn btn-primary btn-sm" onClick={() => onSave({ name: name.trim(), label: label.trim(), permissions: perms })} disabled={!label.trim() || (!isEdit && !name.trim())}>
-          {isEdit ? 'Save Changes' : 'Create Role'}
+          {isEdit ? t('common.save') : 'Create Role'}
         </button>
-        <button className="btn btn-sm" onClick={onCancel}>Cancel</button>
+        <button className="btn btn-sm" onClick={onCancel}>{t('common.cancel')}</button>
       </div>
     </div>
   );
 }
 
 export default function Admin() {
+  const { t } = useTranslation();
   const { employee: me, getAccessToken } = useAuth();
   const { addToast } = useToast();
   const [tab, setTab] = useState('roles');
@@ -331,15 +334,15 @@ export default function Admin() {
       {/* Page header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Control Panel</h1>
-          <p className="page-subtitle">Manage roles and individual permissions for every employee</p>
+          <h1 className="page-title">{t('admin.title')}</h1>
+          <p className="page-subtitle">{t('admin.subtitle')}</p>
         </div>
       </div>
 
       {/* Stats row */}
       {!loading && (
         <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-          <StatCard label="Total Employees" value={employees.length} color="var(--primary)" />
+          <StatCard label={t('reports.headcount')} value={employees.length} color="var(--primary)" />
           <StatCard label="Admins" value={roleCounts.admin || 0} color={ROLE_COLORS.admin} />
           <StatCard label="HR Managers" value={roleCounts.hr_manager || 0} color={ROLE_COLORS.hr_manager} />
           <StatCard label="Finance" value={roleCounts.finance_manager || 0} color={ROLE_COLORS.finance_manager} />
@@ -377,8 +380,8 @@ export default function Admin() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Employee</th>
-                    <th>Department</th>
+                    <th>{t('common.name')}</th>
+                    <th>{t('employees.department')}</th>
                     <th>Current Role</th>
                     <th>Assign Role</th>
                     <th>Overrides</th>
@@ -434,7 +437,7 @@ export default function Admin() {
                                   style={{ fontSize: 11 }}
                                   onClick={() => { setSelectedEmp(emp.name); setTab('permissions'); }}
                                 >
-                                  Edit
+                                  {t('common.edit')}
                                 </button>
                               )}
                             </td>
@@ -447,7 +450,7 @@ export default function Admin() {
                                   disabled={!isDirty || savingRole[emp.name]}
                                   onClick={() => saveRole(emp)}
                                 >
-                                  {savingRole[emp.name] ? '…' : 'Save'}
+                                  {savingRole[emp.name] ? '…' : t('common.save')}
                                 </button>
                               )}
                             </td>
@@ -496,7 +499,7 @@ export default function Admin() {
                           <th>Label</th>
                           <th>Role ID</th>
                           <th>Permissions</th>
-                          <th>Employees</th>
+                          <th>{t('nav.employees')}</th>
                           <th style={{ width: 120 }}></th>
                         </tr>
                       </thead>
@@ -515,13 +518,13 @@ export default function Admin() {
                               <td style={{ fontSize: 13 }}>{empCount}</td>
                               <td>
                                 <div style={{ display: 'flex', gap: 6 }}>
-                                  <button className="btn btn-sm" onClick={() => setEditingRole(r)}>Edit</button>
+                                  <button className="btn btn-sm" onClick={() => setEditingRole(r)}>{t('common.edit')}</button>
                                   <button
                                     className="btn btn-sm"
                                     style={{ background: 'var(--danger-light)', color: 'var(--danger)', border: '1px solid var(--danger)' }}
                                     onClick={() => handleDeleteCustomRole(r)}
                                   >
-                                    Delete
+                                    {t('common.delete')}
                                   </button>
                                 </div>
                               </td>
@@ -606,7 +609,7 @@ export default function Admin() {
                     </div>
                     <button className="btn btn-sm" onClick={() => setPendingOverrides({})}>Reset to role</button>
                     <button className="btn btn-primary btn-sm" onClick={savePermissions} disabled={savingPerms || !hasChanges}>
-                      {savingPerms ? 'Saving…' : 'Save Changes'}
+                      {savingPerms ? 'Saving…' : t('common.save')}
                     </button>
                   </div>
 

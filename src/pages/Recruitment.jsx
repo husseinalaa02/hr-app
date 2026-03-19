@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getJobs, createJob, updateJob, getCandidates, addCandidate, moveStage, deleteCandidate, STAGES } from '../api/recruitment';
@@ -15,6 +16,7 @@ const STAGE_COLORS = {
 };
 
 export default function Recruitment() {
+  const { t } = useTranslation();
   const { hasPermission } = useAuth();
   const canManage = hasPermission('recruitment:manage');
   const { addToast } = useToast();
@@ -71,11 +73,11 @@ export default function Recruitment() {
     <div className="page-content">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Recruitment</h1>
-          <p className="page-subtitle">Manage job openings and track candidates</p>
+          <h1 className="page-title">{t('recruitment.title')}</h1>
+          <p className="page-subtitle">{t('recruitment.subtitle')}</p>
         </div>
         {canManage && tab === 'jobs' && (
-          <button className="btn btn-primary" onClick={() => setShowJobModal(true)}>+ New Job</button>
+          <button className="btn btn-primary" onClick={() => setShowJobModal(true)}>+ {t('recruitment.newJob')}</button>
         )}
       </div>
       <div className="page-toolbar">
@@ -97,7 +99,7 @@ export default function Recruitment() {
           {loading ? (
             Array.from({ length: 3 }).map((_, i) => <div key={i} className="leave-item-card"><Skeleton height={14} width="60%" /><Skeleton height={12} width="40%" style={{ marginTop: 8 }} /></div>)
           ) : jobs.length === 0 ? (
-            <div className="card"><p className="text-center text-muted" style={{ padding: '32px 16px' }}>No job openings</p></div>
+            <div className="card"><p className="text-center text-muted" style={{ padding: '32px 16px' }}>{t('recruitment.noJobs')}</p></div>
           ) : jobs.map(j => (
             <div key={j.id} className="leave-item-card" style={{ cursor: 'pointer' }} onClick={() => handleJobClick(j)}>
               <div className="leave-item-top">
@@ -161,7 +163,7 @@ export default function Recruitment() {
                       </button>
                     ))}
                     <button className="btn btn-sm btn-danger" onClick={() => handleMoveStage(c, 'Rejected')}>Reject</button>
-                    <button className="btn btn-sm btn-secondary" onClick={() => handleDelete(c)}>Delete</button>
+                    <button className="btn btn-sm btn-secondary" onClick={() => handleDelete(c)}>{t('common.delete')}</button>
                   </div>
                 )}
               </div>
@@ -171,7 +173,7 @@ export default function Recruitment() {
       )}
 
       {showJobModal && (
-        <Modal title="New Job Opening" onClose={() => setShowJobModal(false)}>
+        <Modal title={t('recruitment.newJob')} onClose={() => setShowJobModal(false)}>
           <JobForm onClose={() => setShowJobModal(false)} onCreated={loadJobs} />
         </Modal>
       )}
@@ -186,6 +188,7 @@ export default function Recruitment() {
 }
 
 function JobForm({ onClose, onCreated }) {
+  const { t } = useTranslation();
   const { addToast } = useToast();
   const [form, setForm] = useState({ job_title: '', department: '', description: '', target_date: '' });
   const [saving, setSaving] = useState(false);
@@ -199,12 +202,12 @@ function JobForm({ onClose, onCreated }) {
   };
   return (
     <form className="form-stack" onSubmit={handle}>
-      <div className="form-group"><label>Job Title *</label><input className="form-input" value={form.job_title} onChange={e => set('job_title', e.target.value)} required /></div>
-      <div className="form-group"><label>Department *</label><input className="form-input" value={form.department} onChange={e => set('department', e.target.value)} required /></div>
+      <div className="form-group"><label>{t('recruitment.jobTitle')} *</label><input className="form-input" value={form.job_title} onChange={e => set('job_title', e.target.value)} required /></div>
+      <div className="form-group"><label>{t('recruitment.department')} *</label><input className="form-input" value={form.department} onChange={e => set('department', e.target.value)} required /></div>
       <div className="form-group"><label>Description</label><textarea className="form-input" rows={2} value={form.description} onChange={e => set('description', e.target.value)} /></div>
       <div className="form-group"><label>Target Date</label><input type="date" className="form-input" value={form.target_date} onChange={e => set('target_date', e.target.value)} /></div>
       <div className="form-actions">
-        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
         <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? <span className="spinner-sm" /> : 'Create'}</button>
       </div>
     </form>
@@ -212,6 +215,7 @@ function JobForm({ onClose, onCreated }) {
 }
 
 function CandidateForm({ jobId, onClose, onCreated }) {
+  const { t } = useTranslation();
   const { addToast } = useToast();
   const [form, setForm] = useState({ name: '', email: '', phone: '', cv_note: '' });
   const [saving, setSaving] = useState(false);
@@ -230,8 +234,8 @@ function CandidateForm({ jobId, onClose, onCreated }) {
       <div className="form-group"><label>Phone</label><input className="form-input" value={form.phone} onChange={e => set('phone', e.target.value)} /></div>
       <div className="form-group"><label>CV Notes</label><textarea className="form-input" rows={2} value={form.cv_note} onChange={e => set('cv_note', e.target.value)} /></div>
       <div className="form-actions">
-        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? <span className="spinner-sm" /> : 'Add'}</button>
+        <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
+        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? <span className="spinner-sm" /> : t('common.add')}</button>
       </div>
     </form>
   );

@@ -8,6 +8,7 @@ import Topbar from './components/Topbar';
 import BottomNav from './components/BottomNav';
 import Login from './pages/Login';
 import AccessDenied from './components/AccessDenied';
+import { useTranslation } from 'react-i18next';
 
 const Dashboard      = lazy(() => import('./pages/Dashboard'));
 const Employees      = lazy(() => import('./pages/Employees'));
@@ -25,22 +26,6 @@ const Expenses       = lazy(() => import('./pages/Expenses'));
 const Reports        = lazy(() => import('./pages/Reports'));
 const Admin          = lazy(() => import('./pages/Admin'));
 
-const PAGE_TITLES = {
-  '/':             'Dashboard',
-  '/employees':    'Employee Directory',
-  '/leave':        'Leave Requests',
-  '/attendance':   'Attendance',
-  '/timesheets':   'Timesheets',
-  '/payslips':     'Payslips',
-  '/day-requests': 'Day Requests',
-  '/payroll':      'Payroll',
-  '/audit':        'Audit View',
-  '/appraisals':   'Appraisals',
-  '/recruitment':  'Recruitment',
-  '/expenses':     'Expenses',
-  '/reports':      'Reports',
-  '/admin':        'Control Panel',
-};
 
 function NetworkBanner() {
   const { isOnline } = useNetwork();
@@ -104,6 +89,24 @@ export default function App() {
   const { user, loading } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { t } = useTranslation();
+
+  const PAGE_TITLES = {
+    '/':             t('nav.dashboard'),
+    '/employees':    t('employees.title'),
+    '/leave':        t('leave.title'),
+    '/attendance':   t('attendance.title'),
+    '/timesheets':   t('timesheets.title'),
+    '/payslips':     t('payslips.title'),
+    '/day-requests': t('dayRequests.title'),
+    '/payroll':      t('payroll.title'),
+    '/audit':        t('audit.title'),
+    '/appraisals':   t('appraisals.title'),
+    '/recruitment':  t('recruitment.title'),
+    '/expenses':     t('expenses.title'),
+    '/reports':      t('reports.title'),
+    '/admin':        t('admin.title'),
+  };
 
   const title = Object.entries(PAGE_TITLES).find(([path]) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path)

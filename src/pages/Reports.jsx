@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getReportData } from '../api/reports';
 import { Skeleton } from '../components/Skeleton';
 import ErrorState from '../components/ErrorState';
@@ -14,6 +15,7 @@ function StatCard({ label, value, sub, color = '#1565c0' }) {
 }
 
 export default function Reports() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState('overview');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -66,29 +68,29 @@ export default function Reports() {
     <div className="page-content">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Reports</h1>
-          <p className="page-subtitle">Company analytics, trends, and workforce insights</p>
+          <h1 className="page-title">{t('reports.title')}</h1>
+          <p className="page-subtitle">{t('reports.subtitle')}</p>
         </div>
       </div>
       <div className="page-toolbar">
         <div className="tab-group">
-          <button className={`tab-btn${tab === 'overview' ? ' active' : ''}`} onClick={() => setTab('overview')}>Overview</button>
-          <button className={`tab-btn${tab === 'leave' ? ' active' : ''}`} onClick={() => setTab('leave')}>Leave</button>
-          <button className={`tab-btn${tab === 'payroll' ? ' active' : ''}`} onClick={() => setTab('payroll')}>Payroll</button>
-          <button className={`tab-btn${tab === 'appraisals' ? ' active' : ''}`} onClick={() => setTab('appraisals')}>Appraisals</button>
+          <button className={`tab-btn${tab === 'overview' ? ' active' : ''}`} onClick={() => setTab('overview')}>{t('reports.headcount')}</button>
+          <button className={`tab-btn${tab === 'leave' ? ' active' : ''}`} onClick={() => setTab('leave')}>{t('reports.leave')}</button>
+          <button className={`tab-btn${tab === 'payroll' ? ' active' : ''}`} onClick={() => setTab('payroll')}>{t('reports.payroll')}</button>
+          <button className={`tab-btn${tab === 'appraisals' ? ' active' : ''}`} onClick={() => setTab('appraisals')}>{t('reports.attendance')}</button>
         </div>
       </div>
 
       {tab === 'overview' && (
         <>
           <div className="stats-row">
-            <StatCard label="Total Employees" value={data.employees.length} color="#1565c0" />
-            <StatCard label="Pending Leaves" value={data.leaves.filter(l => l.status === 'Open').length} color="#ef6c00" />
-            <StatCard label="Payroll This Month" value={(data.payrollTotal / 1_000_000).toFixed(2) + 'M IQD'} color="#2e7d32" />
+            <StatCard label={t('reports.headcount')} value={data.employees.length} color="#1565c0" />
+            <StatCard label={t('nav.leaveRequests')} value={data.leaves.filter(l => l.status === 'Open').length} color="#ef6c00" />
+            <StatCard label={t('reports.payroll')} value={(data.payrollTotal / 1_000_000).toFixed(2) + 'M IQD'} color="#2e7d32" />
             <StatCard label="Pending Expenses" value={data.pendingExpenses} color="#6a1b9a" />
           </div>
           <div className="card" style={{ marginTop: 16 }}>
-            <div className="card-header"><h3>Employees by Department</h3></div>
+            <div className="card-header"><h3>{t('employees.department')}</h3></div>
             <div className="card-body">
               <div className="dept-grid">
                 {Object.entries(data.deptMap).sort((a, b) => b[1] - a[1]).map(([dept, count]) => (
@@ -112,10 +114,10 @@ export default function Reports() {
             <StatCard label="Rejected" value={data.leaves.filter(l => l.status === 'Rejected').length} color="#c62828" />
           </div>
           <div className="card" style={{ marginTop: 16 }}>
-            <div className="card-header"><h3>Leave by Type (Approved)</h3></div>
+            <div className="card-header"><h3>{t('reports.leave')} ({t('common.status')})</h3></div>
             <div className="card-body">
               <table className="data-table">
-                <thead><tr><th>Leave Type</th><th>Applications</th></tr></thead>
+                <thead><tr><th>{t('reports.leave')}</th><th>Applications</th></tr></thead>
                 <tbody>
                   {Object.entries(data.leaveByType).sort((a, b) => b[1] - a[1]).map(([type, count]) => (
                     <tr key={type}><td>{type}</td><td>{count}</td></tr>
@@ -136,10 +138,10 @@ export default function Reports() {
             <StatCard label="Paid" value={data.payroll.filter(r => r.status === 'Paid').length} color="#2e7d32" />
           </div>
           <div className="card" style={{ marginTop: 16 }}>
-            <div className="card-header"><h3>Payroll Summary</h3></div>
+            <div className="card-header"><h3>{t('reports.payroll')}</h3></div>
             <div className="card-body">
               <table className="data-table">
-                <thead><tr><th>Employee</th><th>Period</th><th>Salary (IQD)</th><th>Status</th></tr></thead>
+                <thead><tr><th>{t('common.name')}</th><th>Period</th><th>Salary (IQD)</th><th>{t('common.status')}</th></tr></thead>
                 <tbody>
                   {data.payroll.map(r => (
                     <tr key={r.id}>
@@ -168,7 +170,7 @@ export default function Reports() {
             <div className="card-header"><h3>Appraisal Status Breakdown</h3></div>
             <div className="card-body">
               <table className="data-table">
-                <thead><tr><th>Employee</th><th>Period</th><th>Status</th><th>Score</th></tr></thead>
+                <thead><tr><th>{t('common.name')}</th><th>Period</th><th>{t('common.status')}</th><th>Score</th></tr></thead>
                 <tbody>
                   {data.appraisals.map(a => (
                     <tr key={a.id}>

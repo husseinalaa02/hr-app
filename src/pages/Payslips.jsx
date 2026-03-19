@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { getPayslips, getPayslip } from '../api/payslips';
 import { Skeleton } from '../components/Skeleton';
@@ -10,6 +11,7 @@ import { formatIQD } from '../utils/format';
 const COMPANY = import.meta.env.VITE_DEFAULT_COMPANY || 'AFAQ ALFIKER';
 
 function PayslipDetail({ payslip, onClose }) {
+  const { t } = useTranslation();
   if (!payslip) return null;
 
   const fmt = (n) => formatIQD(n);
@@ -78,12 +80,12 @@ function PayslipDetail({ payslip, onClose }) {
             <p><strong>Period:</strong> {payslip.start_date} to {payslip.end_date}</p>
             <p className="currency-tag">All amounts in IQD</p>
           </div>
-          <button className="btn btn-secondary" onClick={printPayslip}>🖨 Print / PDF</button>
+          <button className="btn btn-secondary" onClick={printPayslip}>🖨 {t('payslips.print')}</button>
         </div>
 
         <div className="payslip-tables">
           <div>
-            <h4>Earnings</h4>
+            <h4>{t('payslips.earnings')}</h4>
             <table className="data-table">
               <thead><tr><th>Component</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
               <tbody>
@@ -94,14 +96,14 @@ function PayslipDetail({ payslip, onClose }) {
                   </tr>
                 ))}
                 <tr className="total-row">
-                  <td><strong>Gross Pay</strong></td>
+                  <td><strong>{t('payslips.grossPay')}</strong></td>
                   <td style={{ textAlign: 'right' }}><strong>{fmt(payslip.gross_pay)}</strong></td>
                 </tr>
               </tbody>
             </table>
           </div>
           <div>
-            <h4>Deductions</h4>
+            <h4>{t('payslips.deductions')}</h4>
             <table className="data-table">
               <thead><tr><th>Component</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
               <tbody>
@@ -121,7 +123,7 @@ function PayslipDetail({ payslip, onClose }) {
         </div>
 
         <div className="net-pay-row">
-          <span>Net Pay</span>
+          <span>{t('payslips.netPay')}</span>
           <span className="net-pay-value">{fmt(payslip.net_pay)}</span>
         </div>
       </div>
@@ -130,6 +132,7 @@ function PayslipDetail({ payslip, onClose }) {
 }
 
 export default function Payslips() {
+  const { t } = useTranslation();
   const { employee } = useAuth();
   const [payslips, setPayslips] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -162,8 +165,8 @@ export default function Payslips() {
     <div className="page-content">
       <div className="page-header">
         <div>
-          <h1 className="page-title">My Payslips</h1>
-          <p className="page-subtitle">View and download your salary statements</p>
+          <h1 className="page-title">{t('payslips.title')}</h1>
+          <p className="page-subtitle">{t('payslips.subtitle')}</p>
         </div>
       </div>
       {error && <ErrorState message={error} onRetry={load} />}
@@ -175,10 +178,10 @@ export default function Payslips() {
               <tr>
                 <th>Period</th>
                 <th>Posting Date</th>
-                <th>Gross Pay</th>
-                <th>Deductions</th>
-                <th>Net Pay</th>
-                <th>Status</th>
+                <th>{t('payslips.grossPay')}</th>
+                <th>{t('payslips.deductions')}</th>
+                <th>{t('payslips.netPay')}</th>
+                <th>{t('common.status')}</th>
                 <th></th>
               </tr>
             </thead>
@@ -192,7 +195,7 @@ export default function Payslips() {
                   </tr>
                 ))
               ) : payslips.length === 0 ? (
-                <tr><td colSpan={7} className="text-center text-muted">No payslips found</td></tr>
+                <tr><td colSpan={7} className="text-center text-muted">{t('payslips.noPayslips')}</td></tr>
               ) : payslips.map((p) => (
                 <tr key={p.name}>
                   <td>{p.start_date} → {p.end_date}</td>

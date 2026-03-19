@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import {
@@ -12,19 +13,22 @@ import ErrorState from '../components/ErrorState';
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_CFG = {
-  Draft:     { color: '#92400e', bg: '#fef3c7', label: 'Draft'     },
-  Submitted: { color: '#1e40af', bg: '#dbeafe', label: 'Awaiting Payment' },
-  Paid:      { color: '#065f46', bg: '#d1fae5', label: 'Paid'      },
+  Draft:     { color: '#92400e', bg: '#fef3c7', key: 'payroll.draft'          },
+  Submitted: { color: '#1e40af', bg: '#dbeafe', key: 'payroll.awaitingPayment' },
+  Paid:      { color: '#065f46', bg: '#d1fae5', key: 'payroll.paid'           },
 };
 function StatusBadge({ status }) {
-  const s = STATUS_CFG[status] || { color: '#374151', bg: '#f3f4f6', label: status };
-  return <span style={{ background: s.bg, color: s.color, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>{s.label}</span>;
+  const { t } = useTranslation();
+  const s = STATUS_CFG[status] || { color: '#374151', bg: '#f3f4f6', key: null };
+  const label = s.key ? t(s.key) : status;
+  return <span style={{ background: s.bg, color: s.color, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>{label}</span>;
 }
 
 // ─── Process Log entry ────────────────────────────────────────────────────────
 const LOG_ICONS = { 'Created': '📝', 'Submitted to Finance': '📤', 'Marked as Paid': '✅' };
 function LogTimeline({ entries }) {
-  if (!entries.length) return <p className="text-muted" style={{ fontSize: 13 }}>No log entries yet.</p>;
+  const { t } = useTranslation();
+  if (!entries.length) return <p className="text-muted" style={{ fontSize: 13 }}>{t('payroll.noLog')}</p>;
   return (
     <div className="process-log">
       {entries.map((e, i) => (
@@ -43,6 +47,7 @@ function LogTimeline({ entries }) {
 }
 
 export default function Payroll() {
+  const { t } = useTranslation();
   const { employee, isAdmin, isHR, isFinance, isAudit } = useAuth();
   const { addToast } = useToast();
 
@@ -76,7 +81,7 @@ export default function Payroll() {
       setRecords(recs);
       setEmployees(emps);
     } catch (e) {
-      setLoadError(e.message || 'Failed to load payroll data');
+      setLoadError(e.message || t('payroll.failedLoad'));
     } finally { setLoading(false); }
   };
 
@@ -173,21 +178,29 @@ export default function Payroll() {
   };
   const totalPayroll = filtered.reduce((s, r) => s + r.calculated_salary, 0);
 
+  // Tab definitions: internal key → display label
+  const FILTER_TABS = [
+    { key: 'All',       label: t('payroll.all')           },
+    { key: 'Draft',     label: t('payroll.draft')         },
+    { key: 'Submitted', label: t('payroll.awaitingPayment') },
+    { key: 'Paid',      label: t('payroll.paid')          },
+  ];
+
   return (
     <div className="page-content">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Payroll</h1>
+          <h1 className="page-title">{t('payroll.title')}</h1>
           <p className="page-subtitle">
             {isFinance ? 'Finance — review submitted payrolls and process payments' : 'HR — manage payroll records and submit to Finance'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {(isFinance || isAdmin) && (
-            <button className="btn btn-secondary" onClick={() => exportPayrollCSV(filtered)}>Export CSV</button>
+            <button className="btn btn-secondary" onClick={() => exportPayrollCSV(filtered)}>{t('payroll.exportCSV')}</button>
           )}
           {canCreate && (
-            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ New Payroll</button>
+            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>{t('payroll.newPayroll')}</button>
           )}
         </div>
       </div>
@@ -211,7 +224,7 @@ export default function Payroll() {
         <div className={`wf-step ${counts.Draft > 0 ? 'wf-active' : 'wf-done'}`}>
           <div className="wf-icon">📝</div>
           <div className="wf-label">HR Creates</div>
-          <div className="wf-sub">Draft</div>
+          <div className="wf-sub">{t('payroll.draft')}</div>
         </div>
         <div className="wf-arrow">→</div>
         <div className={`wf-step ${counts.Submitted > 0 ? 'wf-active' : counts.Draft > 0 ? '' : 'wf-done'}`}>
@@ -229,10 +242,10 @@ export default function Payroll() {
 
       {/* Filter tabs */}
       <div className="filter-tabs">
-        {['All','Draft','Submitted','Paid'].map(f => (
-          <button key={f} className={`filter-tab${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>
-            {f === 'Submitted' ? 'Pending Payment' : f}
-            <span className="filter-tab-count">{counts[f]}</span>
+        {FILTER_TABS.map(({ key, label }) => (
+          <button key={key} className={`filter-tab${filter === key ? ' active' : ''}`} onClick={() => setFilter(key)}>
+            {label}
+            <span className="filter-tab-count">{counts[key]}</span>
           </button>
         ))}
       </div>
@@ -249,20 +262,20 @@ export default function Payroll() {
       {loading ? (
         <div className="loading-center"><span className="spinner" /></div>
       ) : filtered.length === 0 ? (
-        <div className="empty-state"><p>No {filter !== 'All' ? filter.toLowerCase() : ''} payroll records</p></div>
+        <div className="empty-state"><p>{t('payroll.noRecords')}</p></div>
       ) : (
         <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Employee</th>
-                <th>Period</th>
-                <th>Base Salary</th>
-                <th>Days</th>
+                <th>{t('payroll.employee')}</th>
+                <th>{t('payroll.period')}</th>
+                <th>{t('payroll.baseSalary')}</th>
+                <th>{t('payroll.workingDays')}</th>
                 <th>Bonuses</th>
-                <th>Total Salary</th>
+                <th>{t('payroll.grossPay')}</th>
                 <th>Status</th>
-                <th>Process Info</th>
+                <th>{t('payroll.processLog')}</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -297,19 +310,19 @@ export default function Payroll() {
                       {/* HR: Submit Draft to Finance */}
                       {canCreate && r.status === 'Draft' && (
                         <button className="btn btn-sm btn-primary" onClick={() => handleSubmit(r)} disabled={actionId === r.id}>
-                          {actionId === r.id ? <span className="spinner-sm" /> : 'Submit to Finance'}
+                          {actionId === r.id ? <span className="spinner-sm" /> : t('payroll.submitToFinance')}
                         </button>
                       )}
                       {/* Finance: Mark Submitted as Paid */}
                       {canPay && r.status === 'Submitted' && (
                         <button className="btn btn-sm btn-success" onClick={() => handlePay(r)} disabled={actionId === r.id}>
-                          {actionId === r.id ? <span className="spinner-sm" /> : '✓ Mark as Paid'}
+                          {actionId === r.id ? <span className="spinner-sm" /> : `✓ ${t('payroll.markAsPaid')}`}
                         </button>
                       )}
                       {/* HR: Delete Draft */}
                       {canCreate && r.status === 'Draft' && (
                         <button className="btn btn-sm btn-danger" onClick={() => handleDelete(r)} disabled={actionId === r.id}>
-                          Delete
+                          {t('payroll.deletePayroll')}
                         </button>
                       )}
                     </div>
@@ -326,44 +339,44 @@ export default function Payroll() {
         <div className="modal-backdrop" onClick={() => !saving && setShowCreate(false)}>
           <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <span className="modal-title">New Payroll Record</span>
+              <span className="modal-title">{t('payroll.createPayroll')}</span>
               <button className="modal-close" onClick={() => setShowCreate(false)} disabled={saving}>✕</button>
             </div>
             <div className="modal-body">
               <div className="form-grid">
                 <div className="form-group form-group-full">
-                  <label className="form-label">Employee *</label>
+                  <label className="form-label">{t('payroll.employee')} *</label>
                   <select className="form-input" value={form.employee_id} onChange={e => handleEmpChange(e.target.value)}>
-                    <option value="">— Select Employee —</option>
+                    <option value="">— {t('common.select')} —</option>
                     {employees.map(e => <option key={e.name} value={e.name}>{e.employee_name} — {e.designation}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Period Start *</label>
+                  <label className="form-label">{t('payroll.periodStart')} *</label>
                   <input type="date" className="form-input" value={form.period_start} onChange={e => setForm(f => ({ ...f, period_start: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Period End *</label>
+                  <label className="form-label">{t('payroll.periodEnd')} *</label>
                   <input type="date" className="form-input" value={form.period_end} onChange={e => setForm(f => ({ ...f, period_end: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Base Salary (IQD)</label>
+                  <label className="form-label">{t('payroll.baseSalary')} (IQD)</label>
                   <input type="number" className="form-input" value={form.base_salary} onChange={e => setForm(f => ({ ...f, base_salary: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Additional Salary (IQD)</label>
+                  <label className="form-label">{t('payroll.additionalSalary')} (IQD)</label>
                   <input type="number" className="form-input" value={form.additional_salary} onChange={e => setForm(f => ({ ...f, additional_salary: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Working Days</label>
+                  <label className="form-label">{t('payroll.workingDays')}</label>
                   <input type="number" className="form-input" min="1" max="31" value={form.working_days} onChange={e => setForm(f => ({ ...f, working_days: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Friday Bonus (IQD)</label>
+                  <label className="form-label">{t('payroll.fridayBonus')} (IQD)</label>
                   <input type="number" className="form-input" value={form.friday_bonus} onChange={e => setForm(f => ({ ...f, friday_bonus: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Extra Day Bonus (IQD)</label>
+                  <label className="form-label">{t('payroll.extraDayBonus')} (IQD)</label>
                   <input type="number" className="form-input" value={form.extra_day_bonus} onChange={e => setForm(f => ({ ...f, extra_day_bonus: e.target.value }))} />
                 </div>
 
@@ -372,7 +385,7 @@ export default function Payroll() {
                     <div className="salary-preview">
                       <div className="salary-preview-title">Salary Preview</div>
                       <div className="salary-preview-row">
-                        <span>Daily Rate ((Base+Additional)÷30)</span>
+                        <span>{t('payroll.dailySalary')} ((Base+Additional)÷30)</span>
                         <span>{formatIQD(calcDailySalary(Number(form.base_salary), Number(form.additional_salary)))}</span>
                       </div>
                       <div className="salary-preview-row">
@@ -380,10 +393,10 @@ export default function Payroll() {
                         <span>{formatIQD(calcFinalSalary(Number(form.base_salary), Number(form.additional_salary), Number(form.working_days)))}</span>
                       </div>
                       {Number(form.friday_bonus) > 0 && (
-                        <div className="salary-preview-row"><span>Friday Bonus</span><span style={{ color: 'var(--primary)' }}>+{formatIQD(Number(form.friday_bonus))}</span></div>
+                        <div className="salary-preview-row"><span>{t('payroll.fridayBonus')}</span><span style={{ color: 'var(--primary)' }}>+{formatIQD(Number(form.friday_bonus))}</span></div>
                       )}
                       {Number(form.extra_day_bonus) > 0 && (
-                        <div className="salary-preview-row"><span>Extra Day Bonus</span><span style={{ color: '#7c3aed' }}>+{formatIQD(Number(form.extra_day_bonus))}</span></div>
+                        <div className="salary-preview-row"><span>{t('payroll.extraDayBonus')}</span><span style={{ color: '#7c3aed' }}>+{formatIQD(Number(form.extra_day_bonus))}</span></div>
                       )}
                       <div className="salary-preview-row salary-preview-total">
                         <span>Total</span><span>{formatIQD(previewSalary())}</span>
@@ -393,9 +406,9 @@ export default function Payroll() {
                 )}
               </div>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-                <button className="btn btn-secondary" onClick={() => setShowCreate(false)} disabled={saving}>Cancel</button>
+                <button className="btn btn-secondary" onClick={() => setShowCreate(false)} disabled={saving}>{t('common.cancel')}</button>
                 <button className="btn btn-primary" onClick={handleCreate} disabled={saving}>
-                  {saving ? <span className="spinner-sm" /> : 'Create Draft'}
+                  {saving ? <span className="spinner-sm" /> : t('payroll.createPayroll')}
                 </button>
               </div>
             </div>
@@ -408,7 +421,7 @@ export default function Payroll() {
         <div className="modal-backdrop" onClick={() => setDetail(null)}>
           <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <span className="modal-title">Payroll Detail — {detail.employee_name}</span>
+              <span className="modal-title">{t('payroll.title')} — {detail.employee_name}</span>
               <button className="modal-close" onClick={() => setDetail(null)}>✕</button>
             </div>
             <div className="modal-body">
@@ -417,16 +430,16 @@ export default function Payroll() {
                 <div>
                   <div className="detail-section-label">Salary Breakdown</div>
                   <div className="salary-preview">
-                    <div className="salary-preview-row"><span>Period</span><span style={{ fontSize: 12 }}>{detail.period_start} — {detail.period_end}</span></div>
-                    <div className="salary-preview-row"><span>Base Salary</span><span>{formatIQD(detail.base_salary)}</span></div>
-                    <div className="salary-preview-row"><span>Additional Salary</span><span>{formatIQD(detail.additional_salary)}</span></div>
-                    <div className="salary-preview-row"><span>Daily Rate</span><span>{formatIQD(calcDailySalary(detail.base_salary, detail.additional_salary))}</span></div>
-                    <div className="salary-preview-row"><span>Working Days</span><span>{detail.working_days}</span></div>
-                    {detail.friday_bonus > 0    && <div className="salary-preview-row"><span>Friday Bonus</span><span style={{ color: 'var(--primary)' }}>+{formatIQD(detail.friday_bonus)}</span></div>}
-                    {detail.extra_day_bonus > 0 && <div className="salary-preview-row"><span>Extra Day Bonus</span><span style={{ color: '#7c3aed' }}>+{formatIQD(detail.extra_day_bonus)}</span></div>}
-                    {(detail.late_deductions > 0) && <div className="salary-preview-row"><span>Late Deductions</span><span style={{ color: '#dc2626' }}>−{formatIQD(detail.late_deductions)}</span></div>}
-                    {(detail.absence_deductions > 0) && <div className="salary-preview-row"><span>Absence Deductions</span><span style={{ color: '#dc2626' }}>−{formatIQD(detail.absence_deductions)}</span></div>}
-                    <div className="salary-preview-row salary-preview-total"><span>Final Salary</span><span>{formatIQD(detail.calculated_salary)}</span></div>
+                    <div className="salary-preview-row"><span>{t('payroll.period')}</span><span style={{ fontSize: 12 }}>{detail.period_start} — {detail.period_end}</span></div>
+                    <div className="salary-preview-row"><span>{t('payroll.baseSalary')}</span><span>{formatIQD(detail.base_salary)}</span></div>
+                    <div className="salary-preview-row"><span>{t('payroll.additionalSalary')}</span><span>{formatIQD(detail.additional_salary)}</span></div>
+                    <div className="salary-preview-row"><span>{t('payroll.dailySalary')}</span><span>{formatIQD(calcDailySalary(detail.base_salary, detail.additional_salary))}</span></div>
+                    <div className="salary-preview-row"><span>{t('payroll.workingDays')}</span><span>{detail.working_days}</span></div>
+                    {detail.friday_bonus > 0    && <div className="salary-preview-row"><span>{t('payroll.fridayBonus')}</span><span style={{ color: 'var(--primary)' }}>+{formatIQD(detail.friday_bonus)}</span></div>}
+                    {detail.extra_day_bonus > 0 && <div className="salary-preview-row"><span>{t('payroll.extraDayBonus')}</span><span style={{ color: '#7c3aed' }}>+{formatIQD(detail.extra_day_bonus)}</span></div>}
+                    {(detail.late_deductions > 0) && <div className="salary-preview-row"><span>{t('payroll.lateDeductions')}</span><span style={{ color: '#dc2626' }}>−{formatIQD(detail.late_deductions)}</span></div>}
+                    {(detail.absence_deductions > 0) && <div className="salary-preview-row"><span>{t('payroll.absenceDeductions')}</span><span style={{ color: '#dc2626' }}>−{formatIQD(detail.absence_deductions)}</span></div>}
+                    <div className="salary-preview-row salary-preview-total"><span>{t('payroll.netPay')}</span><span>{formatIQD(detail.calculated_salary)}</span></div>
                   </div>
                   <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center' }}>
                     <StatusBadge status={detail.status} />
@@ -435,7 +448,7 @@ export default function Payroll() {
 
                 {/* Right: Process log */}
                 <div>
-                  <div className="detail-section-label">Process Log</div>
+                  <div className="detail-section-label">{t('payroll.processLog')}</div>
                   {logLoading ? <div className="loading-center"><span className="spinner" /></div> : <LogTimeline entries={logEntries} />}
                 </div>
               </div>
