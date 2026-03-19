@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getEmployees, getDepartments, createEmployee } from '../api/employees';
+import { getEmployees, getDepartments, createEmployee, addDepartment, deleteDepartment } from '../api/employees';
 import { useAuth } from '../context/AuthContext';
 
 import { useToast } from '../context/ToastContext';
@@ -212,6 +212,75 @@ function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
   );
 }
 
+function ManageDepartmentsModal({ departments, onClose, onChanged }) {
+  const [newName, setNewName] = useState('');
+  const [saving, setSaving]   = useState(false);
+  const [deleting, setDeleting] = useState('');
+  const { addToast } = useToast();
+
+  const handleAdd = async () => {
+    if (!newName.trim()) return;
+    setSaving(true);
+    try {
+      await addDepartment(newName.trim());
+      setNewName('');
+      onChanged();
+      addToast(`Department "${newName.trim()}" added`, 'success');
+    } catch (e) {
+      addToast(e.message || 'Failed to add department', 'error');
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (name) => {
+    setDeleting(name);
+    try {
+      await deleteDepartment(name);
+      onChanged();
+      addToast(`Department "${name}" removed`, 'success');
+    } catch (e) {
+      addToast(e.message || 'Failed to delete department', 'error');
+    } finally { setDeleting(''); }
+  };
+
+  return (
+    <Modal title="Manage Departments" onClose={onClose}>
+      <div style={{ minWidth: 320 }}>
+        {/* Add new */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+          <input
+            className="form-input"
+            style={{ flex: 1 }}
+            placeholder="New department name"
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          />
+          <button className="btn btn-primary" onClick={handleAdd} disabled={saving || !newName.trim()}>
+            {saving ? <span className="spinner-sm" /> : 'Add'}
+          </button>
+        </div>
+
+        {/* List */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
+          {departments.length === 0 && <p className="text-muted" style={{ fontSize: 13 }}>No departments yet.</p>}
+          {departments.map(d => (
+            <div key={d} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 8, padding: '8px 12px' }}>
+              <span style={{ fontSize: 14, fontWeight: 500 }}>{d}</span>
+              <button
+                onClick={() => handleDelete(d)}
+                disabled={deleting === d}
+                style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '0 4px' }}
+              >
+                {deleting === d ? <span className="spinner-sm" /> : '×'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function EmployeeCard({ emp, onClick }) {
   return (
     <div className="emp-card" onClick={() => onClick(emp.name)}>
@@ -239,6 +308,7 @@ export default function Employees() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [showDepts, setShowDepts]   = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -262,8 +332,11 @@ export default function Employees() {
     return () => clearTimeout(timer);
   }, [load]);
 
-  const handleCreated = () => {
-    load();
+  const handleCreated = () => { load(); };
+
+  const handleDeptsChanged = async () => {
+    const depts = await getDepartments();
+    setDepartments(depts);
   };
 
   return (
@@ -273,9 +346,14 @@ export default function Employees() {
           <h1 className="page-title">Employee Directory</h1>
           <p className="page-subtitle">View and manage company employees</p>
         </div>
-        {canWrite && (
-          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ New Employee</button>
-        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          {isAdmin && (
+            <button className="btn btn-secondary" onClick={() => setShowDepts(true)}>Manage Departments</button>
+          )}
+          {canWrite && (
+            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ New Employee</button>
+          )}
+        </div>
       </div>
       <div className="page-toolbar">
         <input
@@ -315,6 +393,14 @@ export default function Employees() {
           employees={employees}
           onClose={() => setShowCreate(false)}
           onCreated={handleCreated}
+        />
+      )}
+
+      {showDepts && (
+        <ManageDepartmentsModal
+          departments={departments}
+          onClose={() => setShowDepts(false)}
+          onChanged={handleDeptsChanged}
         />
       )}
     </div>

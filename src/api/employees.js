@@ -62,15 +62,39 @@ export async function getDirectReports(managerId) {
 export async function getDepartments() {
   return cached('departments', async () => {
     if (SUPABASE_MODE) {
-      const { data } = await supabase.from('employees_public').select('department');
-      return [...new Set((data || []).map(e => e.department).filter(Boolean))].sort();
+      // Fetch from dedicated departments table; fall back to distinct employee departments
+      const [{ data: deptRows }, { data: empRows }] = await Promise.all([
+        supabase.from('departments').select('name').order('name'),
+        supabase.from('employees_public').select('department'),
+      ]);
+      const fromTable = (deptRows || []).map(d => d.name);
+      const fromEmps  = (empRows  || []).map(e => e.department).filter(Boolean);
+      return [...new Set([...fromTable, ...fromEmps])].sort();
     }
     if (DEMO) {
       const emps = await db.employees.toArray();
       return [...new Set(emps.map(e => e.department).filter(Boolean))].sort();
     }
     return [];
-  }, 600_000); // 10-min TTL
+  }, 600_000);
+}
+
+export async function addDepartment(name) {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error('Department name cannot be empty');
+  if (SUPABASE_MODE) {
+    const { error } = await supabase.from('departments').insert({ name: trimmed });
+    if (error) throw new Error(error.message);
+  }
+  invalidate('departments');
+}
+
+export async function deleteDepartment(name) {
+  if (SUPABASE_MODE) {
+    const { error } = await supabase.from('departments').delete().eq('name', name);
+    if (error) throw new Error(error.message);
+  }
+  invalidate('departments');
 }
 
 // Used synchronously-ish during login — kept async, callers must await
