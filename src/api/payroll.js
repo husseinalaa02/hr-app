@@ -1,6 +1,7 @@
 import { db } from '../db/index';
 import { MOCK_PAYROLL_RECORDS } from './mock';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
+import { ABSENCE_SALARY_DEDUCTION } from './leave';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -14,6 +15,37 @@ export function calcDailySalary(baseSalary, additionalSalary) {
 
 export function calcFinalSalary(baseSalary, additionalSalary, workingDays) {
   return Math.round(calcDailySalary(baseSalary, additionalSalary) * workingDays);
+}
+
+// Scan attendance records for a period and compute salary deductions:
+//  - Absent days: ABSENCE_SALARY_DEDUCTION (16,000 IQD) each
+//  - Late without hourly leave: salary_deduction_iqd stored on attendance row
+async function computeAttendanceDeductions(employeeId, periodStart, periodEnd) {
+  let late_deductions = 0;
+  let absence_deductions = 0;
+
+  if (SUPABASE_MODE) {
+    const { data: rows } = await supabase
+      .from('attendance').select('status, salary_deduction_iqd')
+      .eq('employee', employeeId)
+      .gte('attendance_date', periodStart)
+      .lte('attendance_date', periodEnd);
+    for (const row of (rows || [])) {
+      if (row.status === 'Absent') absence_deductions += ABSENCE_SALARY_DEDUCTION;
+      late_deductions += (row.salary_deduction_iqd || 0);
+    }
+  } else if (DEMO) {
+    const rows = await db.attendance
+      .where('employee').equals(employeeId)
+      .filter(r => r.attendance_date >= periodStart && r.attendance_date <= periodEnd)
+      .toArray();
+    for (const row of rows) {
+      if (row.status === 'Absent') absence_deductions += ABSENCE_SALARY_DEDUCTION;
+      late_deductions += (row.salary_deduction_iqd || 0);
+    }
+  }
+
+  return { late_deductions, absence_deductions };
 }
 
 export function calcExtraDayValue(baseSalary) {
@@ -71,7 +103,17 @@ export async function createPayroll(data, performer = null) {
 
   const friday_bonus    = Number(data.friday_bonus)    || 0;
   const extra_day_bonus = Number(data.extra_day_bonus) || 0;
-  const calculated_salary = calcFinalSalary(base, additional, days) + friday_bonus + extra_day_bonus;
+
+  // Auto-compute attendance deductions for the period
+  const { late_deductions, absence_deductions } = await computeAttendanceDeductions(
+    data.employee_id, data.period_start, data.period_end
+  ).catch(() => ({ late_deductions: 0, absence_deductions: 0 }));
+
+  const calculated_salary = Math.max(0,
+    calcFinalSalary(base, additional, days)
+    + friday_bonus + extra_day_bonus
+    - late_deductions - absence_deductions
+  );
 
   const record = {
     employee_id:        data.employee_id,
@@ -83,6 +125,8 @@ export async function createPayroll(data, performer = null) {
     working_days:       days,
     friday_bonus,
     extra_day_bonus,
+    late_deductions,
+    absence_deductions,
     calculated_salary,
     status:             'Draft',
     payroll_date:       data.payroll_date || data.period_end,
@@ -170,12 +214,17 @@ export async function recalculatePayroll(payrollId) {
     const extraCount      = (allRequests || []).filter(r => r.request_type === 'Extra Day').length;
     const friday_bonus    = fridayCount * FRIDAY_DAY_FIXED;
     const extra_day_bonus = extraCount  * calcExtraDayValue(record.base_salary);
-    const calculated_salary = calcFinalSalary(record.base_salary, record.additional_salary, record.working_days)
-      + friday_bonus + extra_day_bonus;
+    const { late_deductions, absence_deductions } = await computeAttendanceDeductions(
+      record.employee_id, record.period_start, record.period_end
+    ).catch(() => ({ late_deductions: record.late_deductions || 0, absence_deductions: record.absence_deductions || 0 }));
+    const calculated_salary = Math.max(0,
+      calcFinalSalary(record.base_salary, record.additional_salary, record.working_days)
+      + friday_bonus + extra_day_bonus - late_deductions - absence_deductions
+    );
 
     const { data: updated, error: updErr } = await supabase
       .from('payroll')
-      .update({ friday_bonus, extra_day_bonus, calculated_salary })
+      .update({ friday_bonus, extra_day_bonus, late_deductions, absence_deductions, calculated_salary })
       .eq('id', payrollId)
       .select()
       .single();
@@ -200,10 +249,15 @@ export async function recalculatePayroll(payrollId) {
     const extraCount      = allRequests.filter(r => r.request_type === 'Extra Day').length;
     const friday_bonus    = fridayCount * FRIDAY_DAY_FIXED;
     const extra_day_bonus = extraCount  * calcExtraDayValue(record.base_salary);
-    const calculated_salary = calcFinalSalary(record.base_salary, record.additional_salary, record.working_days)
-      + friday_bonus + extra_day_bonus;
+    const { late_deductions, absence_deductions } = await computeAttendanceDeductions(
+      record.employee_id, record.period_start, record.period_end
+    ).catch(() => ({ late_deductions: record.late_deductions || 0, absence_deductions: record.absence_deductions || 0 }));
+    const calculated_salary = Math.max(0,
+      calcFinalSalary(record.base_salary, record.additional_salary, record.working_days)
+      + friday_bonus + extra_day_bonus - late_deductions - absence_deductions
+    );
 
-    const updated = { ...record, friday_bonus, extra_day_bonus, calculated_salary };
+    const updated = { ...record, friday_bonus, extra_day_bonus, late_deductions, absence_deductions, calculated_salary };
     await db.payroll.put(updated);
     return updated;
   }
@@ -322,13 +376,13 @@ export function exportPayrollCSV(records) {
   const headers = [
     'Employee ID', 'Employee Name', 'Period',
     'Base Salary', 'Additional Salary', 'Working Days',
-    'Friday Bonus', 'Extra Day Bonus', 'Calculated Salary', 'Status',
+    'Friday Bonus', 'Extra Day Bonus', 'Late Deductions', 'Absence Deductions', 'Calculated Salary', 'Status',
   ];
   const rows = records.map(r => [
     r.employee_id, r.employee_name,
     `${r.period_start} – ${r.period_end}`,
     r.base_salary, r.additional_salary, r.working_days,
-    r.friday_bonus, r.extra_day_bonus, r.calculated_salary, r.status,
+    r.friday_bonus, r.extra_day_bonus, r.late_deductions || 0, r.absence_deductions || 0, r.calculated_salary, r.status,
   ]);
 
   // UTF-8 BOM so Excel on Windows renders Arabic names correctly

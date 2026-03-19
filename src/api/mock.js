@@ -21,7 +21,7 @@ export const MOCK_EMPLOYEES = [
     company: CO, branch: BR,             employment_type: 'Full-time',
     date_of_joining: '2015-01-01',        gender: 'Male',  date_of_birth: '',
     personal_email: '',                   company_email: 'hussein@afaqalfiker.com',
-    user_id: 'hussein',
+    user_id: 'hussein',                   employee_type: 'Office',
     base_salary: 1_200_000,              additional_salary: 300_000,
   },
   {
@@ -31,7 +31,7 @@ export const MOCK_EMPLOYEES = [
     company: CO, branch: BR,             employment_type: 'Full-time',
     date_of_joining: '2015-01-01',        gender: 'Male',  date_of_birth: '1975-03-10',
     personal_email: 'alaa@gmail.com',     company_email: 'alaa@afaqalfiker.com',
-    user_id: 'administrator',
+    user_id: 'administrator',             employee_type: 'Office',
     base_salary: 1_500_000,              additional_salary: 500_000,
   },
   {
@@ -41,7 +41,7 @@ export const MOCK_EMPLOYEES = [
     company: CO, branch: BR,             employment_type: 'Full-time',
     date_of_joining: '2019-01-15',        gender: 'Female', date_of_birth: '1988-04-20',
     personal_email: 'sara@gmail.com',     company_email: 'sara@afaqalfiker.com',
-    user_id: 'sara',
+    user_id: 'sara',                      employee_type: 'Office',
     base_salary: 800_000,               additional_salary: 150_000,
   },
   {
@@ -51,7 +51,7 @@ export const MOCK_EMPLOYEES = [
     company: CO, branch: BR,             employment_type: 'Full-time',
     date_of_joining: '2018-06-01',        gender: 'Male',  date_of_birth: '1983-08-15',
     personal_email: 'khalid@gmail.com',   company_email: 'khalid@afaqalfiker.com',
-    user_id: 'khalid',
+    user_id: 'khalid',                    employee_type: 'Office',
     base_salary: 750_000,               additional_salary: 100_000,
   },
   {
@@ -61,7 +61,7 @@ export const MOCK_EMPLOYEES = [
     company: CO, branch: BR,             employment_type: 'Full-time',
     date_of_joining: '2022-03-01',        gender: 'Male',  date_of_birth: '1995-06-15',
     personal_email: 'ahmed@gmail.com',    company_email: 'ahmed@afaqalfiker.com',
-    user_id: 'ahmed',
+    user_id: 'ahmed',                     employee_type: 'Office',
     base_salary: 600_000,               additional_salary: 100_000,
   },
   {
@@ -71,7 +71,7 @@ export const MOCK_EMPLOYEES = [
     company: CO, branch: BR,             employment_type: 'Full-time',
     date_of_joining: '2023-09-01',        gender: 'Female', date_of_birth: '2000-04-22',
     personal_email: 'reem@gmail.com',     company_email: 'reem@afaqalfiker.com',
-    user_id: 'reem',
+    user_id: 'reem',                      employee_type: 'Office',
     base_salary: 500_000,               additional_salary: 75_000,
   },
 ];
@@ -274,7 +274,7 @@ export const MOCK_ALLOCATIONS_V2 = [
   { leave_type: 'Marriage Leave',    total_leaves_allocated: 10, carry_forwarded_leaves_count: 0, is_hourly: false },
   { leave_type: 'Bereavement Leave', total_leaves_allocated: 2,  carry_forwarded_leaves_count: 0, is_hourly: false },
   { leave_type: 'Unpaid Leave',      total_leaves_allocated: 30, carry_forwarded_leaves_count: 0, is_hourly: false },
-  { leave_type: 'Hourly Leave',      total_leaves_allocated: 24, carry_forwarded_leaves_count: 0, is_hourly: true  },
+  { leave_type: 'Hourly Leave',      total_leaves_allocated: 4,  carry_forwarded_leaves_count: 0, is_hourly: true  },
 ];
 
 // ─── Appraisal Templates ──────────────────────────────────────────────────────

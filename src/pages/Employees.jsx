@@ -11,7 +11,7 @@ import Modal from '../components/Modal';
 
 const EMPTY_FORM = {
   employee_name: '', department: '', designation: '', gender: '',
-  date_of_joining: '', employment_type: 'Full-time', branch: '',
+  date_of_joining: '', employment_type: 'Full-time', employee_type: 'Office', branch: '',
   cell_number: '', personal_email: '', company_email: '', user_id: '', password: '', reports_to: '',
 };
 
@@ -57,6 +57,7 @@ function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [createdEmp, setCreatedEmp] = useState(null);
+  const [isCustomDept, setIsCustomDept] = useState(false);
   const { addToast } = useToast();
   const { getAccessToken } = useAuth();
 
@@ -106,14 +107,23 @@ function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
         <div className="form-row">
           <div className="form-group">
             <label>Department</label>
-            <select className="form-input" value={form.department} onChange={e => set('department', e.target.value)}>
+            <select className="form-input" value={isCustomDept ? '__new__' : form.department}
+              onChange={e => {
+                if (e.target.value === '__new__') {
+                  setIsCustomDept(true);
+                  set('department', '');
+                } else {
+                  setIsCustomDept(false);
+                  set('department', e.target.value);
+                }
+              }}>
               <option value="">Select department</option>
               {departments.map(d => <option key={d} value={d}>{d}</option>)}
               <option value="__new__">+ Other (type below)</option>
             </select>
-            {form.department === '__new__' && (
+            {isCustomDept && (
               <input className="form-input" style={{ marginTop: 6 }} placeholder="Enter department name"
-                onChange={e => set('department', e.target.value)} />
+                value={form.department} onChange={e => set('department', e.target.value)} autoFocus />
             )}
           </div>
           <div className="form-group">
@@ -132,6 +142,16 @@ function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
               <option>Intern</option>
             </select>
           </div>
+          <div className="form-group">
+            <label>Employee Type</label>
+            <select className="form-input" value={form.employee_type} onChange={e => set('employee_type', e.target.value)}>
+              <option value="Office">Office (21 days annual leave)</option>
+              <option value="Field">Field (12 days annual leave)</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="form-row">
           <div className="form-group">
             <label>Date of Joining</label>
             <input type="date" className="form-input" value={form.date_of_joining} onChange={e => set('date_of_joining', e.target.value)} />

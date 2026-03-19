@@ -1,6 +1,7 @@
 import { db } from '../db/index';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
 import { addNotification } from './notifications';
+import { applyLateHourlyDeduction, LATE_SALARY_PER_QUARTER } from './leave';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -53,10 +54,10 @@ async function getTodayShift(employeeId) {
   return data || null;
 }
 
-// Returns { late, minutes }
+// Returns { late, minutes, shiftStartTime }
 async function checkLateness(employeeId, checkinTime) {
   const shift = await getTodayShift(employeeId);
-  if (!shift?.start_time) return { late: false, minutes: 0 };
+  if (!shift?.start_time) return { late: false, minutes: 0, shiftStartTime: null };
 
   // Build shift start in Baghdad timezone explicitly (avoids setHours() local-tz bug)
   const todayBaghdad = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' })
@@ -65,11 +66,11 @@ async function checkLateness(employeeId, checkinTime) {
   const checkin    = new Date(checkinTime);
 
   if (checkin <= new Date(shiftStart.getTime() + GRACE_MS)) {
-    return { late: false, minutes: 0 };
+    return { late: false, minutes: 0, shiftStartTime: shift.start_time };
   }
 
   const minutes = Math.round((checkin - shiftStart) / 60_000);
-  return { late: true, minutes };
+  return { late: true, minutes, shiftStartTime: shift.start_time };
 }
 
 // Returns { earlyLeaveMinutes, overtimeMinutes }
@@ -151,9 +152,22 @@ export async function checkin(employeeId, logType) {
         .gte('time', localDayStart()).lte('time', localDayEnd());
       const isFirstCheckin = (inCount === 0);
 
-      const { late, minutes } = isFirstCheckin
+      const { late, minutes, shiftStartTime } = isFirstCheckin
         ? await checkLateness(employeeId, time)
-        : { late: false, minutes: 0 };
+        : { late: false, minutes: 0, shiftStartTime: null };
+
+      // ── Late deduction: morning shift only (start ≤ 12:00) ─────────────────
+      // Deduct 16 min from monthly hourly leave; if no balance, flag salary deduction.
+      let salaryDeductionIQD = 0;
+      if (late && isFirstCheckin && shiftStartTime && shiftStartTime <= '12:00') {
+        const { data: empData } = await supabase
+          .from('employees_public').select('employee_name').eq('name', employeeId).maybeSingle();
+        const empName = empData?.employee_name || employeeId;
+        const hourlyDeducted = await applyLateHourlyDeduction(employeeId, empName, today);
+        if (!hourlyDeducted) {
+          salaryDeductionIQD = Math.ceil(minutes / 15) * LATE_SALARY_PER_QUARTER;
+        }
+      }
 
       if (isFirstCheckin) {
         // ── First punch: atomic RPC inserts checkin + attendance in one transaction ──
@@ -167,6 +181,13 @@ export async function checkin(employeeId, logType) {
           p_time:         time,
         });
         if (rpcErr) throw rpcErr;
+        // Store salary deduction on attendance record (silent — column may not exist yet)
+        if (salaryDeductionIQD > 0) {
+          await supabase.from('attendance')
+            .update({ salary_deduction_iqd: salaryDeductionIQD })
+            .eq('name', attName)
+            .catch(() => {});
+        }
       } else {
         // ── Break re-entry: just insert the checkin punch (attendance row already set) ──
         const { error: chkErr } = await supabase.from('checkins').insert({
@@ -179,15 +200,20 @@ export async function checkin(employeeId, logType) {
         const hrs   = Math.floor(minutes / 60);
         const mins  = minutes % 60;
         const label = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} min`;
+        const deductMsg = salaryDeductionIQD > 0
+          ? ` ${salaryDeductionIQD.toLocaleString()} IQD deducted from salary (no hourly leave balance).`
+          : shiftStartTime && shiftStartTime <= '12:00'
+            ? ' 16 minutes deducted from your hourly leave balance.'
+            : '';
         addNotification({
           recipient_id: employeeId,
           title:   'Late Check-In',
-          message: `You checked in ${label} after your scheduled start time.`,
+          message: `You checked in ${label} after your scheduled start time.${deductMsg}`,
           type:    'info',
         }).catch(() => {});
       }
 
-      return { late, minutes };
+      return { late, minutes, salaryDeductionIQD };
 
     } else {
       // ── Check-Out: look up the open attendance row by employee + open in_time ──

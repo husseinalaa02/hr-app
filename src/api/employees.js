@@ -154,6 +154,7 @@ export async function createEmployee(data, accessToken) {
       gender:           data.gender || '',
       date_of_birth:    data.date_of_birth || '',
       employment_type:  data.employment_type || 'Full-time',
+      employee_type:    data.employee_type || 'Office',
       branch:           data.branch || '',
       personal_email:   data.personal_email || '',
       company_email:    data.company_email || '',

@@ -5,6 +5,38 @@ import { addNotification, notifyRole } from './notifications';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
+// ─── Leave Policy Constants ───────────────────────────────────────────────────
+// Annual leave quota by employee type (days/year), accrued at 2 days/month
+export const ANNUAL_LEAVE_MAX        = { Office: 21, Field: 12 };
+export const MONTHLY_LEAVE_ACCRUAL   = 2;   // days credited at start of each month
+export const HOURLY_LEAVE_MONTHLY    = 4;   // hours available each calendar month (resets monthly)
+export const LATE_DEDUCTION_MINUTES  = 16;  // minutes deducted from hourly leave on late morning check-in
+export const LATE_SALARY_PER_QUARTER = 2_000; // IQD per 15-min quarter when no hourly balance
+export const ABSENCE_SALARY_DEDUCTION = 16_000; // IQD deducted per absent day
+
+// Returns how many annual leave days have been accrued so far this year
+// annualMax: the employee's yearly cap (21 for Office, 12 for Field)
+function getAccruedAnnualDays(annualMax) {
+  const month = new Date().getMonth() + 1; // 1=Jan … 12=Dec
+  return Math.min(month * MONTHLY_LEAVE_ACCRUAL, annualMax);
+}
+
+// Fetch employee type ('Office' | 'Field') for leave-balance calculations
+async function getEmployeeType(employeeId) {
+  if (SUPABASE_MODE) {
+    const { data } = await supabase
+      .from('employees_public').select('employee_type').eq('name', employeeId).maybeSingle();
+    return data?.employee_type || 'Office';
+  }
+  if (DEMO) {
+    const emp = await db.employees.get(employeeId).catch(() => null);
+    if (emp?.employee_type) return emp.employee_type;
+    const mock = MOCK_EMPLOYEES.find(e => e.name === employeeId);
+    return mock?.employee_type || 'Office';
+  }
+  return 'Office';
+}
+
 // Count working days (excluding Friday) between two YYYY-MM-DD strings
 export function calcDays(from, to) {
   let count = 0;
@@ -147,6 +179,8 @@ export async function getLeaveTypes() {
 }
 
 export async function getLeaveBalance(employeeId) {
+  const thisMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+
   if (SUPABASE_MODE) {
     const currentYear = new Date().getFullYear();
     const { data: rawAllocs } = await supabase.from('leave_allocs').select('*')
@@ -165,10 +199,20 @@ export async function getLeaveBalance(employeeId) {
     const allocs = Object.values(allocMap);
     return allocs.map(alloc => {
       if (alloc.is_hourly) {
-        const used      = (approved || []).filter(l => l.leave_type === alloc.leave_type && l.is_hourly)
+        // Monthly hourly quota: 4 hours per month, resets at start of each month
+        const usedThisMonth = (approved || [])
+          .filter(l => l.leave_type === alloc.leave_type && l.is_hourly && l.from_date.startsWith(thisMonth))
           .reduce((s, l) => s + (l.total_hours || 0), 0);
-        const remaining = alloc.total_leaves_allocated - used;
-        return { leave_type: alloc.leave_type, allocated: alloc.total_leaves_allocated, used, remaining, exceeded: remaining < 0, is_hourly: true, unit: 'hrs' };
+        const remaining = HOURLY_LEAVE_MONTHLY - usedThisMonth;
+        return { leave_type: alloc.leave_type, allocated: HOURLY_LEAVE_MONTHLY, used: usedThisMonth, remaining, exceeded: remaining < 0, is_hourly: true, unit: 'hrs', monthly: true };
+      }
+      if (alloc.leave_type === 'Annual Leave') {
+        // Monthly accrual: 2 days/month, capped at annual max (21 Office / 12 Field)
+        const accrued = getAccruedAnnualDays(alloc.total_leaves_allocated);
+        const used    = (approved || []).filter(l => l.leave_type === 'Annual Leave' && !l.is_hourly)
+          .reduce((s, l) => s + (l.total_leave_days || 0), 0);
+        const remaining = accrued - used;
+        return { leave_type: alloc.leave_type, allocated: accrued, used, remaining, exceeded: remaining < 0, is_hourly: false, unit: 'days', annualMax: alloc.total_leaves_allocated };
       }
       const used      = (approved || []).filter(l => l.leave_type === alloc.leave_type && !l.is_hourly)
         .reduce((s, l) => s + (l.total_leave_days || 0), 0);
@@ -177,6 +221,8 @@ export async function getLeaveBalance(employeeId) {
     });
   }
   if (DEMO) {
+    const empType  = await getEmployeeType(employeeId);
+    const annualMax = ANNUAL_LEAVE_MAX[empType] ?? ANNUAL_LEAVE_MAX.Office;
     let allocs = await db.leave_allocs.where('employee').equals(employeeId).toArray();
     if (allocs.length === 0) allocs = MOCK_ALLOCATIONS_V2.map(a => ({ ...a, employee: employeeId }));
     let approved = await db.leave_apps
@@ -189,10 +235,21 @@ export async function getLeaveBalance(employeeId) {
 
     return allocs.map(alloc => {
       if (alloc.is_hourly) {
-        const usedHours = approved
-          .filter(l => l.leave_type === alloc.leave_type && l.is_hourly)
+        // Monthly hourly quota: 4 hours per month
+        const usedThisMonth = approved
+          .filter(l => l.leave_type === alloc.leave_type && l.is_hourly && l.from_date.startsWith(thisMonth))
           .reduce((s, l) => s + (l.total_hours || 0), 0);
-        return { leave_type: alloc.leave_type, allocated: alloc.total_leaves_allocated, used: usedHours, remaining: alloc.total_leaves_allocated - usedHours, is_hourly: true, unit: 'hrs' };
+        const remaining = HOURLY_LEAVE_MONTHLY - usedThisMonth;
+        return { leave_type: alloc.leave_type, allocated: HOURLY_LEAVE_MONTHLY, used: usedThisMonth, remaining, exceeded: remaining < 0, is_hourly: true, unit: 'hrs', monthly: true };
+      }
+      if (alloc.leave_type === 'Annual Leave') {
+        // Monthly accrual based on employee type
+        const accrued = getAccruedAnnualDays(annualMax);
+        const usedDays = approved
+          .filter(l => l.leave_type === 'Annual Leave' && !l.is_hourly)
+          .reduce((s, l) => s + (l.total_leave_days || 0), 0);
+        const remaining = accrued - usedDays;
+        return { leave_type: alloc.leave_type, allocated: accrued, used: usedDays, remaining, exceeded: remaining < 0, is_hourly: false, unit: 'days', annualMax };
       }
       const usedDays = approved
         .filter(l => l.leave_type === alloc.leave_type && !l.is_hourly)
@@ -246,17 +303,15 @@ export async function submitLeaveApplication(data) {
     if (isHourly) {
       const hrs = calcHours(data.from_time, data.to_time);
       if (hrs <= 0) throw new Error('To time must be after from time.');
-      // Server-side balance check — include Open (pending) leaves so they can't be double-submitted
-      const { data: hourlyAlloc } = await supabase.from('leave_allocs')
-        .select('total_leaves_allocated')
-        .eq('employee', data.employee).eq('leave_type', HOURLY_LEAVE_TYPE).eq('is_hourly', true)
-        .eq('leave_year', currentYear);
+      // Monthly quota check: 4 hours per month, resets each month
+      const reqMonth = (data.from_date || '').slice(0, 7); // "YYYY-MM"
       const { data: hourlyUsed } = await supabase.from('leave_apps')
         .select('total_hours').eq('employee', data.employee).eq('leave_type', HOURLY_LEAVE_TYPE)
-        .in('status', ['Approved', 'Open']).eq('is_hourly', true);
-      const allocatedHrs = (hourlyAlloc || []).reduce((s, r) => s + r.total_leaves_allocated, 0);
-      const usedHrs      = (hourlyUsed  || []).reduce((s, r) => s + (r.total_hours || 0), 0);
-      if (hrs > allocatedHrs - usedHrs) throw new Error(`Only ${Math.max(0, allocatedHrs - usedHrs)}h remaining.`);
+        .in('status', ['Approved', 'Open']).eq('is_hourly', true)
+        .gte('from_date', `${reqMonth}-01`).lte('from_date', `${reqMonth}-31`);
+      const usedThisMonth = (hourlyUsed || []).reduce((s, r) => s + (r.total_hours || 0), 0);
+      const monthlyRemaining = HOURLY_LEAVE_MONTHLY - usedThisMonth;
+      if (hrs > monthlyRemaining) throw new Error(`Only ${Math.max(0, monthlyRemaining).toFixed(1)}h remaining this month (${HOURLY_LEAVE_MONTHLY}h monthly quota).`);
       const record = { name: `HLAPPL-${crypto.randomUUID()}`, employee: data.employee, employee_name: data.employee_name, leave_type: HOURLY_LEAVE_TYPE, from_date: data.from_date, from_time: data.from_time, to_time: data.to_time, total_hours: hrs, total_leave_days: 0, status: 'Open', description: data.description || '', is_hourly: true, approval_stage: 'Pending Manager', posting_date: data.from_date };
       const { data: inserted, error } = await supabase.from('leave_apps').insert(record).select().single();
       if (error) throw error;
@@ -314,7 +369,7 @@ export async function submitLeaveApplication(data) {
       const hrs = calcHours(data.from_time, data.to_time);
       if (hrs <= 0) throw new Error('To time must be after from time.');
       const bal = (await getLeaveBalance(data.employee)).find(b => b.is_hourly);
-      if (bal && hrs > bal.remaining) throw new Error(`Only ${bal.remaining}h remaining.`);
+      if (bal && hrs > bal.remaining) throw new Error(`Only ${Math.max(0, bal.remaining).toFixed(1)}h remaining this month (${HOURLY_LEAVE_MONTHLY}h monthly quota).`);
       const record = { ...data, name: `HLAPPL-${crypto.randomUUID()}`, status: 'Open', total_hours: hrs, leave_type: HOURLY_LEAVE_TYPE, is_hourly: true, approval_stage: 'Pending Manager' };
       await db.leave_apps.put(record);
       return record;
@@ -435,4 +490,59 @@ export async function updateLeaveStatus(name, action, actorRole = 'manager') {
   }
 
   return null;
+}
+
+// ─── Late Check-In Hourly Deduction ──────────────────────────────────────────
+// Called from attendance.js on late morning check-in.
+// Deducts LATE_DEDUCTION_MINUTES (16 min) from the employee's monthly hourly balance.
+// Returns true if the deduction was applied, false if there was no balance left.
+export async function applyLateHourlyDeduction(employeeId, employeeName, date) {
+  const DEDUCTION_HRS = LATE_DEDUCTION_MINUTES / 60;
+  const monthPrefix   = (date || '').slice(0, 7); // "YYYY-MM"
+
+  // Compute how many hourly-leave hours have been used this month
+  let usedThisMonth = 0;
+  if (SUPABASE_MODE) {
+    const { data: rows } = await supabase.from('leave_apps')
+      .select('total_hours')
+      .eq('employee', employeeId).eq('leave_type', HOURLY_LEAVE_TYPE).eq('is_hourly', true)
+      .in('status', ['Approved', 'Open'])
+      .gte('from_date', `${monthPrefix}-01`).lte('from_date', `${monthPrefix}-31`);
+    usedThisMonth = (rows || []).reduce((s, r) => s + (r.total_hours || 0), 0);
+  } else if (DEMO) {
+    const rows = await db.leave_apps
+      .where('employee').equals(employeeId)
+      .filter(l => l.leave_type === HOURLY_LEAVE_TYPE && l.is_hourly
+        && (l.status === 'Approved' || l.status === 'Open')
+        && l.from_date.startsWith(monthPrefix))
+      .toArray();
+    usedThisMonth = rows.reduce((s, r) => s + (r.total_hours || 0), 0);
+  }
+
+  const remaining = HOURLY_LEAVE_MONTHLY - usedThisMonth;
+  if (remaining < DEDUCTION_HRS) return false; // not enough balance
+
+  const record = {
+    name:            `LATE-${crypto.randomUUID()}`,
+    employee:        employeeId,
+    employee_name:   employeeName,
+    leave_type:      HOURLY_LEAVE_TYPE,
+    from_date:       date,
+    from_time:       '00:00',
+    to_time:         `00:${LATE_DEDUCTION_MINUTES}`,
+    total_hours:     DEDUCTION_HRS,
+    total_leave_days: 0,
+    status:          'Approved',
+    is_hourly:       true,
+    approval_stage:  'Approved',
+    posting_date:    date,
+    description:     'Auto-deducted: late check-in',
+  };
+
+  if (SUPABASE_MODE) {
+    await supabase.from('leave_apps').insert(record).catch(() => {});
+  } else if (DEMO) {
+    await db.leave_apps.put(record);
+  }
+  return true;
 }

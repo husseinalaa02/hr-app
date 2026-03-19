@@ -18,14 +18,22 @@ const BALANCE_COLORS = {
   'Hourly Leave':  '#6a1b9a',
 };
 
-function BalanceBar({ label, remaining, allocated, unit, color }) {
+function BalanceBar({ label, remaining, allocated, unit, color, annualMax, monthly }) {
   const pct = allocated > 0 ? Math.max(0, (remaining / allocated) * 100) : 0;
+  const subLabel = monthly
+    ? '(monthly quota)'
+    : annualMax && allocated < annualMax
+      ? `(accrued ${allocated}/${annualMax} for the year)`
+      : null;
   return (
     <div className="balance-bar-item">
       <div className="balance-bar-header">
-        <span className="balance-bar-label">{label}</span>
+        <span className="balance-bar-label">
+          {label}
+          {subLabel && <span style={{ fontSize: 10, color: 'var(--gray-400)', marginLeft: 5 }}>{subLabel}</span>}
+        </span>
         <span className="balance-bar-value" style={{ color }}>
-          <strong>{remaining}</strong> / {allocated} {unit} left
+          <strong>{typeof remaining === 'number' ? remaining.toFixed(remaining % 1 ? 1 : 0) : remaining}</strong> / {allocated} {unit} left
         </span>
       </div>
       <div className="balance-bar-track">
@@ -117,8 +125,8 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
 
       {isHourly && hourlyBalance && (
         <div className="hourly-balance-hint">
-          <span>⏱ Hourly Leave balance:</span>
-          <strong style={{ color: '#6a1b9a' }}>{hourlyBalance.remaining}h / {hourlyBalance.allocated}h</strong>
+          <span>⏱ This month's hourly leave:</span>
+          <strong style={{ color: '#6a1b9a' }}>{hourlyBalance.remaining.toFixed(1)}h / {hourlyBalance.allocated}h</strong>
         </div>
       )}
 
@@ -276,6 +284,8 @@ export default function LeaveRequests() {
                     allocated={b.allocated}
                     unit={b.unit}
                     color={BALANCE_COLORS[b.leave_type] || '#607d8b'}
+                    annualMax={b.annualMax}
+                    monthly={b.monthly}
                   />
                 ))}
               </div>

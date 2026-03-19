@@ -280,9 +280,11 @@ export default function Payroll() {
                   </td>
                   <td style={{ textAlign: 'center' }}>{r.working_days}</td>
                   <td style={{ fontSize: 12 }}>
-                    {r.friday_bonus > 0    && <div style={{ color: 'var(--primary)' }}>+{formatIQD(r.friday_bonus)} Fri</div>}
-                    {r.extra_day_bonus > 0 && <div style={{ color: '#7c3aed' }}>+{formatIQD(r.extra_day_bonus)} Extra</div>}
-                    {!r.friday_bonus && !r.extra_day_bonus && <span className="text-muted">—</span>}
+                    {r.friday_bonus > 0      && <div style={{ color: 'var(--primary)' }}>+{formatIQD(r.friday_bonus)} Fri</div>}
+                    {r.extra_day_bonus > 0   && <div style={{ color: '#7c3aed' }}>+{formatIQD(r.extra_day_bonus)} Extra</div>}
+                    {r.late_deductions > 0   && <div style={{ color: '#dc2626' }}>−{formatIQD(r.late_deductions)} Late</div>}
+                    {r.absence_deductions > 0 && <div style={{ color: '#dc2626' }}>−{formatIQD(r.absence_deductions)} Absent</div>}
+                    {!r.friday_bonus && !r.extra_day_bonus && !r.late_deductions && !r.absence_deductions && <span className="text-muted">—</span>}
                   </td>
                   <td><strong style={{ color: 'var(--primary)' }}>{formatIQD(r.calculated_salary)}</strong></td>
                   <td onClick={e => e.stopPropagation()}><StatusBadge status={r.status} /></td>
@@ -422,6 +424,8 @@ export default function Payroll() {
                     <div className="salary-preview-row"><span>Working Days</span><span>{detail.working_days}</span></div>
                     {detail.friday_bonus > 0    && <div className="salary-preview-row"><span>Friday Bonus</span><span style={{ color: 'var(--primary)' }}>+{formatIQD(detail.friday_bonus)}</span></div>}
                     {detail.extra_day_bonus > 0 && <div className="salary-preview-row"><span>Extra Day Bonus</span><span style={{ color: '#7c3aed' }}>+{formatIQD(detail.extra_day_bonus)}</span></div>}
+                    {(detail.late_deductions > 0) && <div className="salary-preview-row"><span>Late Deductions</span><span style={{ color: '#dc2626' }}>−{formatIQD(detail.late_deductions)}</span></div>}
+                    {(detail.absence_deductions > 0) && <div className="salary-preview-row"><span>Absence Deductions</span><span style={{ color: '#dc2626' }}>−{formatIQD(detail.absence_deductions)}</span></div>}
                     <div className="salary-preview-row salary-preview-total"><span>Final Salary</span><span>{formatIQD(detail.calculated_salary)}</span></div>
                   </div>
                   <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center' }}>
