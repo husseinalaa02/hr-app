@@ -17,6 +17,11 @@ export function applyDirection(lang) {
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
   document.documentElement.setAttribute('dir', dir);
   document.documentElement.setAttribute('lang', lang);
+  if (lang === 'ar') {
+    document.documentElement.style.setProperty('--font-sans', "'Cairo', 'Tajawal', 'Segoe UI', 'Tahoma', sans-serif");
+  } else {
+    document.documentElement.style.setProperty('--font-sans', "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif");
+  }
 }
 
 // Apply on initial load

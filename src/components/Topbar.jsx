@@ -34,7 +34,7 @@ export default function Topbar({ title, onMenuClick }) {
               onClick={toggleLang}
               title={isAr ? 'Switch to English' : 'التبديل إلى العربية'}
             >
-              {isAr ? 'EN' : 'ع'}
+              {isAr ? 'English' : 'العربية'}
             </button>
             <NotificationBell />
             <span className="topbar-user">{employee.employee_name}</span>
@@ -46,7 +46,7 @@ export default function Topbar({ title, onMenuClick }) {
             onClick={toggleLang}
             title={isAr ? 'Switch to English' : 'التبديل إلى العربية'}
           >
-            {isAr ? 'EN' : 'ع'}
+            {isAr ? 'English' : 'العربية'}
           </button>
         )}
       </div>
