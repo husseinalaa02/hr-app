@@ -7,7 +7,6 @@ import { getSchedules, getMySchedule, getScheduleHistory, assignSchedule, SHIFT_
 import Modal from '../components/Modal';
 import Avatar from '../components/Avatar';
 import { Skeleton } from '../components/Skeleton';
-import Badge from '../components/Badge';
 
 // Add 8 hours to a HH:MM time string
 function addEightHours(time) {
@@ -26,6 +25,7 @@ function fmt(time) {
 }
 
 function ShiftBadge({ shift_type, start_time, end_time }) {
+  const { t } = useTranslation();
   if (!shift_type) return <span className="text-muted">—</span>;
   const colors = {
     morning: { bg: '#e8f5e9', color: '#2e7d32' },
@@ -33,7 +33,12 @@ function ShiftBadge({ shift_type, start_time, end_time }) {
     custom:  { bg: '#f3e5f5', color: '#6a1b9a' },
   };
   const c = colors[shift_type] || colors.custom;
-  const label = SHIFT_PRESETS[shift_type]?.label || 'Custom Shift';
+  const labelMap = {
+    morning: t('timesheets.morningShift'),
+    evening: t('timesheets.eveningShift'),
+    custom:  t('timesheets.customShift'),
+  };
+  const label = labelMap[shift_type] || SHIFT_PRESETS[shift_type]?.label || t('timesheets.customShift');
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <span style={{ display: 'inline-block', background: c.bg, color: c.color, fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>
@@ -62,10 +67,16 @@ function AssignScheduleModal({ employees, onClose, onAssigned, preselectedEmploy
   const startTime = shiftType === 'custom' ? customStart : preset.start;
   const endTime   = shiftType === 'custom' ? customEnd   : preset.end;
 
+  const shiftLabelMap = {
+    morning: t('timesheets.morningShift'),
+    evening: t('timesheets.eveningShift'),
+    custom:  t('timesheets.customShift'),
+  };
+
   const handle = async (e) => {
     e.preventDefault();
-    if (!empId) { addToast('Select an employee', 'error'); return; }
-    if (shiftType === 'custom' && !customStart) { addToast('Enter a start time for the custom shift', 'error'); return; }
+    if (!empId) { addToast(t('timesheets.selectAnEmployee'), 'error'); return; }
+    if (shiftType === 'custom' && !customStart) { addToast(t('timesheets.enterStartTime'), 'error'); return; }
     setSaving(true);
     try {
       const emp = employees.find(e => e.name === empId);
@@ -80,23 +91,23 @@ function AssignScheduleModal({ employees, onClose, onAssigned, preselectedEmploy
         assigned_by_name: me?.employee_name,
         notes,
       });
-      addToast('Schedule assigned successfully', 'success');
+      addToast(t('timesheets.scheduleAssigned'), 'success');
       onAssigned();
       onClose();
     } catch (err) {
-      addToast(err.message || 'Failed to assign schedule', 'error');
+      addToast(err.message || t('timesheets.failedAssign'), 'error');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Modal title="Assign Work Schedule" onClose={onClose}>
+    <Modal title={t('timesheets.assignScheduleTitle')} onClose={onClose}>
       <form onSubmit={handle} className="form-stack">
         <div className="form-group">
-          <label>Employee *</label>
+          <label>{t('employees.employee')} *</label>
           <select className="form-input" value={empId} onChange={e => setEmpId(e.target.value)} required disabled={!!preselectedEmployee}>
-            <option value="">Select employee</option>
+            <option value="">{t('timesheets.selectEmployee')}</option>
             {employees.map(e => (
               <option key={e.name} value={e.name}>{e.employee_name} — {e.designation}</option>
             ))}
@@ -104,7 +115,7 @@ function AssignScheduleModal({ employees, onClose, onAssigned, preselectedEmploy
         </div>
 
         <div className="form-group">
-          <label>Shift Type *</label>
+          <label>{t('timesheets.shiftType')} *</label>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {Object.entries(SHIFT_PRESETS).map(([key, preset]) => (
               <button
@@ -119,14 +130,14 @@ function AssignScheduleModal({ employees, onClose, onAssigned, preselectedEmploy
                   fontWeight: 600, fontSize: 13, transition: 'all 0.15s',
                 }}
               >
-                <div>{preset.label}</div>
+                <div>{shiftLabelMap[key] || preset.label}</div>
                 {key !== 'custom' && (
                   <div style={{ fontSize: 11, opacity: 0.85, marginTop: 2 }}>
                     {fmt(preset.start)} – {fmt(preset.end)}
                   </div>
                 )}
                 {key === 'custom' && (
-                  <div style={{ fontSize: 11, opacity: 0.85, marginTop: 2 }}>8 hrs · you set time</div>
+                  <div style={{ fontSize: 11, opacity: 0.85, marginTop: 2 }}>{t('timesheets.customShiftHint')}</div>
                 )}
               </button>
             ))}
@@ -136,33 +147,33 @@ function AssignScheduleModal({ employees, onClose, onAssigned, preselectedEmploy
         {shiftType === 'custom' && (
           <div className="form-row">
             <div className="form-group">
-              <label>Start Time *</label>
+              <label>{t('timesheets.startTime')} *</label>
               <input type="time" className="form-input" value={customStart} onChange={e => setCustomStart(e.target.value)} required />
             </div>
             <div className="form-group">
-              <label>End Time (auto)</label>
+              <label>{t('timesheets.endTime')}</label>
               <input type="time" className="form-input" value={customEnd} readOnly style={{ background: 'var(--gray-50)', color: 'var(--gray-500)' }} />
-              <span style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 4 }}>Automatically 8 hours after start</span>
+              <span style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 4 }}>{t('timesheets.autoEndTime')}</span>
             </div>
           </div>
         )}
 
         <div className="form-row">
           <div className="form-group">
-            <label>Effective From *</label>
+            <label>{t('timesheets.effectiveFrom')} *</label>
             <input type="date" className="form-input" value={effectiveDate} onChange={e => setEffectiveDate(e.target.value)} required />
           </div>
         </div>
 
         <div className="form-group">
           <label>{t('timesheets.notes')}</label>
-          <input className="form-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional note" />
+          <input className="form-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder={t('timesheets.optionalNote')} />
         </div>
 
         <div className="form-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
           <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? <span className="spinner-sm" /> : 'Assign Schedule'}
+            {saving ? <span className="spinner-sm" /> : t('timesheets.assignScheduleBtn')}
           </button>
         </div>
       </form>
@@ -182,7 +193,7 @@ function ScheduleHistoryModal({ employee, onClose }) {
   }, [employee.name]);
 
   return (
-    <Modal title={`Schedule History — ${employee.employee_name}`} onClose={onClose} size="lg">
+    <Modal title={`${t('timesheets.scheduleHistoryTitle')} — ${employee.employee_name}`} onClose={onClose} size="lg">
       {loading ? (
         <div style={{ padding: 16 }}><Skeleton height={14} /><Skeleton height={14} style={{ marginTop: 8 }} /></div>
       ) : history.length === 0 ? (
@@ -192,10 +203,10 @@ function ScheduleHistoryModal({ employee, onClose }) {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Effective Date</th>
-                <th>Shift</th>
+                <th>{t('timesheets.effectiveDate')}</th>
+                <th>{t('timesheets.shift')}</th>
                 <th>{t('timesheets.hours')}</th>
-                <th>Assigned By</th>
+                <th>{t('timesheets.assignedBy')}</th>
                 <th>{t('timesheets.notes')}</th>
               </tr>
             </thead>
@@ -246,7 +257,7 @@ export default function Timesheets() {
         setSchedules(sched);
       }
     } catch (e) {
-      addToast(e.message || 'Failed to load schedules', 'error');
+      addToast(e.message || t('timesheets.failedLoadSchedules'), 'error');
     } finally {
       setLoading(false);
     }
@@ -263,16 +274,16 @@ export default function Timesheets() {
           <h1 className="page-title">{t('timesheets.title')}</h1>
           <p className="page-subtitle">{t('timesheets.subtitle')}</p>
         </div>
-        {(canManage) && (
+        {canManage && (
           <button className="btn btn-primary" onClick={() => { setEditTarget(null); setShowAssign(true); }}>
-            + {t('timesheets.newEntry')}
+            {t('timesheets.newEntry')}
           </button>
         )}
       </div>
 
       {/* My Schedule Card */}
       <div className="card" style={{ marginBottom: 24 }}>
-        <div className="card-header"><h3>My Schedule</h3></div>
+        <div className="card-header"><h3>{t('timesheets.mySchedule')}</h3></div>
         <div className="card-body">
           {loading ? (
             <Skeleton height={50} />
@@ -280,39 +291,39 @@ export default function Timesheets() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
               <ShiftBadge shift_type={mySchedule.shift_type} start_time={mySchedule.start_time} end_time={mySchedule.end_time} />
               <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>
-                <span>Effective: <strong style={{ color: 'var(--gray-700)' }}>{mySchedule.effective_date}</strong></span>
+                <span>{t('timesheets.effectiveLabel')} <strong style={{ color: 'var(--gray-700)' }}>{mySchedule.effective_date}</strong></span>
                 {mySchedule.assigned_by_name && (
-                  <span style={{ marginLeft: 16 }}>Assigned by: <strong style={{ color: 'var(--gray-700)' }}>{mySchedule.assigned_by_name}</strong></span>
+                  <span style={{ marginInlineStart: 16 }}>{t('timesheets.assignedByLabel')} <strong style={{ color: 'var(--gray-700)' }}>{mySchedule.assigned_by_name}</strong></span>
                 )}
                 {mySchedule.notes && (
-                  <span style={{ marginLeft: 16, fontStyle: 'italic' }}>{mySchedule.notes}</span>
+                  <span style={{ marginInlineStart: 16, fontStyle: 'italic' }}>{mySchedule.notes}</span>
                 )}
               </div>
-              <button className="btn btn-secondary" style={{ marginLeft: 'auto', fontSize: 12 }}
+              <button className="btn btn-secondary" style={{ marginInlineStart: 'auto', fontSize: 12 }}
                 onClick={() => setHistoryTarget({ name: employee.name, employee_name: employee.employee_name })}>
-                View History
+                {t('timesheets.viewHistory')}
               </button>
             </div>
           ) : (
-            <p className="text-muted">No schedule assigned yet. Contact your HR manager.</p>
+            <p className="text-muted">{t('timesheets.noSchedule')}</p>
           )}
         </div>
       </div>
 
-      {/* Manage Schedules Table (admin / HR / direct managers) */}
+      {/* Manage Schedules Table (admin / HR) */}
       {canManage && (
         <div className="card">
           <div className="card-header">
-            <h3>All Employees</h3>
+            <h3>{t('timesheets.allEmployees')}</h3>
           </div>
           <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
                   <th>{t('common.name')}</th>
-                  <th>Current Shift</th>
-                  <th>{t('timesheets.date')}</th>
-                  <th>Assigned By</th>
+                  <th>{t('timesheets.currentShift')}</th>
+                  <th>{t('timesheets.effectiveDate')}</th>
+                  <th>{t('timesheets.assignedBy')}</th>
                   <th>{t('common.actions')}</th>
                 </tr>
               </thead>
@@ -341,7 +352,7 @@ export default function Timesheets() {
                       <td>
                         {sched
                           ? <ShiftBadge shift_type={sched.shift_type} start_time={sched.start_time} end_time={sched.end_time} />
-                          : <span className="text-muted" style={{ fontSize: 13 }}>Not assigned</span>
+                          : <span className="text-muted" style={{ fontSize: 13 }}>{t('timesheets.notAssigned')}</span>
                         }
                       </td>
                       <td style={{ fontSize: 13 }}>{sched?.effective_date || '—'}</td>
@@ -350,12 +361,12 @@ export default function Timesheets() {
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button className="btn btn-secondary" style={{ fontSize: 12, padding: '4px 10px' }}
                             onClick={() => { setEditTarget(emp); setShowAssign(true); }}>
-                            {sched ? 'Change' : 'Assign'}
+                            {sched ? t('timesheets.change') : t('timesheets.assign')}
                           </button>
                           {sched && (
                             <button className="btn btn-secondary" style={{ fontSize: 12, padding: '4px 10px' }}
                               onClick={() => setHistoryTarget(emp)}>
-                              History
+                              {t('timesheets.history')}
                             </button>
                           )}
                         </div>
