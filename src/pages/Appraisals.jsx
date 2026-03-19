@@ -273,7 +273,7 @@ export default function Appraisals() {
           <p className="page-subtitle">{t('appraisals.subtitle')}</p>
         </div>
         {canManage && (
-          <button className="btn btn-primary" onClick={() => setModalMode('create')}>+ {t('appraisals.newAppraisal')}</button>
+          <button className="btn btn-primary" onClick={() => setModalMode('create')}>{t('appraisals.newAppraisal')}</button>
         )}
       </div>
       <div className="page-toolbar">

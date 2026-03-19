@@ -68,7 +68,7 @@ export default function Expenses() {
           <h1 className="page-title">{t('expenses.title')}</h1>
           <p className="page-subtitle">{t('expenses.subtitle')}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ {t('expenses.newExpense')}</button>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>{t('expenses.newExpense')}</button>
       </div>
       <div className="page-toolbar">
         <div className="tab-group">

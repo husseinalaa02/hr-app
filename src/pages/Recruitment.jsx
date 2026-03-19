@@ -77,7 +77,7 @@ export default function Recruitment() {
           <p className="page-subtitle">{t('recruitment.subtitle')}</p>
         </div>
         {canManage && tab === 'jobs' && (
-          <button className="btn btn-primary" onClick={() => setShowJobModal(true)}>+ {t('recruitment.newJob')}</button>
+          <button className="btn btn-primary" onClick={() => setShowJobModal(true)}>{t('recruitment.newJob')}</button>
         )}
       </div>
       <div className="page-toolbar">

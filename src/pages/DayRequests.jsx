@@ -171,7 +171,7 @@ export default function DayRequests() {
           <p className="page-subtitle">{t('dayRequests.subtitle')}</p>
         </div>
         {!isAudit && (
-          <button className="btn btn-primary" onClick={openModal}>+ {t('dayRequests.newRequest')}</button>
+          <button className="btn btn-primary" onClick={openModal}>{t('dayRequests.newRequest')}</button>
         )}
       </div>
 
