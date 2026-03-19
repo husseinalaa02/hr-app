@@ -38,7 +38,9 @@ async function getEmployeeType(employeeId) {
 }
 
 // Count working days (excluding Friday) between two YYYY-MM-DD strings
+// Returns 0 if to < from (invalid range)
 export function calcDays(from, to) {
+  if (!from || !to || to < from) return 0;
   let count = 0;
   const cur = new Date(from + 'T12:00:00');
   const end = new Date(to   + 'T12:00:00');

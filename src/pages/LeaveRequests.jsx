@@ -66,6 +66,10 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
   const handle = async (e) => {
     e.preventDefault();
     if (isHourly && hours <= 0) { addToast('To time must be after from time.', 'error'); return; }
+    if (!isHourly && form.from_date && form.to_date && form.to_date < form.from_date) {
+      addToast('End date must be on or after start date.', 'error'); return;
+    }
+    if (!isHourly && days === 0) { addToast('Please select valid start and end dates.', 'error'); return; }
     if (insufficient) {
       addToast(
         `Not enough balance. Only ${selectedBal.remaining} ${selectedBal.unit} remaining.`,
@@ -141,6 +145,7 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
           <div className="form-group">
             <label>To Date *</label>
             <input type="date" className="form-input" value={form.to_date}
+              min={form.from_date || undefined}
               onChange={e => set('to_date', e.target.value)} required />
           </div>
         )}
