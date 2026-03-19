@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getEmployee, getDirectReports, updateEmployee, deleteEmployee } from '../api/employees';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -19,6 +20,7 @@ const ADMIN_EDITABLE = [
 ];
 
 function ChangePasswordModal({ targetId, isSelf, onClose }) {
+  const { t } = useTranslation();
   const [current, setCurrent] = useState('');
   const [newPwd, setNewPwd] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -87,7 +89,7 @@ function ChangePasswordModal({ targetId, isSelf, onClose }) {
           <input type="password" className="form-input" value={confirm} onChange={e => setConfirm(e.target.value)} required placeholder="Re-enter new password" />
         </div>
         <div className="form-actions">
-          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
           <button type="submit" className="btn btn-primary" disabled={saving}>
             {saving ? <span className="spinner-sm" /> : 'Change Password'}
           </button>
@@ -124,6 +126,7 @@ function EditableField({ label, fieldKey, value, type = 'text', options, onChang
 }
 
 export default function EmployeeDetail() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { employee: me, isAdmin, isHR, logout, refreshEmployee } = useAuth();
@@ -155,7 +158,7 @@ export default function EmployeeDetail() {
         getEmployee(id),
         getDirectReports(id),
       ]);
-      if (!emp) throw new Error('Employee not found');
+      if (!emp) throw new Error(t('employeeDetail.employeeNotFound'));
       setEmployee(emp);
       setDraft(emp);
       setDirectReports(reports);
@@ -235,7 +238,7 @@ export default function EmployeeDetail() {
     : employee.reports_to               ? 'employee'
     : null;
 
-  const ROLE_LABELS = {
+  const ROLE_BADGE_LABELS = {
     'top-level': { label: 'Top-Level / CEO', color: '#6a1b9a', bg: '#f3e5f5' },
     'manager':   { label: 'Manager',         color: '#0C447C', bg: '#e8f0fb' },
     'employee':  { label: 'Employee',        color: '#2e7d32', bg: '#e8f5e9' },
@@ -282,12 +285,12 @@ export default function EmployeeDetail() {
                 <h2>{employee.employee_name}</h2>
                 {roleBadge && (
                   <span style={{
-                    background: ROLE_LABELS[roleBadge].bg,
-                    color: ROLE_LABELS[roleBadge].color,
+                    background: ROLE_BADGE_LABELS[roleBadge].bg,
+                    color: ROLE_BADGE_LABELS[roleBadge].color,
                     fontSize: 11, fontWeight: 700,
                     padding: '3px 10px', borderRadius: 20,
                   }}>
-                    {ROLE_LABELS[roleBadge].label}
+                    {ROLE_BADGE_LABELS[roleBadge].label}
                   </span>
                 )}
               </div>
@@ -296,18 +299,18 @@ export default function EmployeeDetail() {
             </div>
             {!editMode && (canEdit || canChangePwd) && (
               <div className="detail-hero-actions">
-                {canEdit && <button className="btn btn-secondary" onClick={() => setEditMode(true)}>✏️ Edit Profile</button>}
+                {canEdit && <button className="btn btn-secondary" onClick={() => setEditMode(true)}>✏️ {t('employeeDetail.editProfile')}</button>}
                 {canChangePwd && <button className="btn btn-secondary" onClick={() => setShowChangePwd(true)}>🔑 Change Password</button>}
                 {isAdmin && (
-                  <button className="btn btn-danger" onClick={() => setShowDeleteConfirm(true)}>Delete</button>
+                  <button className="btn btn-danger" onClick={() => setShowDeleteConfirm(true)}>{t('employeeDetail.deleteEmployee')}</button>
                 )}
               </div>
             )}
             {editMode && (
               <div className="detail-hero-actions">
-                <button className="btn btn-secondary" onClick={handleCancel}>Cancel</button>
+                <button className="btn btn-secondary" onClick={handleCancel}>{t('common.cancel')}</button>
                 <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-                  {saving ? <span className="spinner-sm" /> : 'Save Changes'}
+                  {saving ? <span className="spinner-sm" /> : t('common.save')}
                 </button>
               </div>
             )}
@@ -322,24 +325,24 @@ export default function EmployeeDetail() {
           <div className="detail-sections">
             {/* Personal Info */}
             <div className="detail-section">
-              <h4 className="detail-section-title">Personal Info</h4>
+              <h4 className="detail-section-title">{t('employeeDetail.personalInfo')}</h4>
               <ReadField label="Employee ID" value={employee.name} />
-              {field('Full Name', 'employee_name')}
-              {field('Gender', 'gender', 'text', ['Male', 'Female'])}
-              {field('Date of Birth', 'date_of_birth', 'date')}
-              {field('Personal Email', 'personal_email', 'email')}
-              {field('Phone', 'cell_number', 'tel')}
+              {field(t('employees.fullName'), 'employee_name')}
+              {field(t('employees.gender'), 'gender', 'text', [t('employees.male'), t('employees.female')])}
+              {field(t('employeeDetail.dateOfBirth'), 'date_of_birth', 'date')}
+              {field(t('employees.personalEmail'), 'personal_email', 'email')}
+              {field(t('employees.phone'), 'cell_number', 'tel')}
             </div>
 
             {/* Work Info */}
             <div className="detail-section">
-              <h4 className="detail-section-title">Work Info</h4>
-              {field('Department', 'department')}
-              {field('Designation', 'designation')}
+              <h4 className="detail-section-title">{t('employeeDetail.jobInfo')}</h4>
+              {field(t('employees.department'), 'department')}
+              {field(t('employees.designation'), 'designation')}
               {field('Employment Type', 'employment_type', 'text', ['Full-time', 'Part-time', 'Contract', 'Intern'])}
-              {field('Date of Joining', 'date_of_joining', 'date')}
-              {field('Branch', 'branch')}
-              {field('Company Email', 'company_email', 'email')}
+              {field(t('employees.dateOfJoining'), 'date_of_joining', 'date')}
+              {field(t('employees.branch'), 'branch')}
+              {field(t('employees.companyEmail'), 'company_email', 'email')}
               {isAdmin && field('User ID (login)', 'user_id', 'email')}
             </div>
           </div>
@@ -348,7 +351,7 @@ export default function EmployeeDetail() {
           <div className="detail-org">
             {/* Reports To */}
             <div className="org-block">
-              <h4 className="detail-section-title">Reports To</h4>
+              <h4 className="detail-section-title">{t('employees.reportsTo')}</h4>
               {manager ? (
                 <div className="org-person-card" onClick={() => navigate(`/employees/${manager.name}`)}>
                   <Avatar name={manager.employee_name} image={manager.image} size={40} />
@@ -374,7 +377,7 @@ export default function EmployeeDetail() {
                 )}
               </h4>
               {directReports.length === 0 ? (
-                <p className="text-muted">No one reports to this employee</p>
+                <p className="text-muted">{t('common.noRecords')}</p>
               ) : (
                 <div className="org-reports-list">
                   {directReports.map(r => (
@@ -417,19 +420,19 @@ export default function EmployeeDetail() {
         <div className="modal-backdrop" onClick={() => !deleting && setShowDeleteConfirm(false)}>
           <div className="modal modal-md" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <span className="modal-title">Delete Employee</span>
+              <span className="modal-title">{t('employeeDetail.deleteEmployee')}</span>
               <button className="modal-close" onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>✕</button>
             </div>
             <div className="modal-body">
               <p style={{ color: 'var(--text-muted)', marginBottom: 20 }}>
-                Are you sure you want to delete <strong>{employee?.employee_name}</strong>? This action cannot be undone.
+                {t('employeeDetail.confirmDelete')} <strong>{employee?.employee_name}</strong>?
               </p>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                 <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
-                  {deleting ? <span className="spinner-sm" /> : 'Delete'}
+                  {deleting ? <span className="spinner-sm" /> : t('common.delete')}
                 </button>
               </div>
             </div>

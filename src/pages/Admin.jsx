@@ -380,7 +380,7 @@ export default function Admin() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>{t('common.name')}</th>
+                    <th>{t('nav.employees')}</th>
                     <th>{t('employees.department')}</th>
                     <th>Current Role</th>
                     <th>Assign Role</th>

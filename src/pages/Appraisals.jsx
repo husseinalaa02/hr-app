@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import {
@@ -38,6 +39,7 @@ function ScoreInput({ value, onChange }) {
 }
 
 function AssessmentModal({ appraisal, role, onClose, onSave }) {
+  const { t } = useTranslation();
   const template = appraisal;
   const isSelf = role === 'self';
   const existingScores = isSelf ? (appraisal.self_scores || {}) : (appraisal.manager_scores || {});
@@ -99,8 +101,8 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
   return (
     <div className="form-stack">
       <div className="appraisal-meta">
-        <div><strong>Employee:</strong> {appraisal.employee_name}</div>
-        <div><strong>Period:</strong> {appraisal.period}</div>
+        <div><strong>{t('appraisals.employee')}:</strong> {appraisal.employee_name}</div>
+        <div><strong>{t('appraisals.period')}:</strong> {appraisal.period}</div>
         <div><strong>Template:</strong> {appraisal.template_name}</div>
       </div>
 
@@ -136,7 +138,7 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
       )}
 
       <div className="form-actions">
-        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
         <button type="button" className="btn btn-secondary" onClick={() => handleSubmit(true)} disabled={saving}>
           Save Draft
         </button>
@@ -149,6 +151,7 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
 }
 
 function CreateAppraisalModal({ onClose, onCreated }) {
+  const { t } = useTranslation();
   const { employee } = useAuth();
   const { addToast } = useToast();
   const [templates, setTemplates] = useState([]);
@@ -198,20 +201,20 @@ function CreateAppraisalModal({ onClose, onCreated }) {
         </select>
       </div>
       <div className="form-group">
-        <label>Employee *</label>
+        <label>{t('appraisals.employee')} *</label>
         <select className="form-input" value={form.employee_id} onChange={e => set('employee_id', e.target.value)} required>
           <option value="">Select employee</option>
           {employees.map(e => <option key={e.name} value={e.name}>{e.employee_name} — {e.department}</option>)}
         </select>
       </div>
       <div className="form-group">
-        <label>Review Period *</label>
+        <label>{t('appraisals.period')} *</label>
         <input className="form-input" value={form.period} onChange={e => set('period', e.target.value)} required />
       </div>
       <div className="form-actions">
-        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
         <button type="submit" className="btn btn-primary" disabled={saving}>
-          {saving ? <span className="spinner-sm" /> : 'Create Appraisal'}
+          {saving ? <span className="spinner-sm" /> : t('appraisals.newAppraisal')}
         </button>
       </div>
     </form>
@@ -219,6 +222,7 @@ function CreateAppraisalModal({ onClose, onCreated }) {
 }
 
 export default function Appraisals() {
+  const { t } = useTranslation();
   const { employee, hasPermission } = useAuth();
   const canManage = hasPermission('appraisals:manage');
 
@@ -228,8 +232,8 @@ export default function Appraisals() {
       <div className="page-content">
         <div className="page-header">
           <div>
-            <h1 className="page-title">Appraisals</h1>
-            <p className="page-subtitle">Performance reviews and employee evaluations</p>
+            <h1 className="page-title">{t('appraisals.title')}</h1>
+            <p className="page-subtitle">{t('appraisals.subtitle')}</p>
           </div>
         </div>
         <div className="card">
@@ -265,11 +269,11 @@ export default function Appraisals() {
     <div className="page-content">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Appraisals</h1>
-          <p className="page-subtitle">Performance reviews and employee evaluations</p>
+          <h1 className="page-title">{t('appraisals.title')}</h1>
+          <p className="page-subtitle">{t('appraisals.subtitle')}</p>
         </div>
         {canManage && (
-          <button className="btn btn-primary" onClick={() => setModalMode('create')}>+ New Appraisal</button>
+          <button className="btn btn-primary" onClick={() => setModalMode('create')}>+ {t('appraisals.newAppraisal')}</button>
         )}
       </div>
       <div className="page-toolbar">
@@ -290,7 +294,7 @@ export default function Appraisals() {
           ))
         ) : appraisals.length === 0 ? (
           <div className="card">
-            <p className="text-center text-muted" style={{ padding: '32px 16px' }}>No appraisals found</p>
+            <p className="text-center text-muted" style={{ padding: '32px 16px' }}>{t('appraisals.noAppraisals')}</p>
           </div>
         ) : appraisals.map(a => {
           const canSelfAssess = a.employee_id === employee.name && ['Not Started', 'In Progress'].includes(a.status);
@@ -343,10 +347,10 @@ export default function Appraisals() {
         <Modal title="Appraisal Details" onClose={closeModal}>
           <div className="form-stack">
             <div className="appraisal-meta">
-              <div><strong>Employee:</strong> {selected.employee_name}</div>
-              <div><strong>Period:</strong> {selected.period}</div>
-              <div><strong>Status:</strong> <span style={{ color: STATUS_COLOR[selected.status] }}>{selected.status}</span></div>
-              {selected.final_score != null && <div><strong>Final Score:</strong> {selected.final_score}/5</div>}
+              <div><strong>{t('appraisals.employee')}:</strong> {selected.employee_name}</div>
+              <div><strong>{t('appraisals.period')}:</strong> {selected.period}</div>
+              <div><strong>{t('appraisals.status')}:</strong> <span style={{ color: STATUS_COLOR[selected.status] }}>{selected.status}</span></div>
+              {selected.final_score != null && <div><strong>{t('appraisals.score')}:</strong> {selected.final_score}/5</div>}
             </div>
             {selected.self_scores && (
               <div className="assessment-section">
@@ -367,14 +371,14 @@ export default function Appraisals() {
               </div>
             )}
             <div className="form-actions">
-              <button className="btn btn-secondary" onClick={closeModal}>Close</button>
+              <button className="btn btn-secondary" onClick={closeModal}>{t('common.cancel')}</button>
             </div>
           </div>
         </Modal>
       )}
 
       {modalMode === 'create' && (
-        <Modal title="New Appraisal" onClose={closeModal}>
+        <Modal title={t('appraisals.newAppraisal')} onClose={closeModal}>
           <CreateAppraisalModal onClose={closeModal} onCreated={load} />
         </Modal>
       )}
