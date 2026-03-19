@@ -1,11 +1,9 @@
 import { db } from '../db/index';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
 
-// Generate a plausible fake local IP for demo mode
-function fakeIP() {
-  const last = Math.floor(Math.random() * 200) + 10;
-  return `192.168.1.${last}`;
-}
+// IP address capture must happen server-side (x-forwarded-for header).
+// In demo/local mode we store a placeholder so the field is never null.
+const DEMO_IP = '127.0.0.1';
 
 /**
  * Log an action to the audit_logs table.
@@ -42,12 +40,16 @@ export async function logAction({
     resource_id:    resourceId,
     resource_label: resourceLabel,
     details:        details || (changes ? JSON.stringify(changes) : null),
-    ip_address:     fakeIP(),
+    // ip_address is intentionally omitted from the Supabase insert — it must be
+    // captured server-side from req.headers['x-forwarded-for']. TODO: route
+    // audit writes through a Vercel API function so real IPs can be stored.
+    ip_address:     DEMO_IP,
   };
   if (SUPABASE_MODE) {
     await supabase.from('audit_logs').insert({
       user_id: userId, role, resource, action, resource_id: resourceId,
       resource_label: resourceLabel, details, changes: changes || null,
+      // ip_address not sent — server-side capture required
     });
     return;
   }

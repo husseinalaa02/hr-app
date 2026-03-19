@@ -9,26 +9,27 @@ const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
 // ─── Reads ────────────────────────────────────────────────────────────────────
 
+// Cache the full unfiltered list, then filter in memory to avoid redundant network calls
+// for every search keystroke or department filter change (Issue 17).
 export async function getEmployees({ search = '', department = '' } = {}) {
-  const cacheKey = `employees:${search}:${department}`;
-  return cached(cacheKey, async () => {
+  const all = await cached('employees:all', async () => {
     if (SUPABASE_MODE) {
-      let query = supabase.from('employees_public').select('*');
-      if (search) query = query.ilike('employee_name', `%${search}%`);
-      if (department) query = query.eq('department', department);
-      const { data, error } = await query.order('employee_name');
+      const { data, error } = await supabase.from('employees_public').select('*').order('employee_name');
       if (error) throw error;
       return data || [];
     }
     if (DEMO) {
       let list = await db.employees.toArray();
       if (list.length === 0) list = [...MOCK_EMPLOYEES];
-      if (search) list = list.filter(e => e.employee_name.toLowerCase().includes(search.toLowerCase()));
-      if (department) list = list.filter(e => e.department === department);
       return list.sort((a, b) => a.employee_name.localeCompare(b.employee_name));
     }
     return [];
   }, 120_000); // 2 min TTL — employee list rarely changes
+
+  let result = all;
+  if (search)     result = result.filter(e => e.employee_name.toLowerCase().includes(search.toLowerCase()));
+  if (department) result = result.filter(e => e.department === department);
+  return result;
 }
 
 export async function getEmployee(id) {
@@ -111,9 +112,21 @@ export async function findEmployeeByUserId(userId) {
 
 // ─── Writes ───────────────────────────────────────────────────────────────────
 
+// Fields that employees or admins may update via the UI.
+// role, auth_id, and user_id are intentionally excluded — changes to those
+// must go through dedicated admin-only server endpoints (Issue 5).
+const EMPLOYEE_ALLOWED_FIELDS = [
+  'employee_name', 'cell_number', 'department', 'designation', 'branch',
+  'personal_email', 'date_of_birth', 'image', 'reports_to', 'employment_type',
+  'employee_type', 'gender', 'nationality', 'address', 'company_email',
+];
+
 export async function updateEmployee(id, data) {
+  const safe = Object.fromEntries(
+    Object.entries(data).filter(([k]) => EMPLOYEE_ALLOWED_FIELDS.includes(k))
+  );
   if (SUPABASE_MODE) {
-    const { data: updated, error } = await supabase.from('employees').update(data).eq('name', id).select().single();
+    const { data: updated, error } = await supabase.from('employees').update(safe).eq('name', id).select().single();
     if (error) throw error;
     invalidate('employees');
     return updated;
@@ -121,7 +134,7 @@ export async function updateEmployee(id, data) {
   if (DEMO) {
     const existing = await db.employees.get(id);
     if (!existing) return null;
-    const updated = { ...existing, ...data };
+    const updated = { ...existing, ...safe };
     await db.employees.put(updated);
     invalidate('employees');
     return updated;

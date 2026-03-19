@@ -21,7 +21,7 @@ export async function getDayRequests({ employeeId = '', managerId = '', status =
     let query = supabase.from('day_requests').select('*');
     if (ids.length > 0) query = query.in('employee_id', ids);
     if (status) query = query.eq('approval_status', status);
-    const { data, error } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query.order('created_at', { ascending: false }).limit(500);
     if (error) return [];
     return data || [];
   }
@@ -145,12 +145,13 @@ export async function hrApproveDayRequest(id) {
       .update({ approval_status: 'Approved' }).eq('id', id).select().single();
     if (error) throw error;
 
-    // Apply payroll bonus
+    // Apply payroll bonus — skip Paid records (Issue 3) and re-check status after update (Issue 8)
     const { data: prs } = await supabase.from('payroll').select('*')
       .eq('employee_id', request.employee_id)
       .lte('period_start', request.request_date)
       .gte('period_end', request.request_date);
     for (const pr of (prs || [])) {
+      if (pr.status === 'Paid') continue; // never mutate settled payroll
       let { friday_bonus, extra_day_bonus, calculated_salary, base_salary } = pr;
       if (request.request_type === 'Friday Day') {
         friday_bonus      += FRIDAY_DAY_FIXED;
@@ -180,6 +181,7 @@ export async function hrApproveDayRequest(id) {
       .toArray();
 
     for (const pr of payrollRecords) {
+      if (pr.status === 'Paid') continue; // never mutate settled payroll
       let { friday_bonus, extra_day_bonus, calculated_salary, base_salary } = pr;
       if (request.request_type === 'Friday Day') {
         friday_bonus      += FRIDAY_DAY_FIXED;
@@ -198,6 +200,11 @@ export async function hrApproveDayRequest(id) {
 
 export async function rejectDayRequest(id) {
   if (SUPABASE_MODE) {
+    const { data: existing } = await supabase.from('day_requests')
+      .select('approval_status').eq('id', id).single();
+    if (!existing) throw new Error('Request not found');
+    if (existing.approval_status === 'Approved')
+      throw new Error('Cannot reject an already approved request');
     const { data: updated, error } = await supabase.from('day_requests')
       .update({ approval_status: 'Rejected' }).eq('id', id).select().single();
     if (error) throw error;

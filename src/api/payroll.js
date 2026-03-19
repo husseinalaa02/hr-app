@@ -54,6 +54,17 @@ export function calcExtraDayValue(baseSalary) {
 
 export const FRIDAY_DAY_FIXED = 25_000;
 
+// ─── Single source of truth for final salary ──────────────────────────────────
+// All three paths (create / update / recalculate) must use this function so the
+// formula can never drift between them (Issue 13 / Issue 2 fix).
+export function buildCalculatedSalary(base, additional, days, fridayBonus, extraBonus, lateDeductions, absenceDeductions) {
+  return Math.max(0,
+    calcFinalSalary(base, additional, days)
+    + fridayBonus + extraBonus
+    - (lateDeductions || 0) - (absenceDeductions || 0)
+  );
+}
+
 // ─── Reads ────────────────────────────────────────────────────────────────────
 
 export async function getPayrollRecords({ employeeId = '', month = '', year = '', page = 1, pageSize = 200 } = {}) {
@@ -109,11 +120,7 @@ export async function createPayroll(data, performer = null) {
     data.employee_id, data.period_start, data.period_end
   ).catch(() => ({ late_deductions: 0, absence_deductions: 0 }));
 
-  const calculated_salary = Math.max(0,
-    calcFinalSalary(base, additional, days)
-    + friday_bonus + extra_day_bonus
-    - late_deductions - absence_deductions
-  );
+  const calculated_salary = buildCalculatedSalary(base, additional, days, friday_bonus, extra_day_bonus, late_deductions, absence_deductions);
 
   const record = {
     employee_id:        data.employee_id,
@@ -157,12 +164,16 @@ export async function updatePayroll(id, data) {
   if (SUPABASE_MODE) {
     const { data: existing } = await supabase.from('payroll').select('*').eq('id', id).single();
     if (!existing) return null;
-    const base       = data.base_salary       ?? existing.base_salary;
-    const additional = data.additional_salary  ?? existing.additional_salary;
-    const days       = data.working_days       ?? existing.working_days;
-    const friday_bonus    = data.friday_bonus    ?? existing.friday_bonus;
-    const extra_day_bonus = data.extra_day_bonus ?? existing.extra_day_bonus;
-    const calculated_salary = calcFinalSalary(base, additional, days) + friday_bonus + extra_day_bonus;
+    const base            = data.base_salary       ?? existing.base_salary;
+    const additional      = data.additional_salary  ?? existing.additional_salary;
+    const days            = data.working_days       ?? existing.working_days;
+    const friday_bonus    = data.friday_bonus       ?? existing.friday_bonus;
+    const extra_day_bonus = data.extra_day_bonus    ?? existing.extra_day_bonus;
+    // Preserve existing deductions — updatePayroll never re-scans attendance.
+    // Use recalculatePayroll() when deductions need to be refreshed.
+    const late_deductions    = existing.late_deductions    || 0;
+    const absence_deductions = existing.absence_deductions || 0;
+    const calculated_salary  = buildCalculatedSalary(base, additional, days, friday_bonus, extra_day_bonus, late_deductions, absence_deductions);
     const updates = { ...data, base_salary: base, additional_salary: additional, working_days: days,
       friday_bonus, extra_day_bonus, calculated_salary };
     const { data: updated, error } = await supabase.from('payroll').update(updates).eq('id', id).select().single();
@@ -172,12 +183,14 @@ export async function updatePayroll(id, data) {
   if (DEMO) {
     const existing = await db.payroll.get(Number(id));
     if (!existing) return null;
-    const base       = data.base_salary       ?? existing.base_salary;
-    const additional = data.additional_salary  ?? existing.additional_salary;
-    const days       = data.working_days       ?? existing.working_days;
-    const friday_bonus    = data.friday_bonus    ?? existing.friday_bonus;
-    const extra_day_bonus = data.extra_day_bonus ?? existing.extra_day_bonus;
-    const calculated_salary = calcFinalSalary(base, additional, days) + friday_bonus + extra_day_bonus;
+    const base            = data.base_salary       ?? existing.base_salary;
+    const additional      = data.additional_salary  ?? existing.additional_salary;
+    const days            = data.working_days       ?? existing.working_days;
+    const friday_bonus    = data.friday_bonus       ?? existing.friday_bonus;
+    const extra_day_bonus = data.extra_day_bonus    ?? existing.extra_day_bonus;
+    const late_deductions    = existing.late_deductions    || 0;
+    const absence_deductions = existing.absence_deductions || 0;
+    const calculated_salary  = buildCalculatedSalary(base, additional, days, friday_bonus, extra_day_bonus, late_deductions, absence_deductions);
     const updated = { ...existing, ...data, base_salary: base, additional_salary: additional,
       working_days: days, friday_bonus, extra_day_bonus, calculated_salary };
     await db.payroll.put(updated);
@@ -188,11 +201,18 @@ export async function updatePayroll(id, data) {
 
 export async function deletePayroll(id) {
   if (SUPABASE_MODE) {
+    const { data: existing } = await supabase.from('payroll').select('status').eq('id', id).single();
+    if (existing?.status === 'Paid') throw new Error('Cannot delete a paid payroll record');
     const { error } = await supabase.from('payroll').delete().eq('id', id);
     if (error) throw error;
     return;
   }
-  if (DEMO) { await db.payroll.delete(Number(id)); return; }
+  if (DEMO) {
+    const existing = await db.payroll.get(Number(id));
+    if (existing?.status === 'Paid') throw new Error('Cannot delete a paid payroll record');
+    await db.payroll.delete(Number(id));
+    return;
+  }
 }
 
 // Recalculate a payroll record's bonuses from approved day requests
@@ -217,10 +237,7 @@ export async function recalculatePayroll(payrollId) {
     const { late_deductions, absence_deductions } = await computeAttendanceDeductions(
       record.employee_id, record.period_start, record.period_end
     ).catch(() => ({ late_deductions: record.late_deductions || 0, absence_deductions: record.absence_deductions || 0 }));
-    const calculated_salary = Math.max(0,
-      calcFinalSalary(record.base_salary, record.additional_salary, record.working_days)
-      + friday_bonus + extra_day_bonus - late_deductions - absence_deductions
-    );
+    const calculated_salary = buildCalculatedSalary(record.base_salary, record.additional_salary, record.working_days, friday_bonus, extra_day_bonus, late_deductions, absence_deductions);
 
     const { data: updated, error: updErr } = await supabase
       .from('payroll')
@@ -252,10 +269,7 @@ export async function recalculatePayroll(payrollId) {
     const { late_deductions, absence_deductions } = await computeAttendanceDeductions(
       record.employee_id, record.period_start, record.period_end
     ).catch(() => ({ late_deductions: record.late_deductions || 0, absence_deductions: record.absence_deductions || 0 }));
-    const calculated_salary = Math.max(0,
-      calcFinalSalary(record.base_salary, record.additional_salary, record.working_days)
-      + friday_bonus + extra_day_bonus - late_deductions - absence_deductions
-    );
+    const calculated_salary = buildCalculatedSalary(record.base_salary, record.additional_salary, record.working_days, friday_bonus, extra_day_bonus, late_deductions, absence_deductions);
 
     const updated = { ...record, friday_bonus, extra_day_bonus, late_deductions, absence_deductions, calculated_salary };
     await db.payroll.put(updated);

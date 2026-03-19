@@ -14,10 +14,12 @@ export const LATE_DEDUCTION_MINUTES  = 16;  // minutes deducted from hourly leav
 export const LATE_SALARY_PER_QUARTER = 2_000; // IQD per 15-min quarter when no hourly balance
 export const ABSENCE_SALARY_DEDUCTION = 16_000; // IQD deducted per absent day
 
-// Returns how many annual leave days have been accrued so far this year
-// annualMax: the employee's yearly cap (21 for Office, 12 for Field)
+// Returns how many annual leave days have been accrued so far this year.
+// Uses Baghdad timezone so the month is correct regardless of the user's browser locale (Issue 10).
+// Policy: 2 days credited at the start of each month (Jan=2, Feb=4, …).
 function getAccruedAnnualDays(annualMax) {
-  const month = new Date().getMonth() + 1; // 1=Jan … 12=Dec
+  const baghdadDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date());
+  const month = parseInt(baghdadDate.slice(5, 7), 10); // 1=Jan … 12=Dec
   return Math.min(month * MONTHLY_LEAVE_ACCRUAL, annualMax);
 }
 
@@ -37,8 +39,9 @@ async function getEmployeeType(employeeId) {
   return 'Office';
 }
 
-// Count working days (excluding Friday) between two YYYY-MM-DD strings
-// Returns 0 if to < from (invalid range)
+// Count working days (excluding Friday) between two YYYY-MM-DD strings.
+// Returns 0 if the range is invalid OR covers only Fridays — callers must
+// validate and reject a 0-day result (Issue 9: no longer forces minimum 1).
 export function calcDays(from, to) {
   if (!from || !to || to < from) return 0;
   let count = 0;
@@ -48,7 +51,7 @@ export function calcDays(from, to) {
     if (cur.getDay() !== 5) count++; // 5 = Friday
     cur.setDate(cur.getDate() + 1);
   }
-  return Math.max(1, count);
+  return count;
 }
 
 const HOURLY_LEAVE_TYPE = 'Hourly Leave';
@@ -181,13 +184,15 @@ export async function getLeaveTypes() {
 }
 
 export async function getLeaveBalance(employeeId) {
-  const thisMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+  const baghdadToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date());
+  const thisMonth   = baghdadToday.slice(0, 7); // "YYYY-MM" in Baghdad time
+  const currentYear = parseInt(baghdadToday.slice(0, 4), 10);
 
   if (SUPABASE_MODE) {
-    const currentYear = new Date().getFullYear();
     const { data: rawAllocs } = await supabase.from('leave_allocs').select('*')
       .eq('employee', employeeId).eq('leave_year', currentYear);
-    const { data: approved } = await supabase.from('leave_apps').select('*')
+    const { data: approved } = await supabase.from('leave_apps')
+      .select('leave_type, total_leave_days, total_hours, from_date, is_hourly')
       .eq('employee', employeeId).in('status', ['Approved', 'Open'])
       .gte('from_date', `${currentYear}-01-01`)
       .lte('from_date', `${currentYear}-12-31`);
@@ -269,8 +274,7 @@ export async function getAllApprovedLeaves({ year = new Date().getFullYear() } =
       .eq('status', 'Approved')
       .gte('from_date', `${year}-01-01`)
       .lte('from_date', `${year}-12-31`)
-      .order('from_date', { ascending: false })
-      .limit(500);
+      .order('from_date', { ascending: false });
     if (error) return [];
     return data || [];
   }
@@ -525,20 +529,21 @@ export async function applyLateHourlyDeduction(employeeId, employeeName, date) {
   if (remaining < DEDUCTION_HRS) return false; // not enough balance
 
   const record = {
-    name:            `LATE-${crypto.randomUUID()}`,
-    employee:        employeeId,
-    employee_name:   employeeName,
-    leave_type:      HOURLY_LEAVE_TYPE,
-    from_date:       date,
-    from_time:       '00:00',
-    to_time:         `00:${LATE_DEDUCTION_MINUTES}`,
-    total_hours:     DEDUCTION_HRS,
-    total_leave_days: 0,
-    status:          'Approved',
-    is_hourly:       true,
-    approval_stage:  'Approved',
-    posting_date:    date,
-    description:     'Auto-deducted: late check-in',
+    name:              `LATE-${crypto.randomUUID()}`,
+    employee:          employeeId,
+    employee_name:     employeeName,
+    leave_type:        HOURLY_LEAVE_TYPE,
+    from_date:         date,
+    from_time:         '00:00',
+    to_time:           `00:${String(LATE_DEDUCTION_MINUTES).padStart(2, '0')}`,
+    total_hours:       DEDUCTION_HRS,
+    total_leave_days:  0,
+    status:            'Approved',
+    is_hourly:         true,
+    is_auto_deduction: true, // flag so leave-history UI can label/filter this row (Issue 14)
+    approval_stage:    'Approved',
+    posting_date:      date,
+    description:       'Auto-deducted: late check-in',
   };
 
   if (SUPABASE_MODE) {
