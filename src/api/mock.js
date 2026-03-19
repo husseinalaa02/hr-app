@@ -10,7 +10,7 @@
 //
 //   Audit Manager (AUDIT-001) — Audit Manager (audit)
 
-const CO = 'Afaq Al-Fiker';
+const CO = 'AFAQ ALFIKER';
 const BR = 'Baghdad HQ';
 
 export const MOCK_EMPLOYEES = [

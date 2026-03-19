@@ -7,6 +7,7 @@ import {
   saveSelfAssessmentDraft, saveManagerReviewDraft,
 } from '../api/appraisals';
 import { getEmployees } from '../api/employees';
+import { SUPABASE_MODE } from '../db/supabase';
 import Modal from '../components/Modal';
 import { Skeleton } from '../components/Skeleton';
 import Badge from '../components/Badge';
@@ -220,6 +221,25 @@ function CreateAppraisalModal({ onClose, onCreated }) {
 export default function Appraisals() {
   const { employee, hasPermission } = useAuth();
   const canManage = hasPermission('appraisals:manage');
+
+  // Appraisals are not yet implemented in production — show a Coming Soon screen
+  if (SUPABASE_MODE) {
+    return (
+      <div className="page-content">
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">Appraisals</h1>
+            <p className="page-subtitle">Performance reviews and employee evaluations</p>
+          </div>
+        </div>
+        <div className="card">
+          <p className="text-center text-muted" style={{ padding: '48px 20px', fontSize: 15 }}>
+            The Appraisals module is coming soon.
+          </p>
+        </div>
+      </div>
+    );
+  }
   const [tab, setTab] = useState(canManage ? 'all' : 'mine');
   const [appraisals, setAppraisals] = useState([]);
   const [loading, setLoading] = useState(true);

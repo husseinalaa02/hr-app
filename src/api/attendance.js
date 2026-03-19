@@ -190,8 +190,23 @@ export async function checkin(employeeId, logType) {
       return { late, minutes };
 
     } else {
-      // ── Check-Out: query punches first (read-only), then atomic RPC ───────
-      // We fetch all today's punches BEFORE the OUT punch is inserted so that
+      // ── Check-Out: look up the open attendance row by employee + open in_time ──
+      // Do NOT reuse `attName` (computed from today's Baghdad date) — it will be
+      // wrong for midnight-crossover shifts where check-in was the prior calendar day.
+      const { data: openAtt } = await supabase
+        .from('attendance')
+        .select('name')
+        .eq('employee', employeeId)
+        .not('in_time', 'is', null)
+        .is('out_time', null)
+        .order('attendance_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!openAtt) throw new Error('No open attendance record found. Please contact HR.');
+      const checkoutAttName = openAtt.name;
+
+      // ── Query punches first (read-only), then atomic RPC ─────────────────
+      // Fetch all punches for today BEFORE inserting the OUT punch so that
       // calcCumulativeHours can pair existing IN/OUT pairs plus the new OUT.
       const { data: existingPunches } = await supabase
         .from('checkins')
@@ -217,7 +232,7 @@ export async function checkin(employeeId, logType) {
       const { error: rpcErr } = await supabase.rpc('record_checkout', {
         p_checkin_name:        localName,
         p_employee:            employeeId,
-        p_att_name:            attName,
+        p_att_name:            checkoutAttName,
         p_time:                time,
         p_working_hours:       workingHours,
         p_early_leave_minutes: earlyLeaveMinutes,

@@ -209,13 +209,20 @@ export default function Attendance() {
   const lastCheckin = checkins[checkins.length - 1];
   const isCheckedIn = lastCheckin?.log_type === 'IN';
   const nextAction  = isCheckedIn ? 'OUT' : 'IN';
-  const offDay      = isOffDay();
-  const geoBlocked  = geo.configured && (!geo.allowed || geo.loading || !!geo.error);
+  const offDay     = isOffDay();
+  // Only block on a confirmed "outside zone" result — GPS errors (permission denied,
+  // hardware timeout, etc.) must not permanently lock the employee out. Loading state
+  // still blocks to avoid a race before the first position fix arrives.
+  const geoBlocked = geo.configured && (geo.loading || (geo.allowed === false && !geo.error));
 
   const handleCheckin = async () => {
     if (geoBlocked) {
       addToast('You must be at the office to check in.', 'error');
       return;
+    }
+    // GPS error: location could not be verified — warn but allow the check-in
+    if (geo.configured && geo.error) {
+      addToast('Location unavailable — check-in recorded without geofence verification.', 'warning');
     }
     setActionLoading(true);
     try {

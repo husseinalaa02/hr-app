@@ -31,7 +31,7 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-brand">
-          <img src="/afaq_logo.png" alt="Afaq Al-Fiker" className="login-logo-img" />
+          <img src="/afaq_logo.png" alt="AFAQ ALFIKER" className="login-logo-img" />
           <h2>AFAQ ALFIKER</h2>
           <p>HR Management System</p>
         </div>

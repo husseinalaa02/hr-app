@@ -129,7 +129,7 @@ export async function createEmployee(data, accessToken) {
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify({
-        employee_data: { ...data, company: data.company || import.meta.env.VITE_DEFAULT_COMPANY || 'Afaq Al-Fiker' },
+        employee_data: { ...data, company: data.company || import.meta.env.VITE_DEFAULT_COMPANY || 'AFAQ ALFIKER' },
         password: data.password || data.user_id || '',
       }),
     });
@@ -149,7 +149,7 @@ export async function createEmployee(data, accessToken) {
       cell_number:      data.cell_number || '',
       image:            '',
       user_id:          data.user_id || '',
-      company:          data.company || import.meta.env.VITE_DEFAULT_COMPANY || 'Afaq Al-Fiker',
+      company:          data.company || import.meta.env.VITE_DEFAULT_COMPANY || 'AFAQ ALFIKER',
       date_of_joining:  data.date_of_joining || '',
       gender:           data.gender || '',
       date_of_birth:    data.date_of_birth || '',

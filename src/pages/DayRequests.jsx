@@ -65,6 +65,8 @@ export default function DayRequests() {
       ]);
       setRequests(reqs);
       setEmployees(emps);
+    } catch (e) {
+      addToast(e.message || 'Failed to load requests', 'error');
     } finally {
       setLoading(false);
     }

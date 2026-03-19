@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { db } from '../db/index';
-import { supabase, SUPABASE_MODE } from '../db/supabase';
+import { getReportData } from '../api/reports';
 import { Skeleton } from '../components/Skeleton';
+import ErrorState from '../components/ErrorState';
 
 function StatCard({ label, value, sub, color = '#1565c0' }) {
   return (
@@ -17,29 +17,13 @@ export default function Reports() {
   const [tab, setTab] = useState('overview');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      let employees, leaves, payroll, appraisals, expenses;
-
-      if (SUPABASE_MODE) {
-        [employees, leaves, payroll, appraisals, expenses] = await Promise.all([
-          supabase.from('employees_public').select('name,department').then(r => r.data || []),
-          supabase.from('leave_apps').select('*').then(r => r.data || []),
-          supabase.from('payroll').select('*').then(r => r.data || []),
-          supabase.from('appraisals').select('*').then(r => r.data || []),
-          supabase.from('expenses').select('*').then(r => r.data || []),
-        ]);
-      } else {
-        [employees, leaves, payroll, appraisals, expenses] = await Promise.all([
-          db.employees.toArray(),
-          db.leave_apps.toArray(),
-          db.payroll.toArray(),
-          db.appraisals.toArray(),
-          db.expenses.toArray(),
-        ]);
-      }
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const { employees, leaves, payroll, appraisals, expenses } = await getReportData();
 
       const deptMap = {};
       employees.forEach(e => { deptMap[e.department] = (deptMap[e.department] || 0) + 1; });
@@ -65,12 +49,17 @@ export default function Reports() {
         appraisals, appraisalByStatus,
         expenses, expenseTotal, pendingExpenses,
       });
+    } catch (e) {
+      setLoadError(e.message || 'Failed to load report data');
+    } finally {
       setLoading(false);
-    };
-    load();
-  }, []);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
 
   if (loading) return <div className="page-content"><div className="loading-center"><span className="spinner" /></div></div>;
+  if (loadError) return <div className="page-content"><ErrorState message={loadError} onRetry={load} /></div>;
   if (!data) return null;
 
   return (

@@ -7,6 +7,14 @@ const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
 export const EXPENSE_TYPE_LIST = ['Travel', 'Equipment', 'Office Supplies', 'Training', 'Marketing', 'Meals', 'Other'];
 
+const MAX_EXPENSE_IQD = 10_000_000; // 10 million IQD sanity cap
+
+function validateAmount(amount) {
+  const n = Number(amount);
+  if (!amount || isNaN(n) || n <= 0)      throw new Error('Amount must be greater than 0');
+  if (n > MAX_EXPENSE_IQD)                throw new Error('Amount exceeds maximum allowed value (10,000,000 IQD)');
+}
+
 export async function getExpenses({ employeeId = '', status = '' } = {}) {
   if (SUPABASE_MODE) {
     let query = supabase.from('expenses').select('*');
@@ -27,6 +35,7 @@ export async function getExpenses({ employeeId = '', status = '' } = {}) {
 }
 
 export async function submitExpense({ employee_id, employee_name, expense_type, amount, expense_date, description }) {
+  validateAmount(amount);
   if (SUPABASE_MODE) {
     const record = { employee_id, employee_name, expense_type, amount: Number(amount), expense_date, description, status: 'Submitted' };
     const { data: inserted, error } = await supabase.from('expenses').insert(record).select().single();
@@ -49,6 +58,7 @@ export async function submitExpense({ employee_id, employee_name, expense_type, 
 }
 
 export async function saveDraftExpense({ employee_id, employee_name, expense_type, amount, expense_date, description }) {
+  validateAmount(amount);
   if (SUPABASE_MODE) {
     const record = { employee_id, employee_name, expense_type, amount: Number(amount), expense_date, description, status: 'Draft' };
     const { data: inserted, error } = await supabase.from('expenses').insert(record).select().single();

@@ -8,7 +8,7 @@ const store      = new Map();
 const MAX_ENTRIES = 200;
 
 function evictOldest() {
-  // Map preserves insertion order — first key is the oldest
+  // Map preserves insertion order — FIFO eviction: first inserted is first removed
   store.delete(store.keys().next().value);
 }
 

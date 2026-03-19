@@ -56,7 +56,7 @@ create table if not exists employees (
   auth_id         uuid unique references auth.users(id) on delete set null,
   image           text,
   reports_to      text,
-  company         text default 'Afaq Al-Fiker'
+  company         text default 'AFAQ ALFIKER'
 );
 
 -- Leave Applications
@@ -581,6 +581,26 @@ create index if not exists idx_payroll_employee_period   on payroll(employee_id,
 create index if not exists idx_day_requests_employee     on day_requests(employee_id, approval_status);
 create index if not exists idx_notifications_recipient   on notifications(recipient_id, read, created_at);
 create index if not exists idx_timesheets_employee       on timesheets(employee, start_date);
+
+-- ─── Salary Integrity Trigger ─────────────────────────────────────────────────
+-- Enforces that calculated_salary always equals the formula result on every INSERT
+-- and UPDATE, regardless of what the client sends. Prevents tampered values from
+-- being stored. Formula mirrors calcFinalSalary() in src/api/payroll.js.
+create or replace function enforce_salary_calculation()
+returns trigger language plpgsql as $$
+begin
+  new.calculated_salary :=
+    round(((new.base_salary + new.additional_salary)::numeric / 30) * new.working_days)
+    + coalesce(new.friday_bonus,    0)
+    + coalesce(new.extra_day_bonus, 0);
+  return new;
+end;
+$$;
+
+drop trigger if exists payroll_salary_check on payroll;
+create trigger payroll_salary_check
+  before insert or update on payroll
+  for each row execute function enforce_salary_calculation();
 
 -- ─── Seed Data ────────────────────────────────────────────────────────────────
 

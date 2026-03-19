@@ -13,7 +13,10 @@ import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
 
 function getGreeting() {
-  const h = new Date().getHours();
+  const h = parseInt(
+    new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Baghdad', hour: 'numeric', hour12: false }).format(new Date()),
+    10
+  );
   if (h < 12) return 'Good morning';
   if (h < 17) return 'Good afternoon';
   return 'Good evening';
@@ -177,7 +180,7 @@ function AnnouncementModal({ onClose, onSave }) {
 }
 
 export default function Dashboard() {
-  const { employee, isAdmin, isFinance, isAudit, hasPermission } = useAuth();
+  const { employee, isAdmin, isCEO, isFinance, isHR, isAudit, hasPermission } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -185,7 +188,7 @@ export default function Dashboard() {
   const canWriteAnnouncements = hasPermission('announcements:write');
 
   const role = employee?.role;
-  const isManager = isAdmin || role === 'manager';
+  const isManager = isAdmin || isCEO || isHR || role === 'it_manager';
 
   const handleCreateAnnouncement = async (form) => {
     const newAnn = await createAnnouncement(form);
@@ -206,7 +209,7 @@ export default function Dashboard() {
         if (isManager || isFinance) {
           const [allEmployees, pendingLeaves, announcements, payrollRecords, pendingExpenses, jobs, checkins] = await Promise.all([
             getEmployees(),
-            getPendingApprovals(employee.name),
+            getPendingApprovals({ managerId: employee.name, includeHRQueue: isHR }),
             getAnnouncements(),
             getPayrollRecords(),
             getExpenses({ status: 'Submitted' }),
@@ -238,7 +241,7 @@ export default function Dashboard() {
   const attendanceColor  = checkedOut ? '#d97706' : checkedIn ? '#059669' : '#dc2626';
 
   // ── ADMIN / HR MANAGER VIEW ──────────────────────────────────────────────────
-  if (isManager || isFinance || employee?.role === 'hr_manager') {
+  if (isManager || isFinance) {
     const employees       = data?.allEmployees   || [];
     const pendingLeaves   = data?.pendingLeaves  || [];
     const announcements   = data?.announcements  || [];

@@ -82,7 +82,7 @@ export default async function handler(req, res) {
       image:           '',
       user_id:         userId,
       password:        '',  // never stored
-      company:         employee_data.company         || process.env.DEFAULT_COMPANY || 'Afaq Al-Fiker',
+      company:         employee_data.company         || process.env.DEFAULT_COMPANY || 'AFAQ ALFIKER',
       date_of_joining: employee_data.date_of_joining || null,
       gender:          employee_data.gender          || '',
       date_of_birth:   employee_data.date_of_birth   || null,

@@ -123,7 +123,7 @@ export default function Sidebar({ open, onClose }) {
 
         {/* Brand */}
         <div className="sidebar-brand">
-          <img src="/afaq_logo.png" alt="Afaq Al-Fiker" className="brand-logo-img" />
+          <img src="/afaq_logo.png" alt="AFAQ ALFIKER" className="brand-logo-img" />
           <div className="brand-text">
             <span className="brand-name">AFAQ ALFIKER</span>
             <span className="brand-sub">HR System</span>

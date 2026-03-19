@@ -27,10 +27,12 @@ export function useGeofence() {
     try {
       const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 20000 });
       const dist = getDistance(pos.coords.latitude, pos.coords.longitude, LAT, LNG);
+      const accuracy = pos.coords.accuracy || 15;
+      const buffer = Math.min(accuracy, 50); // cap buffer at 50m to prevent abuse
       setState({
         configured: true,
         loading: false,
-        allowed: dist <= RADIUS,
+        allowed: dist <= RADIUS + buffer,
         distance: Math.round(dist),
         accuracy: Math.round(pos.coords.accuracy),
         error: null,

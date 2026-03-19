@@ -7,7 +7,7 @@ import Badge from '../components/Badge';
 import Modal from '../components/Modal';
 import { formatIQD } from '../utils/format';
 
-const COMPANY = import.meta.env.VITE_DEFAULT_COMPANY || 'Afaq Al-Fiker';
+const COMPANY = import.meta.env.VITE_DEFAULT_COMPANY || 'AFAQ ALFIKER';
 
 function PayslipDetail({ payslip, onClose }) {
   if (!payslip) return null;

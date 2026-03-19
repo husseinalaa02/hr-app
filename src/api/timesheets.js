@@ -32,6 +32,7 @@ export async function getProjects() {
   return db.projects.toArray();
 }
 
+// Task assignment is a planned feature — not yet implemented.
 export async function getTasks() {
   return [];
 }

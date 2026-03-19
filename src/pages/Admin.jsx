@@ -263,7 +263,7 @@ export default function Admin() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ employee_id: emp.name, new_role: newRole }),
-        }).catch(() => {}); // non-fatal — role is set in employees table regardless
+        }).catch(err => console.warn('[Admin] set-role JWT sync failed (non-fatal):', err)); // role is set in employees table regardless
       }
 
       setEmployees(p => p.map(e => e.name === emp.name ? { ...e, role: newRole } : e));
