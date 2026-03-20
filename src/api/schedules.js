@@ -25,7 +25,7 @@ export async function getSchedules(employeeIds = []) {
     return Object.values(map);
   }
   if (DEMO) {
-    const all = await db.table('work_schedules').toArray().catch(() => []);
+    const all = await db['work_schedules'].toArray().catch(() => []);
     const map = {};
     for (const row of all.sort((a, b) => b.effective_date?.localeCompare(a.effective_date))) {
       if (!map[row.employee]) map[row.employee] = row;
@@ -43,7 +43,7 @@ export async function getMySchedule(employeeId) {
       return data || null;
     }
     if (DEMO) {
-      const all = await db.table('work_schedules').toArray().catch(() => []);
+      const all = await db['work_schedules'].toArray().catch(() => []);
       return all.filter(r => r.employee === employeeId)
         .sort((a, b) => b.effective_date?.localeCompare(a.effective_date))[0] || null;
     }
@@ -59,7 +59,7 @@ export async function getScheduleHistory(employeeId) {
     return data || [];
   }
   if (DEMO) {
-    const all = await db.table('work_schedules').toArray().catch(() => []);
+    const all = await db['work_schedules'].toArray().catch(() => []);
     return all.filter(r => r.employee === employeeId)
       .sort((a, b) => b.effective_date?.localeCompare(a.effective_date));
   }
@@ -78,11 +78,11 @@ export async function assignSchedule({ employee, employee_name, shift_type, star
   }
   if (DEMO) {
     // Replace only the record with the same effective_date — keep older records as history
-    const all = await db.table('work_schedules').toArray().catch(() => []);
+    const all = await db['work_schedules'].toArray().catch(() => []);
     const same = all.filter(r => r.employee === employee && r.effective_date === effective_date);
-    await Promise.all(same.map(r => db.table('work_schedules').delete(r.id)));
+    await Promise.all(same.map(r => db['work_schedules'].delete(r.id)));
     const r = { ...record, id: Date.now(), created_at: new Date().toISOString() };
-    await db.table('work_schedules').put(r);
+    await db['work_schedules'].put(r);
     return r;
   }
   throw new Error('No backend available');

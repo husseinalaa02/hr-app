@@ -338,7 +338,7 @@ export default function LeaveRequests() {
             </p>
           </div>
         ) : rows.map(l => {
-          const isHourlyLeave = !!l.total_hours;
+          const isHourlyLeave = !!l.is_hourly;
           const accentColor =
             l.status === 'Approved' ? '#2e7d32' :
             l.status === 'Rejected' ? '#c62828' :

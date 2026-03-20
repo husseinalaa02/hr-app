@@ -32,7 +32,7 @@ export async function getUnreadCount(recipientId) {
     return count || 0;
   }
   if (DEMO) {
-    return db.notifications.filter(n => n.recipient_id === recipientId && !n.read).count();
+    return await db.notifications.filter(n => n.recipient_id === recipientId && !n.read).count();
   }
   return 0;
 }
