@@ -339,8 +339,12 @@ export default function LeaveRequests() {
           </div>
         ) : rows.map(l => {
           const isHourlyLeave = !!l.total_hours;
+          const accentColor =
+            l.status === 'Approved' ? '#2e7d32' :
+            l.status === 'Rejected' ? '#c62828' :
+            BALANCE_COLORS[l.leave_type] || '#ef6c00';
           return (
-            <div key={l.name} className="leave-item-card">
+            <div key={l.name} className="leave-item-card" style={{ borderLeft: `4px solid ${accentColor}` }}>
               <div className="leave-item-top">
                 <div className="leave-item-info">
                   {(tab === 'pending' || tab === 'approved') && (

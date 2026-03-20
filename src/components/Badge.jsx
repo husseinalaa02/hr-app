@@ -1,5 +1,6 @@
 const TYPE_MAP = {
   Open: 'badge-warning',
+  Pending: 'badge-warning',
   Approved: 'badge-success',
   Rejected: 'badge-danger',
   Present: 'badge-success',

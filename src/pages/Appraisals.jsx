@@ -226,24 +226,6 @@ export default function Appraisals() {
   const { employee, hasPermission } = useAuth();
   const canManage = hasPermission('appraisals:manage');
 
-  // Appraisals are not yet implemented in production — show a Coming Soon screen
-  if (SUPABASE_MODE) {
-    return (
-      <div className="page-content">
-        <div className="page-header">
-          <div>
-            <h1 className="page-title">{t('appraisals.title')}</h1>
-            <p className="page-subtitle">{t('appraisals.subtitle')}</p>
-          </div>
-        </div>
-        <div className="card">
-          <p className="text-center text-muted" style={{ padding: '48px 20px', fontSize: 15 }}>
-            The Appraisals module is coming soon.
-          </p>
-        </div>
-      </div>
-    );
-  }
   const [tab, setTab] = useState(canManage ? 'all' : 'mine');
   const [appraisals, setAppraisals] = useState([]);
   const [loading, setLoading] = useState(true);
