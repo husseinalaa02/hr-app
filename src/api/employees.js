@@ -172,6 +172,7 @@ export async function createEmployee(data, accessToken) {
     });
     const result = await res.json();
     if (!res.ok) throw new Error(result.message || 'Failed to create employee');
+    invalidate('employees');
     return result;
   }
   if (DEMO) {
