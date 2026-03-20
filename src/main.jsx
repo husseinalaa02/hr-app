@@ -8,6 +8,13 @@ import '@fontsource/tajawal/400.css';
 import '@fontsource/tajawal/500.css';
 import '@fontsource/tajawal/700.css';
 import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+import './i18n';
+import './style.css';
+import App from './App.jsx';
 
 // Safety guard: demo mode must never run on a real deployment.
 // If VITE_DEMO_MODE=true is accidentally set in a Vercel production env,
@@ -25,13 +32,6 @@ if (import.meta.env.VITE_DEMO_MODE === 'true') {
     throw new Error('DEMO_MODE must not be enabled in production');
   }
 }
-import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { ToastProvider } from './context/ToastContext';
-import './i18n';
-import './style.css';
-import App from './App.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

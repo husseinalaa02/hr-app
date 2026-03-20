@@ -22,8 +22,9 @@ const ALLOWED_ORIGINS = new Set([
 ].filter(Boolean));
 
 function setCors(req, res) {
-  const origin = req.headers.origin;
-  if (origin && ALLOWED_ORIGINS.has(origin)) {
+  const origin = req.headers.origin || '';
+  const allowed = ALLOWED_ORIGINS.has(origin) || /^https?:\/\/localhost(:\d+)?$/.test(origin);
+  if (allowed && origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
   }
