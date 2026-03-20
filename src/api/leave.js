@@ -91,7 +91,7 @@ async function applyUnpaidLeaveDeduction(leave) {
 export async function getLeaveApplications(employeeId, { status = '' } = {}) {
   if (SUPABASE_MODE) {
     let query = supabase.from('leave_apps')
-      .select('name, leave_type, from_date, to_date, total_leave_days, total_hours, is_hourly, status, approval_stage, description, from_time, to_time, posting_date, is_auto_deduction')
+      .select('name, leave_type, from_date, to_date, total_leave_days, total_hours, is_hourly, status, approval_stage, description, from_time, to_time, posting_date')
       .eq('employee', employeeId);
     if (status) query = query.eq('status', status);
     const { data, error } = await query.order('from_date', { ascending: false });
@@ -553,7 +553,6 @@ export async function applyLateHourlyDeduction(employeeId, employeeName, date) {
     total_leave_days:  0,
     status:            'Approved',
     is_hourly:         true,
-    is_auto_deduction: true, // flag so leave-history UI can label/filter this row (Issue 14)
     approval_stage:    'Approved',
     posting_date:      date,
     description:       'Auto-deducted: late check-in',
