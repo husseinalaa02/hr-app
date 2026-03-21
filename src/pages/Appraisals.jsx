@@ -234,12 +234,17 @@ export default function Appraisals() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const opts = {};
-    if (tab === 'mine') opts.employeeId = employee.name;
-    if (tab === 'review') opts.appraiserId = employee.name;
-    const data = await getAppraisals(opts);
-    setAppraisals(data);
-    setLoading(false);
+    try {
+      const opts = {};
+      if (tab === 'mine') opts.employeeId = employee.name;
+      if (tab === 'review') opts.appraiserId = employee.name;
+      const data = await getAppraisals(opts);
+      setAppraisals(data);
+    } catch {
+      setAppraisals([]);
+    } finally {
+      setLoading(false);
+    }
   }, [tab, employee?.name]);
 
   useEffect(() => { load(); }, [load]);
