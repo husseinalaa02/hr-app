@@ -2468,89 +2468,14 @@ html, body {
   flex-direction: row-reverse;
 }
 
-[dir="rtl"] .topbar-left {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .page-header {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .page-toolbar {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .form-row {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .form-actions {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .balance-bar-header {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .tab-group {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .leave-item-top {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .leave-item-actions {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .kpi-card {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .dash-emp-hero {
-  flex-direction: row-reverse;
-}
-
 [dir="rtl"] .qa-item {
   flex-direction: column;
-}
-
-[dir="rtl"] .pending-item {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .dept-bar-label {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .dept-total-row {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .ann-card {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .dash-emp-header {
-  flex-direction: row-reverse;
 }
 
 [dir="rtl"] .emp-card-info {
   text-align: right;
 }
 
-[dir="rtl"] .modal-header {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .card-header {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .log-item {
-  flex-direction: row-reverse;
-}
 
 [dir="rtl"] thead th,
 [dir="rtl"] tbody td {
@@ -2565,25 +2490,11 @@ html, body {
   align-items: flex-start;
 }
 
-[dir="rtl"] .modal-footer {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .dash-section-header {
-  flex-direction: row-reverse;
-}
 
 [dir="rtl"] .sidebar-footer {
   direction: rtl;
 }
 
-[dir="rtl"] .btn-logout {
-  flex-direction: row-reverse;
-}
-
-[dir="rtl"] .leave-mode-toggle {
-  flex-direction: row-reverse;
-}
 
 [dir="rtl"] .nav-item-btn {
   text-align: right;
