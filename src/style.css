@@ -63,17 +63,27 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-html, body {
+html {
+  height: 100%;
+  overflow: hidden; /* iOS WKWebView: prevent native horizontal scroll */
+  overscroll-behavior: none;
+}
+body {
   height: 100%;
   font-family: var(--font-sans);
   font-size: 14px;
   color: var(--gray-900);
   background: var(--gray-100);
-  overflow-x: hidden;
+  overflow: hidden; /* Capacitor handles scroll per-container */
+  overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* iOS: prevent entire-page rubber-band / horizontal shift */
+  position: fixed;
+  width: 100%;
+  top: 0; left: 0;
 }
-#root { height: 100%; }
+#root { height: 100%; overflow: hidden; }
 
 /* ===== LAYOUT ===== */
 .app-layout { display: flex; height: 100%; }
@@ -83,6 +93,8 @@ html, body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  height: 100%;
+  overflow: hidden;
   margin-left: var(--sidebar-width);
   transition: margin-left var(--transition);
 }
@@ -1307,11 +1319,15 @@ html, body {
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
-  .sidebar { display: none; }
+  .sidebar {
+    display: flex; /* keep rendered so transform works */
+    transform: translateX(-100%); /* hidden off-screen left by default */
+  }
+  .sidebar-open { transform: translateX(0); } /* slide in when open */
   .signout-mobile { display: block; }
-  .sidebar-overlay { display: none; }
+  .sidebar-overlay { display: block; } /* rendered conditionally by JSX when open */
   .main-area { margin-left: 0; }
-  .menu-btn { display: none; }
+  .menu-btn { display: flex; } /* show hamburger on mobile */
   .topbar-user { display: none; }
 
   /* Topbar mobile — content must sit below the Android status bar */
@@ -1851,7 +1867,7 @@ html, body {
 }
 .notif-panel {
   position: absolute; top: calc(100% + 8px); right: 0;
-  width: 320px; max-height: 420px;
+  width: min(320px, calc(100vw - 24px)); max-height: 420px;
   background: #fff; border: 1px solid var(--border);
   border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.14);
   overflow: hidden; z-index: 200;
@@ -2192,7 +2208,7 @@ html, body {
 @media (max-width: 768px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .dash-main-grid { grid-template-columns: 1fr; gap: 12px; }
-  .leave-balance-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .leave-balance-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .quick-actions-pro { grid-template-columns: repeat(3, 1fr); }
   .dash-pro-header { flex-direction: column; align-items: flex-start; gap: 12px; }
   .dash-emp-header { flex-direction: column; align-items: flex-start; padding: 18px; }

@@ -1,5 +1,9 @@
 {
   "appId": "com.afaqalfiker.hr",
   "appName": "AFAQ ALFIKER HR",
-  "webDir": "dist"
+  "webDir": "dist",
+  "ios": {
+    "scrollEnabled": false,
+    "contentInset": "never"
+  }
 }
