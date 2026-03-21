@@ -31,16 +31,26 @@ export default function Recruitment() {
 
   const loadJobs = useCallback(async () => {
     setLoading(true);
-    const data = await getJobs();
-    setJobs(data);
-    setLoading(false);
+    try {
+      const data = await getJobs();
+      setJobs(data);
+    } catch {
+      setJobs([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const loadCandidates = useCallback(async (jobId = null) => {
     setLoading(true);
-    const data = await getCandidates(jobId);
-    setCandidates(data);
-    setLoading(false);
+    try {
+      const data = await getCandidates(jobId);
+      setCandidates(data);
+    } catch {
+      setCandidates([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -56,15 +66,17 @@ export default function Recruitment() {
   const handleMoveStage = async (cand, stage) => {
     try {
       await moveStage(cand.id, stage);
-      addToast(`Moved to ${stage}`, 'success');
+      addToast(t('recruitment.movedToStage', { stage }), 'success');
       loadCandidates(selectedJob?.id);
     } catch (e) { addToast(e.message, 'error'); }
   };
 
   const handleDelete = async (cand) => {
-    if (!window.confirm(`Remove ${cand.name}?`)) return;
-    await deleteCandidate(cand.id);
-    loadCandidates(selectedJob?.id);
+    if (!window.confirm(t('recruitment.removeConfirm', { name: cand.name }))) return;
+    try {
+      await deleteCandidate(cand.id);
+      loadCandidates(selectedJob?.id);
+    } catch (e) { addToast(e.message, 'error'); }
   };
 
   const visibleCandidates = stageFilter ? candidates.filter(c => c.stage === stageFilter) : candidates;
@@ -83,14 +95,14 @@ export default function Recruitment() {
       <div className="page-toolbar">
         <div className="tab-group">
           <button className={`tab-btn${tab === 'jobs' ? ' active' : ''}`} onClick={() => setTab('jobs')}>
-            Job Openings
+            {t('recruitment.jobOpenings')}
           </button>
           <button className={`tab-btn${tab === 'candidates' ? ' active' : ''}`} onClick={() => setTab('candidates')}>
-            Candidates {selectedJob && <span className="badge-count">{candidates.length}</span>}
+            {t('recruitment.candidates')} {selectedJob && <span className="badge-count">{candidates.length}</span>}
           </button>
         </div>
         {canManage && tab === 'candidates' && selectedJob && (
-          <button className="btn btn-primary" onClick={() => setShowCandModal(true)}>+ Add Candidate</button>
+          <button className="btn btn-primary" onClick={() => setShowCandModal(true)}>{t('recruitment.addCandidate')}</button>
         )}
       </div>
 
@@ -105,13 +117,13 @@ export default function Recruitment() {
               <div className="leave-item-top">
                 <div className="leave-item-info">
                   <div className="leave-item-type">{j.job_title}</div>
-                  <div className="leave-item-dates">{j.department} · Target: {j.target_date || '—'}</div>
+                  <div className="leave-item-dates">{j.department} · {t('recruitment.target')} {j.target_date || '—'}</div>
                   {j.description && <div className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>{j.description}</div>}
                 </div>
                 <div className="leave-item-right">
-                  {j.hired_count > 0 && <span className="duration-badge daily">{j.hired_count} hired</span>}
+                  {j.hired_count > 0 && <span className="duration-badge daily">{t('recruitment.hired', { count: j.hired_count })}</span>}
                   <span className="appraisal-status-badge" style={{ background: j.status === 'Open' ? '#2e7d32' : '#9e9e9e' }}>
-                    {j.status}
+                    {t(`status.${j.status}`, { defaultValue: j.status })}
                   </span>
                 </div>
               </div>
@@ -125,11 +137,11 @@ export default function Recruitment() {
           {selectedJob && (
             <div className="info-box" style={{ marginBottom: 12 }}>
               <strong>{selectedJob.job_title}</strong> — {selectedJob.department}
-              <button className="btn btn-sm btn-secondary" style={{ marginLeft: 12 }} onClick={() => setTab('jobs')}>← Back</button>
+              <button className="btn btn-sm btn-secondary" style={{ marginInlineStart: 12 }} onClick={() => setTab('jobs')}>{t('recruitment.back')}</button>
             </div>
           )}
           <div className="tab-group" style={{ marginBottom: 12, flexWrap: 'wrap', gap: 6 }}>
-            <button className={`tab-btn${!stageFilter ? ' active' : ''}`} onClick={() => setStageFilter('')}>All</button>
+            <button className={`tab-btn${!stageFilter ? ' active' : ''}`} onClick={() => setStageFilter('')}>{t('recruitment.all')}</button>
             {STAGES.map(s => (
               <button key={s} className={`tab-btn${stageFilter === s ? ' active' : ''}`} onClick={() => setStageFilter(s)} style={{ fontSize: 12 }}>
                 {s}
@@ -140,7 +152,7 @@ export default function Recruitment() {
             {loading ? (
               Array.from({ length: 3 }).map((_, i) => <div key={i} className="leave-item-card"><Skeleton height={14} width="60%" /></div>)
             ) : visibleCandidates.length === 0 ? (
-              <div className="card"><p className="text-center text-muted" style={{ padding: '32px 16px' }}>No candidates{stageFilter ? ` in ${stageFilter}` : ''}</p></div>
+              <div className="card"><p className="text-center text-muted" style={{ padding: '32px 16px' }}>{stageFilter ? t('recruitment.noCandidatesInStage', { stage: stageFilter }) : t('recruitment.noCandidates')}</p></div>
             ) : visibleCandidates.map(c => (
               <div key={c.id} className="leave-item-card">
                 <div className="leave-item-top">
@@ -151,7 +163,7 @@ export default function Recruitment() {
                   </div>
                   <div className="leave-item-right">
                     <span className="appraisal-status-badge" style={{ background: STAGE_COLORS[c.stage] || '#607d8b' }}>
-                      {c.stage}
+                      {t(`status.${c.stage}`, { defaultValue: c.stage })}
                     </span>
                   </div>
                 </div>
@@ -162,7 +174,7 @@ export default function Recruitment() {
                         → {s}
                       </button>
                     ))}
-                    <button className="btn btn-sm btn-danger" onClick={() => handleMoveStage(c, 'Rejected')}>Reject</button>
+                    <button className="btn btn-sm btn-danger" onClick={() => handleMoveStage(c, 'Rejected')}>{t('recruitment.reject')}</button>
                     <button className="btn btn-sm btn-secondary" onClick={() => handleDelete(c)}>{t('common.delete')}</button>
                   </div>
                 )}
@@ -179,7 +191,7 @@ export default function Recruitment() {
       )}
 
       {showCandModal && selectedJob && (
-        <Modal title="Add Candidate" onClose={() => setShowCandModal(false)}>
+        <Modal title={t('recruitment.addCandidateTitle')} onClose={() => setShowCandModal(false)}>
           <CandidateForm jobId={selectedJob.id} onClose={() => setShowCandModal(false)} onCreated={() => loadCandidates(selectedJob.id)} />
         </Modal>
       )}
@@ -196,19 +208,19 @@ function JobForm({ onClose, onCreated }) {
   const handle = async (e) => {
     e.preventDefault();
     setSaving(true);
-    try { await createJob(form); addToast('Job created', 'success'); onCreated(); onClose(); }
-    catch (err) { addToast(err.message || 'Failed', 'error'); }
+    try { await createJob(form); addToast(t('recruitment.jobCreated'), 'success'); onCreated(); onClose(); }
+    catch (err) { addToast(err.message || t('errors.failed'), 'error'); }
     finally { setSaving(false); }
   };
   return (
     <form className="form-stack" onSubmit={handle}>
       <div className="form-group"><label>{t('recruitment.jobTitle')} *</label><input className="form-input" value={form.job_title} onChange={e => set('job_title', e.target.value)} required /></div>
       <div className="form-group"><label>{t('recruitment.department')} *</label><input className="form-input" value={form.department} onChange={e => set('department', e.target.value)} required /></div>
-      <div className="form-group"><label>Description</label><textarea className="form-input" rows={2} value={form.description} onChange={e => set('description', e.target.value)} /></div>
-      <div className="form-group"><label>Target Date</label><input type="date" className="form-input" value={form.target_date} onChange={e => set('target_date', e.target.value)} /></div>
+      <div className="form-group"><label>{t('recruitment.description')}</label><textarea className="form-input" rows={2} value={form.description} onChange={e => set('description', e.target.value)} /></div>
+      <div className="form-group"><label>{t('recruitment.targetDate')}</label><input type="date" className="form-input" value={form.target_date} onChange={e => set('target_date', e.target.value)} /></div>
       <div className="form-actions">
         <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
-        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? <span className="spinner-sm" /> : 'Create'}</button>
+        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? <span className="spinner-sm" /> : t('recruitment.createJob')}</button>
       </div>
     </form>
   );
@@ -223,16 +235,16 @@ function CandidateForm({ jobId, onClose, onCreated }) {
   const handle = async (e) => {
     e.preventDefault();
     setSaving(true);
-    try { await addCandidate({ job_id: jobId, ...form }); addToast('Candidate added', 'success'); onCreated(); onClose(); }
-    catch (err) { addToast(err.message || 'Failed', 'error'); }
+    try { await addCandidate({ job_id: jobId, ...form }); addToast(t('recruitment.candidateAdded'), 'success'); onCreated(); onClose(); }
+    catch (err) { addToast(err.message || t('errors.failed'), 'error'); }
     finally { setSaving(false); }
   };
   return (
     <form className="form-stack" onSubmit={handle}>
-      <div className="form-group"><label>Full Name *</label><input className="form-input" value={form.name} onChange={e => set('name', e.target.value)} required /></div>
-      <div className="form-group"><label>Email *</label><input type="email" className="form-input" value={form.email} onChange={e => set('email', e.target.value)} required /></div>
-      <div className="form-group"><label>Phone</label><input className="form-input" value={form.phone} onChange={e => set('phone', e.target.value)} /></div>
-      <div className="form-group"><label>CV Notes</label><textarea className="form-input" rows={2} value={form.cv_note} onChange={e => set('cv_note', e.target.value)} /></div>
+      <div className="form-group"><label>{t('recruitment.fullName')}</label><input className="form-input" value={form.name} onChange={e => set('name', e.target.value)} required /></div>
+      <div className="form-group"><label>{t('recruitment.email')}</label><input type="email" className="form-input" value={form.email} onChange={e => set('email', e.target.value)} required /></div>
+      <div className="form-group"><label>{t('recruitment.phone')}</label><input className="form-input" value={form.phone} onChange={e => set('phone', e.target.value)} /></div>
+      <div className="form-group"><label>{t('recruitment.cvNotes')}</label><textarea className="form-input" rows={2} value={form.cv_note} onChange={e => set('cv_note', e.target.value)} /></div>
       <div className="form-actions">
         <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
         <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? <span className="spinner-sm" /> : t('common.add')}</button>

@@ -1,6 +1,10 @@
+import { useTranslation } from 'react-i18next';
+
 const TYPE_MAP = {
   Open: 'badge-warning',
   Pending: 'badge-warning',
+  'Pending Manager': 'badge-warning',
+  'Pending HR': 'badge-warning',
   Approved: 'badge-success',
   Rejected: 'badge-danger',
   Present: 'badge-success',
@@ -16,9 +20,18 @@ const TYPE_MAP = {
   Submitted: 'badge-success',
   Draft: 'badge-secondary',
   Cancelled: 'badge-danger',
+  Paid: 'badge-success',
+  Hired: 'badge-success',
+  'Not Started': 'badge-secondary',
+  'In Progress': 'badge-warning',
+  Completed: 'badge-success',
+  'Self-Assessment Submitted': 'badge-info',
+  'Manager Review': 'badge-warning',
 };
 
 export default function Badge({ status }) {
+  const { t } = useTranslation();
   const cls = TYPE_MAP[status] || 'badge-secondary';
-  return <span className={`badge ${cls}`}>{status}</span>;
+  const label = t(`status.${status}`, { defaultValue: status });
+  return <span className={`badge ${cls}`}>{label}</span>;
 }

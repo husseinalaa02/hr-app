@@ -92,6 +92,7 @@ export default function Payroll() {
     setLogLoading(true);
     setLogEntries([]);
     try { setLogEntries(await getPayrollLog(r.id)); }
+    catch { setLogEntries([]); }
     finally { setLogLoading(false); }
   };
 
@@ -116,16 +117,16 @@ export default function Payroll() {
 
   const handleCreate = async () => {
     if (!form.employee_id || !form.period_start || !form.period_end) {
-      addToast('Please fill all required fields', 'error'); return;
+      addToast(t('errors.fillRequired'), 'error'); return;
     }
     setSaving(true);
     try {
       await createPayroll(form, employee);
-      addToast('Payroll record created as Draft', 'success');
+      addToast(t('payroll.createSuccess'), 'success');
       setShowCreate(false);
       setForm({ employee_id:'', employee_name:'', base_salary:'', additional_salary:'', working_days:'30', friday_bonus:'0', extra_day_bonus:'0', period_start:'', period_end:'' });
       load();
-    } catch (e) { addToast(e.message || 'Failed to create payroll', 'error'); }
+    } catch (e) { addToast(e.message || t('errors.actionFailed'), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -133,35 +134,35 @@ export default function Payroll() {
     setActionId(r.id);
     try {
       await submitPayroll(r.id, employee);
-      addToast(`${r.employee_name}'s payroll submitted to Finance`, 'success');
+      addToast(t('payroll.submitSuccess', { name: r.employee_name }), 'success');
       load();
       if (detail?.id === r.id) openDetail({ ...r, status: 'Submitted' });
-    } catch (e) { addToast(e.message || 'Failed to submit', 'error'); }
+    } catch (e) { addToast(e.message || t('errors.actionFailed'), 'error'); }
     finally { setActionId(null); }
   };
 
   const handlePay = async (r) => {
     if (!window.confirm(
-      `Mark ${r.employee_name}'s salary of ${formatIQD(r.calculated_salary)} as Paid?\n\nThis cannot be undone.`
+      t('payroll.confirmPay', { name: r.employee_name, amount: formatIQD(r.calculated_salary) })
     )) return;
     setActionId(r.id);
     try {
       await markAsPaid(r.id, employee);
-      addToast(`${r.employee_name}'s salary marked as Paid`, 'success');
+      addToast(t('payroll.paySuccess', { name: r.employee_name }), 'success');
       load();
       if (detail?.id === r.id) openDetail({ ...r, status: 'Paid' });
-    } catch (e) { addToast(e.message || 'Failed to mark as paid', 'error'); }
+    } catch (e) { addToast(e.message || t('errors.actionFailed'), 'error'); }
     finally { setActionId(null); }
   };
 
   const handleDelete = async (r) => {
-    if (r.status !== 'Draft') { addToast('Only Draft records can be deleted', 'error'); return; }
+    if (r.status !== 'Draft') { addToast(t('payroll.onlyDraftDelete'), 'error'); return; }
     setActionId(r.id);
     try {
       await deletePayroll(r.id);
-      addToast('Deleted', 'success');
+      addToast(t('payroll.deleteSuccess'), 'success');
       load();
-    } catch (e) { addToast('Failed to delete', 'error'); }
+    } catch (e) { addToast(e.message || t('errors.actionFailed'), 'error'); }
     finally { setActionId(null); }
   };
 
@@ -192,7 +193,7 @@ export default function Payroll() {
         <div>
           <h1 className="page-title">{t('payroll.title')}</h1>
           <p className="page-subtitle">
-            {isFinance ? 'Finance — review submitted payrolls and process payments' : 'HR — manage payroll records and submit to Finance'}
+            {isFinance ? t('payroll.subtitleFinance') : t('payroll.subtitleHR')}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -208,14 +209,14 @@ export default function Payroll() {
       {/* Finance alert banner */}
       {isFinance && counts.Submitted > 0 && (
         <div className="workflow-alert">
-          <span>💰 {counts.Submitted} payroll record{counts.Submitted > 1 ? 's' : ''} pending payment</span>
+          <span>💰 {t('payroll.pendingPayment', { count: counts.Submitted })}</span>
         </div>
       )}
 
       {/* HR info banner */}
       {canCreate && counts.Draft > 0 && (
         <div className="workflow-info">
-          <span>📋 {counts.Draft} Draft record{counts.Draft > 1 ? 's' : ''} — review and submit to Finance when ready</span>
+          <span>📋 {t('payroll.draftPending', { count: counts.Draft })}</span>
         </div>
       )}
 
@@ -223,20 +224,20 @@ export default function Payroll() {
       <div className="workflow-steps">
         <div className={`wf-step ${counts.Draft > 0 ? 'wf-active' : 'wf-done'}`}>
           <div className="wf-icon">📝</div>
-          <div className="wf-label">HR Creates</div>
+          <div className="wf-label">{t('payroll.hrCreates')}</div>
           <div className="wf-sub">{t('payroll.draft')}</div>
         </div>
         <div className="wf-arrow">→</div>
         <div className={`wf-step ${counts.Submitted > 0 ? 'wf-active' : counts.Draft > 0 ? '' : 'wf-done'}`}>
           <div className="wf-icon">📤</div>
-          <div className="wf-label">HR Submits</div>
-          <div className="wf-sub">to Finance</div>
+          <div className="wf-label">{t('payroll.hrSubmits')}</div>
+          <div className="wf-sub">{t('payroll.toFinance')}</div>
         </div>
         <div className="wf-arrow">→</div>
         <div className={`wf-step ${counts.Paid > 0 ? 'wf-done' : ''}`}>
           <div className="wf-icon">✅</div>
-          <div className="wf-label">Finance Pays</div>
-          <div className="wf-sub">Salary</div>
+          <div className="wf-label">{t('payroll.financePays')}</div>
+          <div className="wf-sub">{t('payroll.salary')}</div>
         </div>
       </div>
 
@@ -252,7 +253,7 @@ export default function Payroll() {
 
       {filtered.length > 0 && (
         <div className="info-box" style={{ marginBottom: 12 }}>
-          Total: <strong>{formatIQD(totalPayroll)}</strong> across {filtered.length} records
+          {t('payroll.totalAcross', { amount: formatIQD(totalPayroll), count: filtered.length })}
         </div>
       )}
 
@@ -272,11 +273,11 @@ export default function Payroll() {
                 <th>{t('payroll.period')}</th>
                 <th>{t('payroll.baseSalary')}</th>
                 <th>{t('payroll.workingDays')}</th>
-                <th>Bonuses</th>
+                <th>{t('payroll.bonuses')}</th>
                 <th>{t('payroll.grossPay')}</th>
-                <th>Status</th>
+                <th>{t('common.status')}</th>
                 <th>{t('payroll.processLog')}</th>
-                <th>Actions</th>
+                <th>{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -293,10 +294,10 @@ export default function Payroll() {
                   </td>
                   <td style={{ textAlign: 'center' }}>{r.working_days}</td>
                   <td style={{ fontSize: 12 }}>
-                    {r.friday_bonus > 0      && <div style={{ color: 'var(--primary)' }}>+{formatIQD(r.friday_bonus)} Fri</div>}
-                    {r.extra_day_bonus > 0   && <div style={{ color: '#7c3aed' }}>+{formatIQD(r.extra_day_bonus)} Extra</div>}
-                    {r.late_deductions > 0   && <div style={{ color: '#dc2626' }}>−{formatIQD(r.late_deductions)} Late</div>}
-                    {r.absence_deductions > 0 && <div style={{ color: '#dc2626' }}>−{formatIQD(r.absence_deductions)} Absent</div>}
+                    {r.friday_bonus > 0      && <div style={{ color: 'var(--primary)' }}>+{formatIQD(r.friday_bonus)} {t('payroll.fri')}</div>}
+                    {r.extra_day_bonus > 0   && <div style={{ color: '#7c3aed' }}>+{formatIQD(r.extra_day_bonus)} {t('payroll.extra')}</div>}
+                    {r.late_deductions > 0   && <div style={{ color: '#dc2626' }}>−{formatIQD(r.late_deductions)} {t('payroll.late')}</div>}
+                    {r.absence_deductions > 0 && <div style={{ color: '#dc2626' }}>−{formatIQD(r.absence_deductions)} {t('payroll.absent')}</div>}
                     {!r.friday_bonus && !r.extra_day_bonus && !r.late_deductions && !r.absence_deductions && <span className="text-muted">—</span>}
                   </td>
                   <td><strong style={{ color: 'var(--primary)' }}>{formatIQD(r.calculated_salary)}</strong></td>
@@ -383,13 +384,13 @@ export default function Payroll() {
                 {form.base_salary && (
                   <div className="form-group form-group-full">
                     <div className="salary-preview">
-                      <div className="salary-preview-title">Salary Preview</div>
+                      <div className="salary-preview-title">{t('payroll.salaryPreview')}</div>
                       <div className="salary-preview-row">
                         <span>{t('payroll.dailySalary')} ((Base+Additional)÷30)</span>
                         <span>{formatIQD(calcDailySalary(Number(form.base_salary), Number(form.additional_salary)))}</span>
                       </div>
                       <div className="salary-preview-row">
-                        <span>Base × {form.working_days} days</span>
+                        <span>{t('payroll.baseXDays', { days: form.working_days })}</span>
                         <span>{formatIQD(calcFinalSalary(Number(form.base_salary), Number(form.additional_salary), Number(form.working_days)))}</span>
                       </div>
                       {Number(form.friday_bonus) > 0 && (
@@ -399,7 +400,7 @@ export default function Payroll() {
                         <div className="salary-preview-row"><span>{t('payroll.extraDayBonus')}</span><span style={{ color: '#7c3aed' }}>+{formatIQD(Number(form.extra_day_bonus))}</span></div>
                       )}
                       <div className="salary-preview-row salary-preview-total">
-                        <span>Total</span><span>{formatIQD(previewSalary())}</span>
+                        <span>{t('payroll.total')}</span><span>{formatIQD(previewSalary())}</span>
                       </div>
                     </div>
                   </div>
@@ -428,7 +429,7 @@ export default function Payroll() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
                 {/* Left: Salary breakdown */}
                 <div>
-                  <div className="detail-section-label">Salary Breakdown</div>
+                  <div className="detail-section-label">{t('payroll.salaryBreakdown')}</div>
                   <div className="salary-preview">
                     <div className="salary-preview-row"><span>{t('payroll.period')}</span><span style={{ fontSize: 12 }}>{detail.period_start} — {detail.period_end}</span></div>
                     <div className="salary-preview-row"><span>{t('payroll.baseSalary')}</span><span>{formatIQD(detail.base_salary)}</span></div>

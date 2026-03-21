@@ -159,17 +159,25 @@ export async function deleteEmployee(id) {
 export async function createEmployee(data, accessToken) {
   if (SUPABASE_MODE) {
     // Use the secure API endpoint so the service role key stays server-side
-    const res = await fetch(`${API_BASE}/api/create-employee`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      },
-      body: JSON.stringify({
-        employee_data: { ...data, company: data.company || import.meta.env.VITE_DEFAULT_COMPANY || 'AFAQ ALFIKER' },
-        password: data.password || data.user_id || '',
-      }),
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30_000);
+    let res;
+    try {
+      res = await fetch(`${API_BASE}/api/create-employee`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          employee_data: { ...data, company: data.company || import.meta.env.VITE_DEFAULT_COMPANY || 'AFAQ ALFIKER' },
+          password: data.password || data.user_id || '',
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
     const result = await res.json();
     if (!res.ok) throw new Error(result.message || 'Failed to create employee');
     invalidate('employees');

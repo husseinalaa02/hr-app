@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getNotifications, markAsRead, markAllAsRead } from '../api/notifications';
 import { useAuth } from '../context/AuthContext';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
@@ -14,6 +15,7 @@ const TYPE_ICONS = {
 
 export default function NotificationBell() {
   const { employee } = useAuth();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const panelRef = useRef(null);
@@ -22,8 +24,10 @@ export default function NotificationBell() {
 
   const load = async () => {
     if (!employee?.name) return;
-    const data = await getNotifications(employee.name);
-    setNotifications(data);
+    try {
+      const data = await getNotifications(employee.name);
+      setNotifications(data);
+    } catch { /* silent — bell is non-critical */ }
   };
 
   useEffect(() => {
@@ -32,8 +36,6 @@ export default function NotificationBell() {
     load();
 
     if (SUPABASE_MODE) {
-      // Realtime: update badge instantly when a new notification arrives
-      // — no polling needed
       const channel = supabase
         .channel(`notif-${employee.name}`)
         .on(
@@ -65,18 +67,22 @@ export default function NotificationBell() {
 
   const handleRead = async (n) => {
     if (n.read) return;
-    await markAsRead(n.id);
-    setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+    try {
+      await markAsRead(n.id);
+      setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+    } catch { /* silent */ }
   };
 
   const handleMarkAll = async () => {
-    await markAllAsRead(employee.name);
-    setNotifications(prev => prev.map(x => ({ ...x, read: true })));
+    try {
+      await markAllAsRead(employee.name);
+      setNotifications(prev => prev.map(x => ({ ...x, read: true })));
+    } catch { /* silent */ }
   };
 
   return (
     <div className="notif-bell-wrap" ref={panelRef}>
-      <button className="notif-bell-btn" onClick={() => { setOpen(o => !o); load(); }} aria-label="Notifications">
+      <button className="notif-bell-btn" onClick={() => { setOpen(o => !o); load(); }} aria-label={t('notifications.title')}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>
         </svg>
@@ -86,14 +92,14 @@ export default function NotificationBell() {
       {open && (
         <div className="notif-panel">
           <div className="notif-panel-header">
-            <span>Notifications</span>
+            <span>{t('notifications.title')}</span>
             {unread > 0 && (
-              <button className="notif-mark-all" onClick={handleMarkAll}>Mark all read</button>
+              <button className="notif-mark-all" onClick={handleMarkAll}>{t('notifications.markAllRead')}</button>
             )}
           </div>
           <div className="notif-list">
             {notifications.length === 0 ? (
-              <div className="notif-empty">No notifications</div>
+              <div className="notif-empty">{t('notifications.empty')}</div>
             ) : notifications.map(n => (
               <div
                 key={n.id}

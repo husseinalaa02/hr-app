@@ -17,19 +17,32 @@ const TYPE_COLORS = {
 };
 
 function StatusBadge({ status }) {
+  const { t } = useTranslation();
   const s = STATUS_COLORS[status] || { color: '#374151', bg: '#f3f4f6' };
+  const STATUS_KEYS = {
+    Pending: 'dayRequests.statusPending',
+    'Pending Manager': 'dayRequests.pendingManager',
+    'Pending HR': 'dayRequests.pendingHR',
+    Approved: 'dayRequests.approved',
+    Rejected: 'dayRequests.rejected',
+  };
   return (
     <span style={{ background: s.bg, color: s.color, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
-      {status}
+      {STATUS_KEYS[status] ? t(STATUS_KEYS[status]) : status}
     </span>
   );
 }
 
 function TypeBadge({ type }) {
-  const t = TYPE_COLORS[type] || { color: '#374151', bg: '#f3f4f6' };
+  const { t } = useTranslation();
+  const c = TYPE_COLORS[type] || { color: '#374151', bg: '#f3f4f6' };
+  const TYPE_KEYS = {
+    'Friday Day': 'dayRequests.fridayDay',
+    'Extra Day': 'dayRequests.extraDay',
+  };
   return (
-    <span style={{ background: t.bg, color: t.color, fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>
-      {type}
+    <span style={{ background: c.bg, color: c.color, fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>
+      {TYPE_KEYS[type] ? t(TYPE_KEYS[type]) : type}
     </span>
   );
 }
@@ -68,7 +81,7 @@ export default function DayRequests() {
       setRequests(reqs);
       setEmployees(emps);
     } catch (e) {
-      addToast(e.message || 'Failed to load requests', 'error');
+      addToast(e.message || t('dayRequests.failedLoad'), 'error');
     } finally {
       setLoading(false);
     }
@@ -95,16 +108,16 @@ export default function DayRequests() {
 
   const handleSubmit = async () => {
     if (!form.employee_id || !form.request_date) {
-      addToast('Please fill all required fields', 'error'); return;
+      addToast(t('dayRequests.fillRequired'), 'error'); return;
     }
     setSubmitting(true);
     try {
       await createDayRequest(form);
-      addToast('Request submitted successfully', 'success');
+      addToast(t('dayRequests.requestSubmitted'), 'success');
       setShowModal(false);
       load();
     } catch (e) {
-      addToast(e.message || 'Failed to submit request', 'error');
+      addToast(e.message || t('dayRequests.failedSubmit'), 'error');
     } finally {
       setSubmitting(false);
     }
@@ -114,10 +127,10 @@ export default function DayRequests() {
     setActionId(id);
     try {
       await managerApproveDayRequest(id);
-      addToast('Forwarded to HR for final approval', 'success');
+      addToast(t('dayRequests.forwardedToHR'), 'success');
       load();
     } catch (e) {
-      addToast(e.message || 'Failed to approve request', 'error');
+      addToast(e.message || t('errors.actionFailed'), 'error');
     } finally {
       setActionId(null);
     }
@@ -127,10 +140,10 @@ export default function DayRequests() {
     setActionId(id);
     try {
       await hrApproveDayRequest(id);
-      addToast('Request approved — payroll updated', 'success');
+      addToast(t('dayRequests.requestApproved'), 'success');
       load();
     } catch (e) {
-      addToast(e.message || 'Failed to approve request', 'error');
+      addToast(e.message || t('errors.actionFailed'), 'error');
     } finally {
       setActionId(null);
     }
@@ -140,10 +153,10 @@ export default function DayRequests() {
     setActionId(id);
     try {
       await rejectDayRequest(id);
-      addToast('Request rejected', 'success');
+      addToast(t('dayRequests.requestRejected'), 'success');
       load();
     } catch (e) {
-      addToast(e.message || 'Failed to reject request', 'error');
+      addToast(e.message || t('errors.actionFailed'), 'error');
     } finally {
       setActionId(null);
     }

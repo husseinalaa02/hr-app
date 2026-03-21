@@ -124,6 +124,29 @@ function exportToCSV(logs) {
 
 export default function AuditView() {
   const { t } = useTranslation();
+
+  const RESOURCE_OPTIONS_T = [
+    { value: '', label: t('audit.allResources') },
+    { value: 'system',            label: t('audit.resourceSystem') },
+    { value: 'employee',          label: t('audit.resourceEmployee') },
+    { value: 'leave_application', label: t('audit.resourceLeave') },
+    { value: 'payroll',           label: t('audit.resourcePayroll') },
+    { value: 'expense',           label: t('audit.resourceExpense') },
+    { value: 'recruitment',       label: t('audit.resourceRecruitment') },
+    { value: 'appraisal',         label: t('audit.resourceAppraisal') },
+  ];
+
+  const ACTION_OPTIONS_T = [
+    { value: '',        label: t('audit.allActions') },
+    { value: 'LOGIN',   label: t('audit.actionLogin') },
+    { value: 'VIEW',    label: t('audit.actionView') },
+    { value: 'CREATE',  label: t('audit.actionCreate') },
+    { value: 'UPDATE',  label: t('audit.actionUpdate') },
+    { value: 'APPROVE', label: t('audit.actionApprove') },
+    { value: 'REJECT',  label: t('audit.actionReject') },
+    { value: 'EXPORT',  label: t('audit.actionExport') },
+    { value: 'DELETE',  label: t('audit.actionDelete') },
+  ];
   const { can, role } = usePermission();
   const canExport = can('payroll:export') || role === 'admin' || role === 'ceo';
 
@@ -169,7 +192,7 @@ export default function AuditView() {
             fontSize: 12, fontWeight: 700, padding: '6px 14px',
             borderRadius: 20, border: '1px solid rgba(255,255,255,0.35)',
           }}>
-            Read Only
+            {t('audit.readOnly')}
           </span>
           {canExport && (
             <button
@@ -205,7 +228,7 @@ export default function AuditView() {
           onChange={e => setFilterResource(e.target.value)}
           style={{ minWidth: 160 }}
         >
-          {RESOURCE_OPTIONS.map(o => (
+          {RESOURCE_OPTIONS_T.map(o => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
@@ -216,7 +239,7 @@ export default function AuditView() {
           onChange={e => setFilterAction(e.target.value)}
           style={{ minWidth: 140 }}
         >
-          {ACTION_OPTIONS.map(o => (
+          {ACTION_OPTIONS_T.map(o => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
@@ -227,14 +250,14 @@ export default function AuditView() {
           onChange={e => setFilterUser(e.target.value)}
           style={{ minWidth: 160 }}
         >
-          <option value="">All Users</option>
+          <option value="">{t('audit.allUsers')}</option>
           {uniqueUsers.map(([uid, uname]) => (
             <option key={uid} value={uid}>{uname}</option>
           ))}
         </select>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <label style={{ fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>From</label>
+          <label style={{ fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{t('common.from')}</label>
           <input
             type="date"
             className="filter-select"
@@ -244,7 +267,7 @@ export default function AuditView() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <label style={{ fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>To</label>
+          <label style={{ fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{t('common.to')}</label>
           <input
             type="date"
             className="filter-select"
@@ -265,7 +288,7 @@ export default function AuditView() {
               setFilterTo('');
             }}
           >
-            Clear filters
+            {t('audit.clearFilters')}
           </button>
         )}
       </div>
@@ -275,7 +298,7 @@ export default function AuditView() {
       ) : (
         <>
           <div className="audit-count-bar" style={{ marginBottom: 8 }}>
-            {logs.length} log{logs.length !== 1 ? 's' : ''} found
+            {t('audit.logsFound', { count: logs.length })}
           </div>
 
           {logs.length === 0 ? (
@@ -289,11 +312,11 @@ export default function AuditView() {
                   <tr>
                     <th>{t('audit.timestamp')}</th>
                     <th>{t('common.name')}</th>
-                    <th>Role</th>
+                    <th>{t('audit.role')}</th>
                     <th>{t('audit.action')}</th>
-                    <th>Resource</th>
+                    <th>{t('audit.resource')}</th>
                     <th>{t('audit.details')}</th>
-                    <th>IP Address</th>
+                    <th>{t('audit.ipAddress')}</th>
                   </tr>
                 </thead>
                 <tbody>

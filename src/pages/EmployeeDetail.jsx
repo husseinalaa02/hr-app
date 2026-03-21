@@ -30,23 +30,20 @@ function ChangePasswordModal({ targetId, isSelf, onClose }) {
 
   const handle = async (e) => {
     e.preventDefault();
-    if (newPwd !== confirm) { addToast('Passwords do not match', 'error'); return; }
-    if (newPwd.length < 6) { addToast('Password must be at least 6 characters', 'error'); return; }
+    if (newPwd !== confirm) { addToast(t('employeeDetail.passwordMismatch'), 'error'); return; }
+    if (newPwd.length < 6) { addToast(t('employeeDetail.passwordTooShort'), 'error'); return; }
     setSaving(true);
     try {
       if (isSelf && SUPABASE_MODE) {
-        // Self: use Supabase Auth updateUser (requires current session to be valid)
-        // Re-authenticate first by signing in with current password
         const { data: { session } } = await supabase.auth.getSession();
         const email = session?.user?.email;
         if (email) {
           const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password: current });
-          if (signInErr) throw new Error('Current password is incorrect');
+          if (signInErr) throw new Error(t('employeeDetail.wrongCurrentPassword'));
         }
         const { error } = await supabase.auth.updateUser({ password: newPwd });
         if (error) throw error;
       } else if (!isSelf && SUPABASE_MODE) {
-        // Admin/HR: call secure API endpoint
         const token = await getAccessToken?.();
         const res = await fetch(`${API_BASE}/api/set-password`, {
           method: 'POST',
@@ -57,41 +54,40 @@ function ChangePasswordModal({ targetId, isSelf, onClose }) {
           body: JSON.stringify({ employee_id: targetId, new_password: newPwd }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Failed to change password');
+        if (!res.ok) throw new Error(data.message || t('employeeDetail.failedChangePassword'));
       } else {
-        // Demo mode fallback
         await updateEmployee(targetId, { password: newPwd });
       }
-      addToast('Password changed successfully', 'success');
+      addToast(t('employeeDetail.passwordChanged'), 'success');
       onClose();
     } catch (err) {
-      addToast(err.message || 'Failed to change password', 'error');
+      addToast(err.message || t('employeeDetail.failedChangePassword'), 'error');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Modal title="Change Password" onClose={onClose}>
+    <Modal title={t('employeeDetail.changePassword')} onClose={onClose}>
       <form onSubmit={handle} className="form-stack">
         {isSelf && (
           <div className="form-group">
-            <label>Current Password</label>
-            <input type="password" className="form-input" value={current} onChange={e => setCurrent(e.target.value)} required placeholder="Enter current password" />
+            <label>{t('employeeDetail.currentPassword')}</label>
+            <input type="password" className="form-input" value={current} onChange={e => setCurrent(e.target.value)} required placeholder={t('employeeDetail.enterCurrentPassword')} />
           </div>
         )}
         <div className="form-group">
-          <label>New Password</label>
-          <input type="password" className="form-input" value={newPwd} onChange={e => setNewPwd(e.target.value)} required placeholder="Enter new password" />
+          <label>{t('employeeDetail.newPassword')}</label>
+          <input type="password" className="form-input" value={newPwd} onChange={e => setNewPwd(e.target.value)} required placeholder={t('employeeDetail.enterNewPassword')} />
         </div>
         <div className="form-group">
-          <label>Confirm New Password</label>
-          <input type="password" className="form-input" value={confirm} onChange={e => setConfirm(e.target.value)} required placeholder="Re-enter new password" />
+          <label>{t('employeeDetail.confirmNewPassword')}</label>
+          <input type="password" className="form-input" value={confirm} onChange={e => setConfirm(e.target.value)} required placeholder={t('employeeDetail.reenterNewPassword')} />
         </div>
         <div className="form-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
           <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? <span className="spinner-sm" /> : 'Change Password'}
+            {saving ? <span className="spinner-sm" /> : t('employeeDetail.changePassword')}
           </button>
         </div>
       </form>
@@ -110,12 +106,13 @@ function ReadField({ label, value }) {
 }
 
 function EditableField({ label, fieldKey, value, type = 'text', options, onChange }) {
+  const { t } = useTranslation();
   return (
     <div className="detail-field">
       <span className="detail-label">{label}</span>
       {options ? (
         <select className="form-input form-input-sm" value={value || ''} onChange={e => onChange(fieldKey, e.target.value)}>
-          <option value="">— Select —</option>
+          <option value="">{t('employeeDetail.selectPlaceholder')}</option>
           {options.map(o => <option key={o} value={o}>{o}</option>)}
         </select>
       ) : (
@@ -173,7 +170,7 @@ export default function EmployeeDetail() {
         setManager(null);
       }
     } catch (e) {
-      setError(e.message || 'Failed to load employee');
+      setError(e.message || t('errors.failedLoad'));
     } finally {
       setLoading(false);
     }
@@ -193,9 +190,9 @@ export default function EmployeeDetail() {
       setDraft(updated);
       setEditMode(false);
       if (isSelf) refreshEmployee({ ...me, ...payload });
-      addToast('Profile updated successfully', 'success');
+      addToast(t('employeeDetail.profileUpdated'), 'success');
     } catch (e) {
-      addToast(e.response?.data?.message || 'Failed to save changes', 'error');
+      addToast(e.response?.data?.message || t('employeeDetail.failedSave'), 'error');
     } finally {
       setSaving(false);
     }
@@ -207,10 +204,10 @@ export default function EmployeeDetail() {
     setDeleting(true);
     try {
       await deleteEmployee(id);
-      addToast(`${employee.employee_name} has been deleted`, 'success');
+      addToast(t('employeeDetail.deletedSuccess', { name: employee.employee_name }), 'success');
       navigate('/employees');
     } catch (e) {
-      addToast(e.response?.data?.message || 'Failed to delete employee', 'error');
+      addToast(e.response?.data?.message || t('employeeDetail.failedDelete'), 'error');
       setDeleting(false);
       setShowDeleteConfirm(false);
     }
@@ -239,14 +236,14 @@ export default function EmployeeDetail() {
     : null;
 
   const ROLE_BADGE_LABELS = {
-    'top-level': { label: 'Top-Level / CEO', color: '#6a1b9a', bg: '#f3e5f5' },
-    'manager':   { label: 'Manager',         color: '#0C447C', bg: '#e8f0fb' },
-    'employee':  { label: 'Employee',        color: '#2e7d32', bg: '#e8f5e9' },
+    'top-level': { labelKey: 'employeeDetail.roleBadgeTopLevel', color: '#6a1b9a', bg: '#f3e5f5' },
+    'manager':   { labelKey: 'employeeDetail.roleBadgeManager',  color: '#0C447C', bg: '#e8f0fb' },
+    'employee':  { labelKey: 'employeeDetail.roleBadgeEmployee', color: '#2e7d32', bg: '#e8f5e9' },
   };
 
   return (
     <div className="page-content">
-      <button className="btn-back" onClick={() => navigate(-1)}>← Back</button>
+      <button className="btn-back" onClick={() => navigate(-1)}>{t('employeeDetail.back')}</button>
       {error && <ErrorState message={error} onRetry={load} />}
 
       {loading ? (
@@ -266,7 +263,7 @@ export default function EmployeeDetail() {
             <div
               className={`avatar-upload-wrap ${editMode && canEdit ? 'avatar-upload-active' : ''}`}
               onClick={() => editMode && canEdit && fileInputRef.current?.click()}
-              title={editMode && canEdit ? 'Click to change photo' : undefined}
+              title={editMode && canEdit ? t('employeeDetail.clickToChangePhoto') : undefined}
             >
               <Avatar name={employee.employee_name} image={editMode ? draft.image : employee.image} size={80} />
               {editMode && canEdit && (
@@ -290,7 +287,7 @@ export default function EmployeeDetail() {
                     fontSize: 11, fontWeight: 700,
                     padding: '3px 10px', borderRadius: 20,
                   }}>
-                    {ROLE_BADGE_LABELS[roleBadge].label}
+                    {t(ROLE_BADGE_LABELS[roleBadge].labelKey)}
                   </span>
                 )}
               </div>
@@ -300,7 +297,7 @@ export default function EmployeeDetail() {
             {!editMode && (canEdit || canChangePwd) && (
               <div className="detail-hero-actions">
                 {canEdit && <button className="btn btn-secondary" onClick={() => setEditMode(true)}>✏️ {t('employeeDetail.editProfile')}</button>}
-                {canChangePwd && <button className="btn btn-secondary" onClick={() => setShowChangePwd(true)}>🔑 Change Password</button>}
+                {canChangePwd && <button className="btn btn-secondary" onClick={() => setShowChangePwd(true)}>🔑 {t('employeeDetail.changePassword')}</button>}
                 {isAdmin && (
                   <button className="btn btn-danger" onClick={() => setShowDeleteConfirm(true)}>{t('employeeDetail.deleteEmployee')}</button>
                 )}
@@ -318,7 +315,7 @@ export default function EmployeeDetail() {
 
           {editMode && (
             <div className="edit-notice">
-              {isAdmin ? '✏️ Admin mode — all fields are editable' : '✏️ You can edit your personal contact details'}
+              {isAdmin ? t('employeeDetail.adminEditNotice') : t('employeeDetail.selfEditNotice')}
             </div>
           )}
 
@@ -326,7 +323,7 @@ export default function EmployeeDetail() {
             {/* Personal Info */}
             <div className="detail-section">
               <h4 className="detail-section-title">{t('employeeDetail.personalInfo')}</h4>
-              <ReadField label="Employee ID" value={employee.name} />
+              <ReadField label={t('employeeDetail.employeeId')} value={employee.name} />
               {field(t('employees.fullName'), 'employee_name')}
               {field(t('employees.gender'), 'gender', 'text', [t('employees.male'), t('employees.female')])}
               {field(t('employeeDetail.dateOfBirth'), 'date_of_birth', 'date')}
@@ -339,11 +336,11 @@ export default function EmployeeDetail() {
               <h4 className="detail-section-title">{t('employeeDetail.jobInfo')}</h4>
               {field(t('employees.department'), 'department')}
               {field(t('employees.designation'), 'designation')}
-              {field('Employment Type', 'employment_type', 'text', ['Full-time', 'Part-time', 'Contract', 'Intern'])}
+              {field(t('employeeDetail.employmentType'), 'employment_type', 'text', ['Full-time', 'Part-time', 'Contract', 'Intern'])}
               {field(t('employees.dateOfJoining'), 'date_of_joining', 'date')}
               {field(t('employees.branch'), 'branch')}
               {field(t('employees.companyEmail'), 'company_email', 'email')}
-              {isAdmin && field('User ID (login)', 'user_id', 'email')}
+              {isAdmin && field(t('employeeDetail.userIdLogin'), 'user_id', 'email')}
             </div>
           </div>
 
@@ -362,17 +359,17 @@ export default function EmployeeDetail() {
                   <span className="org-chevron">›</span>
                 </div>
               ) : (
-                <p className="text-muted">No manager — top of hierarchy</p>
+                <p className="text-muted">{t('employeeDetail.noManager')}</p>
               )}
             </div>
 
             {/* Direct Reports */}
             <div className="org-block">
               <h4 className="detail-section-title">
-                Direct Reports
+                {t('employeeDetail.directReports')}
                 {directReports.length > 0 && (
-                  <span style={{ marginLeft: 8, fontWeight: 400, color: 'var(--primary)', fontSize: 12 }}>
-                    {directReports.length} member{directReports.length > 1 ? 's' : ''}
+                  <span style={{ marginInlineStart: 8, fontWeight: 400, color: 'var(--primary)', fontSize: 12 }}>
+                    {t('employeeDetail.memberCount', { count: directReports.length })}
                   </span>
                 )}
               </h4>
@@ -404,7 +401,7 @@ export default function EmployeeDetail() {
           onClick={logout}
           style={{ width: '100%', marginTop: 16 }}
         >
-          Sign Out
+          {t('nav.signOut')}
         </button>
       )}
 

@@ -2585,6 +2585,146 @@ html, body {
   flex-direction: row-reverse;
 }
 
+[dir="rtl"] .nav-item-btn {
+  text-align: right;
+}
+
+[dir="rtl"] .dash-pro-profile-info {
+  text-align: right;
+}
+
+[dir="rtl"] .attendance-badge-hero {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+[dir="rtl"] .org-chevron {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+[dir="rtl"] .hourly-tag {
+  margin-left: 0;
+  margin-right: 6px;
+}
+
+[dir="rtl"] .leave-item-card {
+  border-left: none;
+  border-right-width: 4px;
+  border-right-style: solid;
+  border-right-color: var(--lb-color, var(--primary));
+}
+
+[dir="rtl"] .info-box {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .rating-row {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .appraisal-meta {
+  text-align: right;
+}
+
+[dir="rtl"] .score-input {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .leave-item-info {
+  text-align: right;
+}
+
+[dir="rtl"] .leave-balance-card {
+  border-left: 1.5px solid var(--gray-200);
+  border-right: 4px solid var(--lb-color, var(--primary));
+}
+
+[dir="rtl"] .announcement-item {
+  border-left: none;
+  border-right: 3px solid var(--primary);
+  padding-left: 0;
+  padding-right: 12px;
+}
+
+[dir="rtl"] .ann-card-bar {
+  order: 1;
+}
+
+[dir="rtl"] .ann-card-body {
+  order: 0;
+}
+
+[dir="rtl"] .geo-distance {
+  padding-left: 0;
+  padding-right: 4px;
+  border-left: none;
+  border-right: 1px solid currentColor;
+  margin-left: 0;
+  margin-right: 2px;
+}
+
+[dir="rtl"] .request-card-right {
+  align-items: flex-start;
+}
+
+[dir="rtl"] .request-actions {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .process-log {
+  padding-left: 0;
+  padding-right: 20px;
+}
+
+[dir="rtl"] .process-log::before {
+  left: auto;
+  right: 6px;
+}
+
+[dir="rtl"] .log-entry {
+  padding: 0 16px 16px 0;
+}
+
+[dir="rtl"] .log-dot {
+  left: auto;
+  right: -14px;
+}
+
+[dir="rtl"] .detail-section:first-child {
+  border-right: none;
+  border-left: 1px solid var(--gray-100);
+}
+
+[dir="rtl"] .link-arrow {
+  display: inline-block;
+  transform: scaleX(-1);
+}
+
+[dir="rtl"] .wf-arrow {
+  transform: rotate(180deg);
+}
+
+[dir="rtl"] .kpi-body {
+  text-align: right;
+}
+
+[dir="rtl"] .filter-tab {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .form-actions {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .request-card-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .leave-bar-top {
+  flex-direction: row-reverse;
+}
+
 /* ===== ARABIC TYPOGRAPHY ===== */
 [dir="rtl"] body,
 [dir="rtl"] button,
@@ -2634,15 +2774,29 @@ html, body {
   text-align: center;
 }
 
+.perm-force-off { background: var(--danger-light); color: var(--danger); box-shadow: 0 0 0 2px var(--danger); }
+
+/* ===== DESKTOP RTL LAYOUT ===== */
+[dir="rtl"] .sidebar {
+  left: auto;
+  right: 0;
+}
+
+[dir="rtl"] .main-area {
+  margin-left: 0;
+  margin-right: var(--sidebar-width);
+}
+
 /* Mobile RTL */
 @media (max-width: 768px) {
   [dir="rtl"] .main-area {
     margin-right: 0;
+    margin-left: 0;
   }
   [dir="rtl"] .sidebar {
-    right: auto;
-    left: 0;
-    transform: translateX(-100%);
+    right: 0;
+    left: auto;
+    transform: translateX(100%);
   }
   [dir="rtl"] .sidebar-open {
     transform: translateX(0);
@@ -2651,4 +2805,3 @@ html, body {
     flex-direction: row;
   }
 }
-.perm-force-off { background: var(--danger-light); color: var(--danger); box-shadow: 0 0 0 2px var(--danger); }

@@ -28,11 +28,16 @@ export default function Expenses() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const opts = tab === 'mine' ? { employeeId: employee.name } : {};
-    if (statusFilter) opts.status = statusFilter;
-    const data = await getExpenses(opts);
-    setExpenses(data);
-    setLoading(false);
+    try {
+      const opts = tab === 'mine' ? { employeeId: employee.name } : {};
+      if (statusFilter) opts.status = statusFilter;
+      const data = await getExpenses(opts);
+      setExpenses(data);
+    } catch {
+      setExpenses([]);
+    } finally {
+      setLoading(false);
+    }
   }, [tab, employee?.name, statusFilter]);
 
   useEffect(() => { load(); }, [load]);
@@ -40,7 +45,7 @@ export default function Expenses() {
   const handleApprove = async (id) => {
     try {
       await approveExpense(id, employee.employee_name);
-      addToast('Expense approved', 'success');
+      addToast(t('expenses.approvedSuccess'), 'success');
       load();
     } catch (e) { addToast(e.message, 'error'); }
   };
@@ -48,15 +53,17 @@ export default function Expenses() {
   const handleReject = async (id) => {
     try {
       await rejectExpense(id);
-      addToast('Expense rejected', 'success');
+      addToast(t('expenses.rejectedSuccess'), 'success');
       load();
     } catch (e) { addToast(e.message, 'error'); }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this expense?')) return;
-    await deleteExpense(id);
-    load();
+    if (!window.confirm(t('expenses.deleteConfirm'))) return;
+    try {
+      await deleteExpense(id);
+      load();
+    } catch (e) { addToast(e.message, 'error'); }
   };
 
   const rows = expenses;
@@ -72,15 +79,21 @@ export default function Expenses() {
       </div>
       <div className="page-toolbar">
         <div className="tab-group">
-          <button className={`tab-btn${tab === 'mine' ? ' active' : ''}`} onClick={() => setTab('mine')}>My Expenses</button>
-          {isAdmin && <button className={`tab-btn${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>All Expenses</button>}
+          <button className={`tab-btn${tab === 'mine' ? ' active' : ''}`} onClick={() => setTab('mine')}>{t('expenses.myExpenses')}</button>
+          {isAdmin && <button className={`tab-btn${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>{t('expenses.allExpenses')}</button>}
         </div>
       </div>
 
       <div className="tab-group" style={{ marginBottom: 12, gap: 6 }}>
-        {['', 'Draft', 'Submitted', 'Approved', 'Rejected'].map(s => (
-          <button key={s || 'all'} className={`tab-btn${statusFilter === s ? ' active' : ''}`} style={{ fontSize: 12 }} onClick={() => setStatusFilter(s)}>
-            {s || 'All'}
+        {[
+          { value: '', label: t('expenses.all') },
+          { value: 'Draft', label: t('expenses.draft') },
+          { value: 'Submitted', label: t('expenses.submitted') },
+          { value: 'Approved', label: t('expenses.approved') },
+          { value: 'Rejected', label: t('expenses.rejected') },
+        ].map(({ value, label }) => (
+          <button key={value || 'all'} className={`tab-btn${statusFilter === value ? ' active' : ''}`} style={{ fontSize: 12 }} onClick={() => setStatusFilter(value)}>
+            {label}
           </button>
         ))}
       </div>
@@ -99,20 +112,20 @@ export default function Expenses() {
                 {tab === 'all' && <div className="leave-item-employee">{e.employee_name}</div>}
                 <div className="leave-item-type">{e.expense_type}</div>
                 <div className="leave-item-dates">{e.expense_date} · {e.description}</div>
-                {e.approved_by && <div className="text-muted" style={{ fontSize: 12 }}>Approved by: {e.approved_by}</div>}
+                {e.approved_by && <div className="text-muted" style={{ fontSize: 12 }}>{t('expenses.approvedBy')} {e.approved_by}</div>}
               </div>
               <div className="leave-item-right">
                 <span className="duration-badge daily" style={{ background: '#f5f5f5', color: '#333' }}>{fmt(e.amount)}</span>
                 <span className="appraisal-status-badge" style={{ background: STATUS_COLOR[e.status] || '#9e9e9e' }}>
-                  {e.status}
+                  {t(`status.${e.status}`, { defaultValue: e.status })}
                 </span>
               </div>
             </div>
             <div className="leave-item-actions">
               {isAdmin && e.status === 'Submitted' && (
                 <>
-                  <button className="btn btn-sm btn-success" onClick={() => handleApprove(e.id)}>✓ Approve</button>
-                  <button className="btn btn-sm btn-danger" onClick={() => handleReject(e.id)}>✕ Reject</button>
+                  <button className="btn btn-sm btn-success" onClick={() => handleApprove(e.id)}>{t('common.approve')}</button>
+                  <button className="btn btn-sm btn-danger" onClick={() => handleReject(e.id)}>{t('common.reject')}</button>
                 </>
               )}
               {e.employee_id === employee.name && e.status === 'Draft' && (
@@ -146,10 +159,10 @@ function ExpenseForm({ employee, onClose, onCreated }) {
       const payload = { employee_id: employee.name, employee_name: employee.employee_name, ...form };
       if (isDraft) await saveDraftExpense(payload);
       else         await submitExpense(payload);
-      addToast(isDraft ? 'Draft saved' : 'Expense submitted', 'success');
+      addToast(isDraft ? t('expenses.draftSaved') : t('expenses.expenseSubmitted'), 'success');
       onCreated();
       onClose();
-    } catch (err) { addToast(err.message || 'Failed', 'error'); }
+    } catch (err) { addToast(err.message || t('errors.failed'), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -158,7 +171,7 @@ function ExpenseForm({ employee, onClose, onCreated }) {
       <div className="form-group">
         <label>{t('expenses.expenseType')} *</label>
         <select className="form-input" value={form.expense_type} onChange={e => set('expense_type', e.target.value)} required>
-          <option value="">Select type</option>
+          <option value="">{t('expenses.selectType')}</option>
           {EXPENSE_TYPE_LIST.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
@@ -178,7 +191,7 @@ function ExpenseForm({ employee, onClose, onCreated }) {
       </div>
       <div className="form-actions">
         <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
-        <button type="button" className="btn btn-secondary" onClick={e => handle(e, true)} disabled={saving}>Save Draft</button>
+        <button type="button" className="btn btn-secondary" onClick={e => handle(e, true)} disabled={saving}>{t('expenses.saveDraft')}</button>
         <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? <span className="spinner-sm" /> : t('expenses.submitExpense')}</button>
       </div>
     </form>

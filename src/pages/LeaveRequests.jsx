@@ -252,7 +252,7 @@ export default function LeaveRequests() {
     try {
       const actorRole = isHR && leaveApp.approval_stage === 'Pending HR' ? 'hr' : 'manager';
       await updateLeaveStatus(leaveApp.name, action, actorRole);
-      addToast(`Leave ${action.toLowerCase()}`, 'success');
+      addToast(action === 'Approved' ? t('leave.approvedSuccess') : t('leave.rejectedSuccess'), 'success');
       load();
     } catch (err) {
       addToast(err.message || t('errors.actionFailed'), 'error');

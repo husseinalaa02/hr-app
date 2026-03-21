@@ -72,13 +72,13 @@ function PayslipDetail({ payslip, onClose }) {
   };
 
   return (
-    <Modal title={`Payslip — ${payslip.name}`} onClose={onClose} size="lg">
+    <Modal title={`${t('payslips.payslipTitle')} — ${payslip.name}`} onClose={onClose} size="lg">
       <div className="payslip-detail">
         <div className="payslip-info-row">
           <div>
-            <p><strong>Employee:</strong> {payslip.employee_name}</p>
-            <p><strong>Period:</strong> {payslip.start_date} to {payslip.end_date}</p>
-            <p className="currency-tag">All amounts in IQD</p>
+            <p><strong>{t('payslips.employee')}:</strong> {payslip.employee_name}</p>
+            <p><strong>{t('payslips.period')}:</strong> {payslip.start_date} {t('common.to')} {payslip.end_date}</p>
+            <p className="currency-tag">{t('payslips.allAmountsIQD')}</p>
           </div>
           <button className="btn btn-secondary" onClick={printPayslip}>🖨 {t('payslips.print')}</button>
         </div>
@@ -87,7 +87,7 @@ function PayslipDetail({ payslip, onClose }) {
           <div>
             <h4>{t('payslips.earnings')}</h4>
             <table className="data-table">
-              <thead><tr><th>Component</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
+              <thead><tr><th>{t('payslips.component')}</th><th style={{ textAlign: 'right' }}>{t('common.amount')}</th></tr></thead>
               <tbody>
                 {(payslip.earnings || []).map((e, i) => (
                   <tr key={i}>
@@ -105,7 +105,7 @@ function PayslipDetail({ payslip, onClose }) {
           <div>
             <h4>{t('payslips.deductions')}</h4>
             <table className="data-table">
-              <thead><tr><th>Component</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
+              <thead><tr><th>{t('payslips.component')}</th><th style={{ textAlign: 'right' }}>{t('common.amount')}</th></tr></thead>
               <tbody>
                 {(payslip.deductions || []).map((d, i) => (
                   <tr key={i}>
@@ -114,7 +114,7 @@ function PayslipDetail({ payslip, onClose }) {
                   </tr>
                 ))}
                 <tr className="total-row">
-                  <td><strong>Total Deductions</strong></td>
+                  <td><strong>{t('payslips.totalDeductions')}</strong></td>
                   <td style={{ textAlign: 'right' }}><strong>{fmt(payslip.total_deduction)}</strong></td>
                 </tr>
               </tbody>
@@ -147,7 +147,7 @@ export default function Payslips() {
     try {
       setPayslips(await getPayslips(employee.name));
     } catch (e) {
-      setError(e.message || 'Failed to load payslips');
+      setError(e.message || t('errors.failedLoad'));
     } finally {
       setLoading(false);
     }
@@ -157,8 +157,9 @@ export default function Payslips() {
 
   const handleView = async (name) => {
     setLoadingDetail(true);
-    try { setSelected(await getPayslip(name)); } catch {}
-    setLoadingDetail(false);
+    try { setSelected(await getPayslip(name)); }
+    catch { /* silently ignore — no payslip loaded */ }
+    finally { setLoadingDetail(false); }
   };
 
   return (
@@ -176,8 +177,8 @@ export default function Payslips() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Period</th>
-                <th>Posting Date</th>
+                <th>{t('payslips.periodRange')}</th>
+                <th>{t('payslips.postingDate')}</th>
                 <th>{t('payslips.grossPay')}</th>
                 <th>{t('payslips.deductions')}</th>
                 <th>{t('payslips.netPay')}</th>
@@ -206,7 +207,7 @@ export default function Payslips() {
                   <td><Badge status={p.status || 'Submitted'} /></td>
                   <td>
                     <button className="btn btn-sm btn-secondary" onClick={() => handleView(p.name)} disabled={loadingDetail}>
-                      View
+                      {t('payslips.viewPayslip')}
                     </button>
                   </td>
                 </tr>

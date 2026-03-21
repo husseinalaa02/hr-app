@@ -48,13 +48,14 @@ function SectionHeader({ title, to, linkLabel }) {
   return (
     <div className="dash-section-header">
       <h3 className="dash-section-title">{title}</h3>
-      {to && <Link to={to} className="dash-section-link">{linkLabel || t('common.viewAll')} →</Link>}
+      {to && <Link to={to} className="dash-section-link">{linkLabel || t('common.viewAll')} <span className="link-arrow">→</span></Link>}
     </div>
   );
 }
 
 // ─── Leave Balance Bar ─────────────────────────────────────────────────────────
 function LeaveBar({ type, remaining, allocated, color }) {
+  const { t } = useTranslation();
   const used = allocated - remaining;
   const pct = allocated > 0 ? Math.round((used / allocated) * 100) : 0;
   return (
@@ -62,7 +63,7 @@ function LeaveBar({ type, remaining, allocated, color }) {
       <div className="leave-bar-top">
         <span className="leave-bar-type">{type}</span>
         <span className="leave-bar-count" style={{ color }}>
-          <strong>{remaining}</strong> / {allocated} days left
+          <strong>{remaining}</strong> / {allocated} {t('leave.daysLeft')}
         </span>
       </div>
       <div className="leave-bar-track">
@@ -139,13 +140,14 @@ function AnnouncementModal({ onClose, onSave }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.title.trim()) { setError('Title is required'); return; }
+    setError('');
+    if (!form.title.trim()) { setError(t('dashboard.titleRequired')); return; }
     setSaving(true);
     try {
       await onSave(form);
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to create announcement');
+      setError(err.message || t('errors.actionFailed'));
     } finally {
       setSaving(false);
     }
@@ -162,7 +164,7 @@ function AnnouncementModal({ onClose, onSave }) {
           {error && <div className="form-error" style={{ marginBottom: 12, color: '#dc2626', fontSize: 13 }}>{error}</div>}
           <div className="form-group">
             <label className="form-label">{t('dashboard.announcementTitle')} *</label>
-            <input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Announcement title" />
+            <input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder={t('dashboard.announcementTitlePlaceholder')} />
           </div>
           <div className="form-group">
             <label className="form-label">{t('dashboard.announcementDate')}</label>
@@ -170,7 +172,7 @@ function AnnouncementModal({ onClose, onSave }) {
           </div>
           <div className="form-group">
             <label className="form-label">{t('dashboard.announcementContent')}</label>
-            <textarea className="form-input" rows={4} value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} placeholder="Announcement details..." style={{ resize: 'vertical' }} />
+            <textarea className="form-input" rows={4} value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} placeholder={t('dashboard.announcementContentPlaceholder')} style={{ resize: 'vertical' }} />
           </div>
           <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 8 }}>
             <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
@@ -237,7 +239,8 @@ export default function Dashboard() {
       }
     };
     load();
-  }, [employee?.name]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employee?.name, isManager, isFinance]);
 
   const checkedIn  = data?.checkins?.some(c => c.log_type === 'IN');
   const checkedOut = data?.checkins?.some(c => c.log_type === 'OUT');
@@ -273,7 +276,7 @@ export default function Dashboard() {
           </div>
           <div className="dash-emp-status-pill" style={{ background: '#e8f2fb', color: '#0C447C', borderColor: '#0C447C40' }}>
             <span className="dash-status-dot" style={{ background: '#0C447C' }} />
-            {role === 'ceo' ? 'CEO' : role === 'finance_manager' ? 'Finance Manager' : role === 'hr_manager' ? 'HR Manager' : 'Admin'}
+            {t(`roles.${role}`) || t('roles.admin')}
           </div>
         </div>
 
@@ -440,9 +443,9 @@ export default function Dashboard() {
   const announcements = data?.announcements || [];
 
   const leaveTypes = [
-    { type: 'Annual Leave',  color: '#0C447C' },
-    { type: 'Sick Leave',    color: '#059669' },
-    { type: 'Casual Leave',  color: '#d97706' },
+    { type: 'Annual Leave',  labelKey: 'leave.annualLeave',  color: '#0C447C' },
+    { type: 'Sick Leave',    labelKey: 'leave.sickLeave',    color: '#059669' },
+    { type: 'Casual Leave',  labelKey: 'leave.casualLeave',  color: '#d97706' },
   ];
 
   return (
@@ -496,11 +499,11 @@ export default function Dashboard() {
             [1,2,3].map(i => <div key={i} style={{marginBottom:16}}><Skeleton height={12} width="40%"/><Skeleton height={8} width="100%" style={{marginTop:8,borderRadius:4}}/></div>)
           ) : (
             <div className="leave-balance-grid">
-              {leaveTypes.map(({ type, color }) => {
+              {leaveTypes.map(({ type, labelKey, color }) => {
                 const info = leaveMap[type] || { remaining: 0, allocated: 0 };
                 return (
                   <div key={type} className="leave-balance-card" style={{ '--lb-color': color }}>
-                    <div className="leave-balance-type">{type}</div>
+                    <div className="leave-balance-type">{t(labelKey)}</div>
                     <div className="leave-balance-value" style={{ color }}>{info.remaining}</div>
                     <div className="leave-balance-sub">{t('dashboard.daysRemaining', { allocated: info.allocated })}</div>
                     <div className="leave-balance-bar-track">

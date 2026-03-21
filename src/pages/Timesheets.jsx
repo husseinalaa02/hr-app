@@ -189,6 +189,7 @@ function ScheduleHistoryModal({ employee, onClose }) {
   useEffect(() => {
     getScheduleHistory(employee.name)
       .then(setHistory)
+      .catch(() => setHistory([]))
       .finally(() => setLoading(false));
   }, [employee.name]);
 

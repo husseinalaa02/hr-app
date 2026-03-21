@@ -73,7 +73,7 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
   const allRated = ratingQuestions.every(q => scores[q.id] != null);
 
   const handleSubmit = async (isDraft) => {
-    if (!isDraft && !allRated) { addToast('Please rate all criteria.', 'error'); return; }
+    if (!isDraft && !allRated) { addToast(t('appraisals.pleaseRateAll'), 'error'); return; }
     setSaving(true);
     try {
       // Merge multi-question comments into a single string for storage,
@@ -86,11 +86,11 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
         if (isDraft) await saveManagerReviewDraft(appraisal.id, { scores, comment: commentValue });
         else         await submitManagerReview(appraisal.id, { scores, comment: commentValue });
       }
-      addToast(isDraft ? 'Draft saved' : 'Submitted successfully', 'success');
+      addToast(isDraft ? t('appraisals.draftSaved') : t('appraisals.submitSuccess'), 'success');
       onSave();
       onClose();
     } catch (e) {
-      addToast(e.message || 'Failed to save', 'error');
+      addToast(e.message || t('appraisals.failedSave'), 'error');
     } finally {
       setSaving(false);
     }
@@ -103,11 +103,11 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
       <div className="appraisal-meta">
         <div><strong>{t('appraisals.employee')}:</strong> {appraisal.employee_name}</div>
         <div><strong>{t('appraisals.period')}:</strong> {appraisal.period}</div>
-        <div><strong>Template:</strong> {appraisal.template_name}</div>
+        <div><strong>{t('appraisals.template')}:</strong> {appraisal.template_name}</div>
       </div>
 
       <div className="assessment-section">
-        <h4 className="section-label">Performance Ratings</h4>
+        <h4 className="section-label">{t('appraisals.performanceRatings')}</h4>
         {ratingQuestions.map(q => (
           <div key={q.id} className="rating-row">
             <label className="rating-label">{q.text}</label>
@@ -118,7 +118,7 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
 
       {textQuestions.length > 0 && (
         <div className="assessment-section">
-          <h4 className="section-label">Comments</h4>
+          <h4 className="section-label">{t('appraisals.comments')}</h4>
           {textQuestions.map(q => (
             <div key={q.id} className="form-group">
               <label>{q.text}</label>
@@ -131,7 +131,7 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
 
       {textQuestions.length === 0 && (
         <div className="form-group">
-          <label>Additional Comments</label>
+          <label>{t('appraisals.additionalComments')}</label>
           <textarea className="form-input" rows={3} value={comments._default || ''}
             onChange={e => setComments(c => ({ ...c, _default: e.target.value }))} />
         </div>
@@ -140,10 +140,10 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
       <div className="form-actions">
         <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
         <button type="button" className="btn btn-secondary" onClick={() => handleSubmit(true)} disabled={saving}>
-          Save Draft
+          {t('appraisals.saveDraft')}
         </button>
         <button type="button" className="btn btn-primary" onClick={() => handleSubmit(false)} disabled={saving || !allRated}>
-          {saving ? <span className="spinner-sm" /> : 'Submit'}
+          {saving ? <span className="spinner-sm" /> : t('appraisals.submit')}
         </button>
       </div>
     </div>
@@ -181,11 +181,11 @@ function CreateAppraisalModal({ onClose, onCreated }) {
         appraiser_name: employee.employee_name,
         period: form.period,
       });
-      addToast('Appraisal created', 'success');
+      addToast(t('appraisals.created'), 'success');
       onCreated();
       onClose();
     } catch (err) {
-      addToast(err.message || 'Failed', 'error');
+      addToast(err.message || t('errors.failed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -194,16 +194,16 @@ function CreateAppraisalModal({ onClose, onCreated }) {
   return (
     <form className="form-stack" onSubmit={handle}>
       <div className="form-group">
-        <label>Template *</label>
+        <label>{t('appraisals.templateLabel')} *</label>
         <select className="form-input" value={form.template_id} onChange={e => set('template_id', e.target.value)} required>
-          <option value="">Select template</option>
+          <option value="">{t('appraisals.selectTemplate')}</option>
           {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
       </div>
       <div className="form-group">
         <label>{t('appraisals.employee')} *</label>
         <select className="form-input" value={form.employee_id} onChange={e => set('employee_id', e.target.value)} required>
-          <option value="">Select employee</option>
+          <option value="">{t('appraisals.selectEmployee')}</option>
           {employees.map(e => <option key={e.name} value={e.name}>{e.employee_name} — {e.department}</option>)}
         </select>
       </div>
@@ -265,9 +265,9 @@ export default function Appraisals() {
       </div>
       <div className="page-toolbar">
         <div className="tab-group">
-          {canManage && <button className={`tab-btn${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>All</button>}
-          <button className={`tab-btn${tab === 'mine' ? ' active' : ''}`} onClick={() => setTab('mine')}>My Appraisals</button>
-          <button className={`tab-btn${tab === 'review' ? ' active' : ''}`} onClick={() => setTab('review')}>To Review</button>
+          {canManage && <button className={`tab-btn${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>{t('appraisals.all')}</button>}
+          <button className={`tab-btn${tab === 'mine' ? ' active' : ''}`} onClick={() => setTab('mine')}>{t('appraisals.myAppraisals')}</button>
+          <button className={`tab-btn${tab === 'review' ? ' active' : ''}`} onClick={() => setTab('review')}>{t('appraisals.toReview')}</button>
         </div>
       </div>
 
@@ -293,30 +293,30 @@ export default function Appraisals() {
                 <div className="leave-item-info">
                   <div className="leave-item-employee">{a.employee_name}</div>
                   <div className="leave-item-type">{a.template_name}</div>
-                  <div className="leave-item-dates">{a.period} · Appraiser: {a.appraiser_name}</div>
+                  <div className="leave-item-dates">{a.period} · {t('appraisals.appraiser')}: {a.appraiser_name}</div>
                 </div>
                 <div className="leave-item-right">
                   {a.final_score != null && (
                     <span className="duration-badge daily">{a.final_score}/5</span>
                   )}
                   <span className="appraisal-status-badge" style={{ background: STATUS_COLOR[a.status] || '#9e9e9e' }}>
-                    {a.status}
+                    {t(`status.${a.status}`, { defaultValue: a.status })}
                   </span>
                 </div>
               </div>
               <div className="leave-item-actions" style={{ gap: 8 }}>
                 {canSelfAssess && (
                   <button className="btn btn-sm btn-primary" onClick={() => openModal(a, 'self')}>
-                    ✏️ Self-Assess
+                    ✏️ {t('appraisals.selfAssess')}
                   </button>
                 )}
                 {(canReview || canManagerReview) && (
                   <button className="btn btn-sm btn-success" onClick={() => openModal(a, 'manager')}>
-                    ⭐ Review
+                    ⭐ {t('appraisals.review')}
                   </button>
                 )}
                 <button className="btn btn-sm btn-secondary" onClick={() => openModal(a, 'view')}>
-                  View
+                  {t('appraisals.view')}
                 </button>
               </div>
             </div>
@@ -325,23 +325,23 @@ export default function Appraisals() {
       </div>
 
       {(modalMode === 'self' || modalMode === 'manager') && selected && (
-        <Modal title={modalMode === 'self' ? 'Self-Assessment' : 'Manager Review'} onClose={closeModal}>
+        <Modal title={modalMode === 'self' ? t('appraisals.selfAssessment') : t('appraisals.managerReview')} onClose={closeModal}>
           <AssessmentModal appraisal={selected} role={modalMode} onClose={closeModal} onSave={load} />
         </Modal>
       )}
 
       {modalMode === 'view' && selected && (
-        <Modal title="Appraisal Details" onClose={closeModal}>
+        <Modal title={t('appraisals.appraisalDetails')} onClose={closeModal}>
           <div className="form-stack">
             <div className="appraisal-meta">
               <div><strong>{t('appraisals.employee')}:</strong> {selected.employee_name}</div>
               <div><strong>{t('appraisals.period')}:</strong> {selected.period}</div>
-              <div><strong>{t('appraisals.status')}:</strong> <span style={{ color: STATUS_COLOR[selected.status] }}>{selected.status}</span></div>
-              {selected.final_score != null && <div><strong>{t('appraisals.score')}:</strong> {selected.final_score}/5</div>}
+              <div><strong>{t('appraisals.status')}:</strong> <span style={{ color: STATUS_COLOR[selected.status] }}>{t(`status.${selected.status}`, { defaultValue: selected.status })}</span></div>
+              {selected.final_score != null && <div><strong>{t('appraisals.finalScore')}:</strong> {selected.final_score}/5</div>}
             </div>
             {selected.self_scores && (
               <div className="assessment-section">
-                <h4 className="section-label">Self-Assessment Scores</h4>
+                <h4 className="section-label">{t('appraisals.selfScores')}</h4>
                 {Object.entries(selected.self_scores).map(([k, v]) => (
                   <div key={k} className="score-row">Question {k}: <strong>{v}/5</strong></div>
                 ))}
@@ -350,7 +350,7 @@ export default function Appraisals() {
             )}
             {selected.manager_scores && (
               <div className="assessment-section">
-                <h4 className="section-label">Manager Review Scores</h4>
+                <h4 className="section-label">{t('appraisals.managerScores')}</h4>
                 {Object.entries(selected.manager_scores).map(([k, v]) => (
                   <div key={k} className="score-row">Question {k}: <strong>{v}/5</strong></div>
                 ))}

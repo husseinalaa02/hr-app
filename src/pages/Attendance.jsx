@@ -358,17 +358,17 @@ export default function Attendance() {
                   <td>
                     {a.status && <Badge status={a.status} />}
                     {a.status === 'Late' && a.late_minutes > 0 && (
-                      <span style={{ fontSize: 11, color: 'var(--gray-500)', marginLeft: 5 }}>
+                      <span style={{ fontSize: 11, color: 'var(--gray-500)', marginInlineStart: 5 }}>
                         +{fmtMinutes(a.late_minutes)}
                       </span>
                     )}
                     {a.early_leave_minutes > 0 && (
-                      <span style={{ fontSize: 11, color: 'var(--gray-500)', marginLeft: 5 }}>
+                      <span style={{ fontSize: 11, color: 'var(--gray-500)', marginInlineStart: 5 }}>
                         -{fmtMinutes(a.early_leave_minutes)}
                       </span>
                     )}
                     {a.status === 'Overtime' && a.overtime_minutes > 0 && (
-                      <span style={{ fontSize: 11, color: 'var(--gray-500)', marginLeft: 5 }}>
+                      <span style={{ fontSize: 11, color: 'var(--gray-500)', marginInlineStart: 5 }}>
                         +{fmtMinutes(a.overtime_minutes)}
                       </span>
                     )}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getReportData } from '../api/reports';
 import { Skeleton } from '../components/Skeleton';
@@ -6,7 +6,7 @@ import ErrorState from '../components/ErrorState';
 
 function StatCard({ label, value, sub, color = '#1565c0' }) {
   return (
-    <div className="stat-card" style={{ borderLeftColor: color }}>
+    <div className="stat-card" style={{ borderInlineStartColor: color }}>
       <div className="stat-value" style={{ color }}>{value}</div>
       <div className="stat-label">{label}</div>
       {sub && <div className="stat-sub">{sub}</div>}
@@ -21,7 +21,7 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
@@ -53,13 +53,13 @@ export default function Reports() {
         expenses, expenseTotal, pendingExpenses,
       });
     } catch (e) {
-      setLoadError(e.message || 'Failed to load report data');
+      setLoadError(e.message || t('reports.failedLoad'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   if (loading) return <div className="page-content"><div className="loading-center"><span className="spinner" /></div></div>;
   if (loadError) return <div className="page-content"><ErrorState message={loadError} onRetry={load} /></div>;
@@ -88,7 +88,7 @@ export default function Reports() {
             <StatCard label={t('reports.headcount')} value={data.employees.length} color="#1565c0" />
             <StatCard label={t('nav.leaveRequests')} value={data.leaves.filter(l => l.status === 'Open').length} color="#ef6c00" />
             <StatCard label={t('reports.payroll')} value={(data.payrollTotal / 1_000_000).toFixed(2) + 'M IQD'} color="#2e7d32" />
-            <StatCard label="Pending Expenses" value={data.pendingExpenses} color="#6a1b9a" />
+            <StatCard label={t('reports.pendingExpenses')} value={data.pendingExpenses} color="#6a1b9a" />
           </div>
           <div className="card" style={{ marginTop: 16 }}>
             <div className="card-header"><h3>{t('employees.department')}</h3></div>
@@ -109,16 +109,16 @@ export default function Reports() {
       {tab === 'leave' && (
         <>
           <div className="stats-row">
-            <StatCard label="Total Applications" value={data.leaves.length} color="#1565c0" />
-            <StatCard label="Approved" value={data.leaves.filter(l => l.status === 'Approved').length} color="#2e7d32" />
-            <StatCard label="Pending" value={data.leaves.filter(l => l.status === 'Open').length} color="#ef6c00" />
-            <StatCard label="Rejected" value={data.leaves.filter(l => l.status === 'Rejected').length} color="#c62828" />
+            <StatCard label={t('reports.totalApplications')} value={data.leaves.length} color="#1565c0" />
+            <StatCard label={t('reports.approved')} value={data.leaves.filter(l => l.status === 'Approved').length} color="#2e7d32" />
+            <StatCard label={t('reports.pending')} value={data.leaves.filter(l => l.status === 'Open').length} color="#ef6c00" />
+            <StatCard label={t('reports.rejected')} value={data.leaves.filter(l => l.status === 'Rejected').length} color="#c62828" />
           </div>
           <div className="card" style={{ marginTop: 16 }}>
             <div className="card-header"><h3>{t('reports.leave')} ({t('common.status')})</h3></div>
             <div className="card-body">
               <table className="data-table">
-                <thead><tr><th>{t('reports.leave')}</th><th>Applications</th></tr></thead>
+                <thead><tr><th>{t('reports.leave')}</th><th>{t('reports.applications')}</th></tr></thead>
                 <tbody>
                   {Object.entries(data.leaveByType).sort((a, b) => b[1] - a[1]).map(([type, count]) => (
                     <tr key={type}><td>{type}</td><td>{count}</td></tr>
@@ -133,16 +133,16 @@ export default function Reports() {
       {tab === 'payroll' && (
         <>
           <div className="stats-row">
-            <StatCard label="Total Records" value={data.payroll.length} color="#1565c0" />
-            <StatCard label="Draft" value={data.payroll.filter(r => r.status === 'Draft').length} color="#9e9e9e" />
-            <StatCard label="Submitted" value={data.payroll.filter(r => r.status === 'Submitted').length} color="#ef6c00" />
-            <StatCard label="Paid" value={data.payroll.filter(r => r.status === 'Paid').length} color="#2e7d32" />
+            <StatCard label={t('reports.totalRecords')} value={data.payroll.length} color="#1565c0" />
+            <StatCard label={t('reports.draft')} value={data.payroll.filter(r => r.status === 'Draft').length} color="#9e9e9e" />
+            <StatCard label={t('reports.submitted')} value={data.payroll.filter(r => r.status === 'Submitted').length} color="#ef6c00" />
+            <StatCard label={t('reports.paid')} value={data.payroll.filter(r => r.status === 'Paid').length} color="#2e7d32" />
           </div>
           <div className="card" style={{ marginTop: 16 }}>
             <div className="card-header"><h3>{t('reports.payroll')}</h3></div>
             <div className="card-body">
               <table className="data-table">
-                <thead><tr><th>{t('common.name')}</th><th>Period</th><th>Salary (IQD)</th><th>{t('common.status')}</th></tr></thead>
+                <thead><tr><th>{t('common.name')}</th><th>{t('reports.period')}</th><th>{t('reports.salaryIQD')}</th><th>{t('common.status')}</th></tr></thead>
                 <tbody>
                   {data.payroll.map(r => (
                     <tr key={r.id}>
@@ -162,16 +162,16 @@ export default function Reports() {
       {tab === 'appraisals' && (
         <>
           <div className="stats-row">
-            <StatCard label="Total Appraisals" value={data.appraisals.length} color="#1565c0" />
-            <StatCard label="Completed" value={data.appraisalByStatus['Completed'] || 0} color="#2e7d32" />
-            <StatCard label="In Progress" value={(data.appraisalByStatus['In Progress'] || 0) + (data.appraisalByStatus['Self-Assessment Submitted'] || 0) + (data.appraisalByStatus['Manager Review'] || 0)} color="#ef6c00" />
-            <StatCard label="Not Started" value={data.appraisalByStatus['Not Started'] || 0} color="#9e9e9e" />
+            <StatCard label={t('reports.totalAppraisals')} value={data.appraisals.length} color="#1565c0" />
+            <StatCard label={t('reports.completed')} value={data.appraisalByStatus['Completed'] || 0} color="#2e7d32" />
+            <StatCard label={t('reports.inProgress')} value={(data.appraisalByStatus['In Progress'] || 0) + (data.appraisalByStatus['Self-Assessment Submitted'] || 0) + (data.appraisalByStatus['Manager Review'] || 0)} color="#ef6c00" />
+            <StatCard label={t('reports.notStarted')} value={data.appraisalByStatus['Not Started'] || 0} color="#9e9e9e" />
           </div>
           <div className="card" style={{ marginTop: 16 }}>
-            <div className="card-header"><h3>Appraisal Status Breakdown</h3></div>
+            <div className="card-header"><h3>{t('reports.appraisalBreakdown')}</h3></div>
             <div className="card-body">
               <table className="data-table">
-                <thead><tr><th>{t('common.name')}</th><th>Period</th><th>{t('common.status')}</th><th>Score</th></tr></thead>
+                <thead><tr><th>{t('common.name')}</th><th>{t('reports.period')}</th><th>{t('common.status')}</th><th>{t('reports.score')}</th></tr></thead>
                 <tbody>
                   {data.appraisals.map(a => (
                     <tr key={a.id}>
