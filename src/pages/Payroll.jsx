@@ -37,7 +37,7 @@ function LogTimeline({ entries }) {
           <div className="log-body">
             <div className="log-action">{LOG_ICONS[e.action] || '•'} {e.action}</div>
             <div className="log-by">{e.performed_by_name}</div>
-            <div className="log-time">{new Date(e.timestamp).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</div>
+            <div className="log-time">{new Date(e.timestamp).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Baghdad' })}</div>
             {e.notes && <div className="log-notes">{e.notes}</div>}
           </div>
         </div>
@@ -106,18 +106,24 @@ export default function Payroll() {
     }));
   };
 
+  // Preview uses 0 deductions — actual late/absence deductions are auto-computed
+  // from attendance when the record is created. The preview intentionally shows
+  // the gross before deductions; a disclaimer is rendered below the total row.
   const previewSalary = () => {
     const base  = Number(form.base_salary) || 0;
     const add   = Number(form.additional_salary) || 0;
     const days  = Number(form.working_days) || 0;
     const fri   = Number(form.friday_bonus) || 0;
     const extra = Number(form.extra_day_bonus) || 0;
-    return calcFinalSalary(base, add, days) + fri + extra;
+    return Math.max(0, calcFinalSalary(base, add, days) + fri + extra);
   };
 
   const handleCreate = async () => {
     if (!form.employee_id || !form.period_start || !form.period_end) {
       addToast(t('errors.fillRequired'), 'error'); return;
+    }
+    if (form.period_start > form.period_end) {
+      addToast(t('payroll.dateOrderError', { defaultValue: 'Start date must be before end date' }), 'error'); return;
     }
     setSaving(true);
     try {
@@ -401,6 +407,9 @@ export default function Payroll() {
                       )}
                       <div className="salary-preview-row salary-preview-total">
                         <span>{t('payroll.total')}</span><span>{formatIQD(previewSalary())}</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, textAlign: 'end' }}>
+                        * {t('payroll.previewNote')}
                       </div>
                     </div>
                   </div>

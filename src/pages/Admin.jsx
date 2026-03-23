@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getAllEmployeesWithOverrides, savePermissionOverrides, getCustomRoles, createCustomRole, updateCustomRole, deleteCustomRole } from '../api/admin';
-import { updateEmployee } from '../api/employees';
+import { updateEmployee, setEmployeeRole } from '../api/employees';
 import { ROLE_PERMISSIONS } from '../rbac/permissions';
 import { Skeleton } from '../components/Skeleton';
 
@@ -251,8 +251,8 @@ export default function Admin() {
     if (!newRole || newRole === emp.role) return;
     setSavingRole(p => ({ ...p, [emp.name]: true }));
     try {
-      // 1. Update the employees table (enforced by RLS)
-      await updateEmployee(emp.name, { role: newRole });
+      // 1. Update the employees table (bypasses EMPLOYEE_ALLOWED_FIELDS whitelist — role is intentionally excluded from it)
+      await setEmployeeRole(emp.name, newRole);
 
       // 2. Sync the new role into Supabase Auth app_metadata so JWT-based
       //    RLS policies enforce it immediately on the next token refresh.

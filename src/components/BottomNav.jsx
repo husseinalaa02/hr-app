@@ -67,7 +67,7 @@ export default function BottomNav() {
           end={to === '/'}
           className={({ isActive }) => `bnav-item${isActive ? ' active' : ''}`}
         >
-          <span className="bnav-icon-wrap"><span className="bnav-icon">{icon}</span></span>
+          <span className="bnav-icon-wrap" aria-hidden="true"><span className="bnav-icon">{icon}</span></span>
           <span className="bnav-label">{label}</span>
         </NavLink>
       ))}
@@ -77,7 +77,7 @@ export default function BottomNav() {
           className={`bnav-item bnav-item-btn${profileActive ? ' active' : ''}`}
           onClick={() => profilePath && navigate(profilePath)}
         >
-          <span className="bnav-icon-wrap">
+          <span className="bnav-icon-wrap" aria-hidden="true">
             <span className="bnav-icon bnav-avatar">
               <Avatar name={employee.employee_name} image={employee.image} size={26} />
             </span>

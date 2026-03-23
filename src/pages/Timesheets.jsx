@@ -58,7 +58,9 @@ function AssignScheduleModal({ employees, onClose, onAssigned, preselectedEmploy
   const [empId, setEmpId] = useState(preselectedEmployee?.name || '');
   const [shiftType, setShiftType] = useState('morning');
   const [customStart, setCustomStart] = useState('');
-  const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split('T')[0]);
+  const [effectiveDate, setEffectiveDate] = useState(
+    new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Baghdad' })
+  );
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 

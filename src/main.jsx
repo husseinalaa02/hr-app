@@ -16,6 +16,17 @@ import './i18n';
 import './style.css';
 import App from './App.jsx';
 
+// Safety guard: Supabase env vars must be set when not in demo mode.
+if (import.meta.env.VITE_DEMO_MODE !== 'true' && !import.meta.env.VITE_SUPABASE_URL) {
+  document.body.innerHTML =
+    '<div style="padding:32px;font-family:sans-serif;color:#c62828">' +
+    '<h2>Configuration Error</h2>' +
+    '<p>VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set. ' +
+    'Add them to your .env file or deployment environment variables.</p>' +
+    '</div>';
+  throw new Error('Missing required environment variables: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY');
+}
+
 // Safety guard: demo mode must never run on a real deployment.
 // If VITE_DEMO_MODE=true is accidentally set in a Vercel production env,
 // this throws immediately so the problem is caught before any employee data

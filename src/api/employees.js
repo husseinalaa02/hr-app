@@ -121,6 +121,29 @@ const EMPLOYEE_ALLOWED_FIELDS = [
   'employee_type', 'gender', 'nationality', 'address', 'company_email',
 ];
 
+// Direct role assignment — intentionally bypasses EMPLOYEE_ALLOWED_FIELDS because
+// roles must never be changeable by the employee themselves, only by admin actions.
+// The Admin page calls this after the server-side /api/set-role JWT sync.
+export async function setEmployeeRole(id, role) {
+  if (!id || !role) throw new Error('Employee id and role are required');
+  if (SUPABASE_MODE) {
+    const { data: updated, error } = await supabase
+      .from('employees').update({ role }).eq('name', id).select().single();
+    if (error) throw error;
+    invalidate('employees');
+    return updated;
+  }
+  if (DEMO) {
+    const existing = await db.employees.get(id);
+    if (!existing) return null;
+    const updated = { ...existing, role };
+    await db.employees.put(updated);
+    invalidate('employees');
+    return updated;
+  }
+  throw new Error('No backend available');
+}
+
 export async function updateEmployee(id, data) {
   const safe = Object.fromEntries(
     Object.entries(data).filter(([k]) => EMPLOYEE_ALLOWED_FIELDS.includes(k))
@@ -207,6 +230,7 @@ export async function createEmployee(data, accessToken) {
       reports_to:       data.reports_to || '',
     };
     await db.employees.put(record);
+    invalidate('employees');
     return record;
   }
   throw new Error('No backend available');

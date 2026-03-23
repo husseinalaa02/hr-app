@@ -1,5 +1,5 @@
 import { db } from '../db/index';
-import { recalculatePayroll, FRIDAY_DAY_FIXED, calcExtraDayValue } from './payroll';
+import { recalculatePayroll, FRIDAY_DAY_FIXED, calcExtraDayValue, buildCalculatedSalary } from './payroll';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
@@ -124,7 +124,7 @@ export async function managerApproveDayRequest(id) {
     const request = await db.day_requests.get(Number(id));
     if (!request) throw new Error('Request not found');
     const stage = request.approval_status;
-    if (stage !== 'Pending Manager' && stage !== 'Pending')
+    if (stage !== 'Pending Manager')
       throw new Error('Only manager-pending requests can be approved here');
     const updated = { ...request, approval_status: 'Pending HR' };
     await db.day_requests.put(updated);
@@ -152,15 +152,16 @@ export async function hrApproveDayRequest(id) {
       .gte('period_end', request.request_date);
     for (const pr of (prs || [])) {
       if (pr.status === 'Paid') continue; // never mutate settled payroll
-      let { friday_bonus, extra_day_bonus, calculated_salary, base_salary } = pr;
+      let { friday_bonus, extra_day_bonus, base_salary, additional_salary, working_days, late_deductions, absence_deductions } = pr;
       if (request.request_type === 'Friday Day') {
-        friday_bonus      += FRIDAY_DAY_FIXED;
-        calculated_salary += FRIDAY_DAY_FIXED;
+        friday_bonus += FRIDAY_DAY_FIXED;
       } else {
-        const dayVal       = calcExtraDayValue(base_salary);
-        extra_day_bonus   += dayVal;
-        calculated_salary += dayVal;
+        extra_day_bonus += calcExtraDayValue(base_salary);
       }
+      const calculated_salary = buildCalculatedSalary(
+        base_salary, additional_salary, working_days, friday_bonus, extra_day_bonus,
+        late_deductions || 0, absence_deductions || 0
+      );
       await supabase.from('payroll').update({ friday_bonus, extra_day_bonus, calculated_salary }).eq('id', pr.id);
     }
     return updated;
@@ -182,15 +183,16 @@ export async function hrApproveDayRequest(id) {
 
     for (const pr of payrollRecords) {
       if (pr.status === 'Paid') continue; // never mutate settled payroll
-      let { friday_bonus, extra_day_bonus, calculated_salary, base_salary } = pr;
+      let { friday_bonus, extra_day_bonus, base_salary, additional_salary, working_days, late_deductions, absence_deductions } = pr;
       if (request.request_type === 'Friday Day') {
-        friday_bonus      += FRIDAY_DAY_FIXED;
-        calculated_salary += FRIDAY_DAY_FIXED;
+        friday_bonus += FRIDAY_DAY_FIXED;
       } else {
-        const dayVal       = calcExtraDayValue(base_salary);
-        extra_day_bonus   += dayVal;
-        calculated_salary += dayVal;
+        extra_day_bonus += calcExtraDayValue(base_salary);
       }
+      const calculated_salary = buildCalculatedSalary(
+        base_salary, additional_salary, working_days, friday_bonus, extra_day_bonus,
+        late_deductions || 0, absence_deductions || 0
+      );
       await db.payroll.put({ ...pr, friday_bonus, extra_day_bonus, calculated_salary });
     }
     return updated;

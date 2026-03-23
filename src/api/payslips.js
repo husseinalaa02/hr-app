@@ -11,6 +11,13 @@ function normalize(row) {
     row.extra_day_bonus   > 0 && { salary_component: 'Extra Day Bonus',   amount: row.extra_day_bonus },
   ].filter(Boolean);
 
+  const gross_pay = earnings.reduce((s, e) => s + e.amount, 0);
+  const net_pay   = row.calculated_salary || 0;
+  const deductionAmount = Math.max(0, gross_pay - net_pay);
+  const deductions = deductionAmount > 0
+    ? [{ salary_component: 'Deductions', amount: deductionAmount }]
+    : [];
+
   return {
     ...row,
     name:            String(row.id),
@@ -18,10 +25,10 @@ function normalize(row) {
     end_date:        row.period_end,
     posting_date:    row.payroll_date || row.period_end,
     earnings,
-    deductions:      [],
-    gross_pay:       earnings.reduce((s, e) => s + e.amount, 0),
-    total_deduction: 0,
-    net_pay:         row.calculated_salary || 0,
+    deductions,
+    gross_pay,
+    total_deduction: deductionAmount,
+    net_pay,
   };
 }
 
@@ -36,7 +43,11 @@ export async function getPayslips(employeeId) {
     if (error) return [];
     return (data || []).map(normalize);
   }
-  const rows = await db.payslips.where('employee').equals(employeeId).reverse().sortBy('posting_date');
+  const rows = await db.payroll
+    .where('employee_id').equals(employeeId)
+    .filter(r => r.status === 'Paid')
+    .reverse()
+    .sortBy('period_start');
   return rows.map(normalize);
 }
 
@@ -46,6 +57,6 @@ export async function getPayslip(id) {
     if (error) return null;
     return normalize(data);
   }
-  const row = await db.payslips.get(id);
+  const row = await db.payroll.get(Number(id));
   return normalize(row);
 }
