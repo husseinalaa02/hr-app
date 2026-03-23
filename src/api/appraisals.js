@@ -9,7 +9,8 @@ export async function getAppraisalTemplates() {
     if (error) throw error;
     return data || [];
   }
-  return db.appraisal_templates.toArray();
+  if (DEMO) return db.appraisal_templates.toArray();
+  return [];
 }
 
 export async function getAppraisals({ employeeId = '', appraiserId = '', status = '' } = {}) {
@@ -29,7 +30,7 @@ export async function getAppraisals({ employeeId = '', appraiserId = '', status 
     if (status) rows = rows.filter(a => a.status === status);
     return rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
   }
-  return db.appraisals.toArray();
+  return [];
 }
 
 export async function getAppraisal(id) {
@@ -37,7 +38,8 @@ export async function getAppraisal(id) {
     const { data } = await supabase.from('appraisals').select('*').eq('id', id).maybeSingle();
     return data || null;
   }
-  return db.appraisals.get(Number(id));
+  if (DEMO) return db.appraisals.get(Number(id));
+  return null;
 }
 
 export async function createAppraisal({ template_id, employee_id, employee_name, appraiser_id, appraiser_name, period }) {
@@ -124,6 +126,51 @@ export async function saveManagerReviewDraft(id, { scores, comment }) {
   const updated = { ...rec, manager_scores: scores, manager_comment: comment, status: 'Manager Review' };
   await db.appraisals.put(updated);
   return updated;
+}
+
+// ─── Template Management ──────────────────────────────────────────────────────
+
+export async function createTemplate({ name, questions }) {
+  if (!name?.trim()) throw new Error('Template name is required');
+  if (!questions?.length) throw new Error('At least one question is required');
+  if (SUPABASE_MODE) {
+    const { data, error } = await supabase.from('appraisal_templates')
+      .insert({ name: name.trim(), questions }).select().single();
+    if (error) throw error;
+    return data;
+  }
+  if (DEMO) {
+    const id = await db.appraisal_templates.add({ name: name.trim(), questions });
+    return { id, name: name.trim(), questions };
+  }
+  throw new Error('No backend available');
+}
+
+export async function updateTemplate(id, { name, questions }) {
+  if (!name?.trim()) throw new Error('Template name is required');
+  if (SUPABASE_MODE) {
+    const { data, error } = await supabase.from('appraisal_templates')
+      .update({ name: name.trim(), questions }).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  }
+  if (DEMO) {
+    const existing = await db.appraisal_templates.get(Number(id));
+    if (!existing) throw new Error('Template not found');
+    const updated = { ...existing, name: name.trim(), questions };
+    await db.appraisal_templates.put(updated);
+    return updated;
+  }
+  throw new Error('No backend available');
+}
+
+export async function deleteTemplate(id) {
+  if (SUPABASE_MODE) {
+    const { error } = await supabase.from('appraisal_templates').delete().eq('id', id);
+    if (error) throw error;
+    return;
+  }
+  if (DEMO) { await db.appraisal_templates.delete(Number(id)); return; }
 }
 
 export async function saveSelfAssessmentDraft(id, { scores, comment }) {

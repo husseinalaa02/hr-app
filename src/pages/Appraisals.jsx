@@ -6,6 +6,7 @@ import {
   getAppraisals, getAppraisalTemplates, createAppraisal,
   submitSelfAssessment, submitManagerReview,
   saveSelfAssessmentDraft, saveManagerReviewDraft,
+  createTemplate, updateTemplate, deleteTemplate,
 } from '../api/appraisals';
 import { getEmployees } from '../api/employees';
 import { SUPABASE_MODE } from '../db/supabase';
@@ -55,11 +56,11 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
   const [templateData, setTemplateData] = useState(null);
   useEffect(() => {
     getAppraisalTemplates().then(templates => {
-      const t = templates.find(t => t.id === appraisal.template_id);
-      setTemplateData(t || null);
+      const tmpl = templates.find(tmpl => tmpl.id === appraisal.template_id);
+      setTemplateData(tmpl || null);
       // Seed comment map with existing answers keyed by question id
-      if (t?.questions) {
-        const textQs = t.questions.filter(q => q.type === 'text');
+      if (tmpl?.questions) {
+        const textQs = tmpl.questions.filter(q => q.type === 'text');
         if (textQs.length > 0) {
           setComments(Object.fromEntries(textQs.map(q => [q.id, existingComment])));
         }
@@ -221,6 +222,192 @@ function CreateAppraisalModal({ onClose, onCreated }) {
   );
 }
 
+// ─── Template Editor Modal ────────────────────────────────────────────────────
+function TemplateEditorModal({ template, onClose, onSaved }) {
+  const { t } = useTranslation();
+  const { addToast } = useToast();
+  const isEdit = !!template;
+
+  const makeQ = () => ({ id: crypto.randomUUID(), type: 'rating', text: '' });
+
+  const [name, setName] = useState(template?.name || '');
+  const [questions, setQuestions] = useState(
+    template?.questions?.length ? template.questions : [makeQ()]
+  );
+  const [saving, setSaving] = useState(false);
+
+  const setQ = (id, field, value) =>
+    setQuestions(qs => qs.map(q => q.id === id ? { ...q, [field]: value } : q));
+  const addQ   = () => setQuestions(qs => [...qs, makeQ()]);
+  const removeQ = (id) => setQuestions(qs => qs.filter(q => q.id !== id));
+
+  const handle = async (e) => {
+    e.preventDefault();
+    if (!questions.some(q => q.text.trim())) {
+      addToast(t('appraisals.atLeastOneQuestion'), 'error'); return;
+    }
+    const clean = questions.filter(q => q.text.trim());
+    setSaving(true);
+    try {
+      if (isEdit) await updateTemplate(template.id, { name, questions: clean });
+      else        await createTemplate({ name, questions: clean });
+      addToast(t('appraisals.templateSaved'), 'success');
+      onSaved();
+      onClose();
+    } catch (err) { addToast(err.message, 'error'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <form className="form-stack" onSubmit={handle}>
+      <div className="form-group">
+        <label>{t('appraisals.templateName')} *</label>
+        <input className="form-input" value={name} onChange={e => setName(e.target.value)} required />
+      </div>
+
+      <div className="form-group">
+        <label>{t('appraisals.questions')}</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {questions.map((q, i) => (
+            <div key={q.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ minWidth: 20, color: '#888', fontSize: 13 }}>{i + 1}.</span>
+              <input
+                className="form-input"
+                style={{ flex: 1 }}
+                placeholder={t('appraisals.questionText')}
+                value={q.text}
+                onChange={e => setQ(q.id, 'text', e.target.value)}
+              />
+              <select
+                className="form-input"
+                style={{ width: 140 }}
+                value={q.type}
+                onChange={e => setQ(q.id, 'type', e.target.value)}
+              >
+                <option value="rating">{t('appraisals.ratingType')}</option>
+                <option value="text">{t('appraisals.textType')}</option>
+              </select>
+              {questions.length > 1 && (
+                <button type="button" className="btn btn-sm btn-danger" onClick={() => removeQ(q.id)}>✕</button>
+              )}
+            </div>
+          ))}
+        </div>
+        <button type="button" className="btn btn-secondary" style={{ marginTop: 10 }} onClick={addQ}>
+          {t('appraisals.addQuestion')}
+        </button>
+      </div>
+
+      <div className="form-actions">
+        <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
+        <button type="submit" className="btn btn-primary" disabled={saving}>
+          {saving ? <span className="spinner-sm" /> : t('common.save')}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ─── Template Manager (tab content) ──────────────────────────────────────────
+function TemplateManager() {
+  const { t } = useTranslation();
+  const { addToast } = useToast();
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [editing, setEditing]   = useState(null);   // template obj or null
+  const [creating, setCreating] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try { setTemplates(await getAppraisalTemplates()); }
+    catch { setTemplates([]); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleDelete = async (tmpl) => {
+    if (!window.confirm(t('appraisals.deleteTemplateConfirm'))) return;
+    try {
+      await deleteTemplate(tmpl.id);
+      addToast(t('appraisals.templateDeleted'), 'success');
+      load();
+    } catch (err) { addToast(err.message, 'error'); }
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <button className="btn btn-primary" onClick={() => setCreating(true)}>
+          {t('appraisals.newTemplate')}
+        </button>
+      </div>
+
+      <div className="leave-card-list">
+        {loading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="leave-item-card">
+              <Skeleton height={14} width="40%" />
+              <Skeleton height={12} width="60%" style={{ marginTop: 8 }} />
+            </div>
+          ))
+        ) : templates.length === 0 ? (
+          <div className="card">
+            <p className="text-center text-muted" style={{ padding: '32px 16px' }}>
+              {t('appraisals.noTemplates')}
+            </p>
+          </div>
+        ) : templates.map(tmpl => (
+          <div key={tmpl.id} className="leave-item-card">
+            <div className="leave-item-top">
+              <div className="leave-item-info">
+                <div className="leave-item-type">{tmpl.name}</div>
+                <div className="leave-item-dates">
+                  {(tmpl.questions || []).length} {t('appraisals.questions').toLowerCase()}
+                  {' · '}
+                  {(tmpl.questions || []).filter(q => q.type === 'rating').length} {t('appraisals.ratingType').toLowerCase()}
+                  {', '}
+                  {(tmpl.questions || []).filter(q => q.type === 'text').length} {t('appraisals.textType').toLowerCase()}
+                </div>
+              </div>
+              <div className="leave-item-right" style={{ gap: 8, display: 'flex' }}>
+                <button className="btn btn-sm btn-secondary" onClick={() => setEditing(tmpl)}>
+                  {t('common.edit')}
+                </button>
+                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(tmpl)}>
+                  {t('common.delete')}
+                </button>
+              </div>
+            </div>
+            <div style={{ padding: '8px 0 4px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {(tmpl.questions || []).map((q, i) => (
+                <span key={q.id} style={{
+                  fontSize: 11, padding: '3px 10px', borderRadius: 20,
+                  background: q.type === 'rating' ? '#e3f2fd' : '#f3e5f5',
+                  color: q.type === 'rating' ? '#1565c0' : '#6a1b9a',
+                }}>
+                  {i + 1}. {q.text}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {creating && (
+        <Modal title={t('appraisals.newTemplate')} onClose={() => setCreating(false)}>
+          <TemplateEditorModal onClose={() => setCreating(false)} onSaved={load} />
+        </Modal>
+      )}
+      {editing && (
+        <Modal title={t('appraisals.editTemplate')} onClose={() => setEditing(null)}>
+          <TemplateEditorModal template={editing} onClose={() => setEditing(null)} onSaved={load} />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 export default function Appraisals() {
   const { t } = useTranslation();
   const { employee, hasPermission } = useAuth();
@@ -268,10 +455,13 @@ export default function Appraisals() {
           {canManage && <button className={`tab-btn${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>{t('appraisals.all')}</button>}
           <button className={`tab-btn${tab === 'mine' ? ' active' : ''}`} onClick={() => setTab('mine')}>{t('appraisals.myAppraisals')}</button>
           <button className={`tab-btn${tab === 'review' ? ' active' : ''}`} onClick={() => setTab('review')}>{t('appraisals.toReview')}</button>
+          {canManage && <button className={`tab-btn${tab === 'templates' ? ' active' : ''}`} onClick={() => setTab('templates')}>{t('appraisals.templates')}</button>}
         </div>
       </div>
 
-      <div className="leave-card-list">
+      {tab === 'templates' && <TemplateManager />}
+
+      <div className="leave-card-list" style={{ display: tab === 'templates' ? 'none' : undefined }}>
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="leave-item-card">
