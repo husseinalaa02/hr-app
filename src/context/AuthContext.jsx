@@ -73,11 +73,15 @@ export function AuthProvider({ children }) {
   const [permOverrides, setPermOverrides] = useState({});
   const [customRoles, setCustomRoles]     = useState([]);
 
-  // Fetch employee record for a Supabase Auth user
+  // Fetch employee record for a Supabase Auth user.
+  // Wrapped in an 8-second timeout so a stalled DB query never blocks
+  // setLoading(false) and causes a permanent spinner on refresh.
   const fetchEmployee = useCallback(async (authUser) => {
-    const { data: emp } = await supabase
-      .from('employees').select('*').eq('auth_id', authUser.id).single();
-    return emp || null;
+    const result = await Promise.race([
+      supabase.from('employees').select('*').eq('auth_id', authUser.id).single(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('employee fetch timeout')), 8_000)),
+    ]);
+    return result?.data || null;
   }, []);
 
   const loadSession = useCallback(async () => {
@@ -85,7 +89,13 @@ export function AuthProvider({ children }) {
       await initDatabase();
 
       if (SUPABASE_MODE) {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Race against a 10-second timeout so poor mobile network never causes
+        // a permanent loading spinner (token refresh can hang indefinitely on mobile).
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('session timeout')), 10_000)),
+        ]);
+        const session = sessionResult?.data?.session ?? null;
         getCustomRoles().then(setCustomRoles).catch(() => {});
         if (session?.user) {
           const emp = await fetchEmployee(session.user);
