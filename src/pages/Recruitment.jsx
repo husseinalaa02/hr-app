@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { getJobs, createJob, updateJob, getCandidates, addCandidate, moveStage, deleteCandidate, STAGES } from '../api/recruitment';
+import { getJobs, createJob, updateJob, getCandidates, addCandidate, moveStage, deleteCandidate, deleteJob, STAGES } from '../api/recruitment';
 import Modal from '../components/Modal';
 import { Skeleton } from '../components/Skeleton';
 
@@ -71,6 +71,16 @@ export default function Recruitment() {
     } catch (e) { addToast(e.message, 'error'); }
   };
 
+  const handleDeleteJob = async (e, job) => {
+    e.stopPropagation();
+    if (!window.confirm(t('recruitment.deleteJobConfirm', { title: job.job_title }))) return;
+    try {
+      await deleteJob(job.id);
+      addToast(t('recruitment.jobDeleted'), 'success');
+      loadJobs();
+    } catch (err) { addToast(err.message, 'error'); }
+  };
+
   const handleDelete = async (cand) => {
     if (!window.confirm(t('recruitment.removeConfirm', { name: cand.name }))) return;
     try {
@@ -127,6 +137,13 @@ export default function Recruitment() {
                   </span>
                 </div>
               </div>
+              {canManage && (
+                <div className="leave-item-actions">
+                  <button className="btn btn-sm btn-danger" onClick={e => handleDeleteJob(e, j)}>
+                    {t('common.delete')}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

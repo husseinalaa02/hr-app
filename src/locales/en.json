@@ -423,7 +423,9 @@
     "removeConfirm": "Remove {{name}}?",
     "addCandidateTitle": "Add Candidate",
     "jobCreated": "Job created",
-    "candidateAdded": "Candidate added"
+    "candidateAdded": "Candidate added",
+    "deleteJobConfirm": "Delete job opening \"{{title}}\"? This will also remove all its candidates.",
+    "jobDeleted": "Job deleted"
   },
   "expenses": {
     "title": "Expenses",

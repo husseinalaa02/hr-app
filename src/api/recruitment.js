@@ -6,6 +6,8 @@ const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
 export const STAGES = ['Application', 'Screening', 'Interview', 'Offer', 'Hired', 'Rejected'];
 
+const JOB_ALLOWED_FIELDS = ['job_title', 'department', 'description', 'target_date', 'status', 'hired_count'];
+
 export async function getJobs({ status = '' } = {}) {
   if (SUPABASE_MODE) {
     let query = supabase.from('recruitment_jobs').select('*');
@@ -20,7 +22,7 @@ export async function getJobs({ status = '' } = {}) {
     if (status) rows = rows.filter(j => j.status === status);
     return rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
   }
-  return db.recruitment_jobs.toArray();
+  return [];
 }
 
 export async function getJob(id) {
@@ -28,7 +30,8 @@ export async function getJob(id) {
     const { data } = await supabase.from('recruitment_jobs').select('*').eq('id', id).single();
     return data || null;
   }
-  return db.recruitment_jobs.get(Number(id));
+  if (DEMO) return db.recruitment_jobs.get(Number(id));
+  return null;
 }
 
 export async function createJob({ job_title, department, description, target_date }) {
@@ -49,14 +52,17 @@ export async function createJob({ job_title, department, description, target_dat
 }
 
 export async function updateJob(id, data) {
+  const safe = Object.fromEntries(
+    Object.entries(data).filter(([k]) => JOB_ALLOWED_FIELDS.includes(k))
+  );
   if (SUPABASE_MODE) {
-    const { data: updated, error } = await supabase.from('recruitment_jobs').update(data).eq('id', id).select().single();
+    const { data: updated, error } = await supabase.from('recruitment_jobs').update(safe).eq('id', id).select().single();
     if (error) throw error;
     return updated;
   }
   const existing = await db.recruitment_jobs.get(Number(id));
   if (!existing) throw new Error('Job not found');
-  const updated = { ...existing, ...data };
+  const updated = { ...existing, ...safe };
   await db.recruitment_jobs.put(updated);
   return updated;
 }
@@ -74,7 +80,7 @@ export async function getCandidates(jobId = null) {
     if (jobId) rows = rows.filter(c => c.job_id === Number(jobId));
     return rows.sort((a, b) => b.applied_at.localeCompare(a.applied_at));
   }
-  return db.recruitment_candidates.toArray();
+  return [];
 }
 
 export async function addCandidate({ job_id, name, email, phone, cv_note = '' }) {
@@ -116,6 +122,15 @@ export async function moveStage(candidateId, stage) {
     if (job) await db.recruitment_jobs.put({ ...job, hired_count: (job.hired_count || 0) + 1 });
   }
   return updated;
+}
+
+export async function deleteJob(id) {
+  if (SUPABASE_MODE) {
+    const { error } = await supabase.from('recruitment_jobs').delete().eq('id', id);
+    if (error) throw error;
+    return;
+  }
+  await db.recruitment_jobs.delete(Number(id));
 }
 
 export async function deleteCandidate(id) {

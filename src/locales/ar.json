@@ -419,7 +419,9 @@
     "removeConfirm": "إزالة {{name}}؟",
     "addCandidateTitle": "إضافة مرشح",
     "jobCreated": "تم إنشاء الوظيفة",
-    "candidateAdded": "تم إضافة المرشح"
+    "candidateAdded": "تم إضافة المرشح",
+    "deleteJobConfirm": "حذف الوظيفة \"{{title}}\"؟ سيتم حذف جميع المرشحين المرتبطين بها.",
+    "jobDeleted": "تم حذف الوظيفة"
   },
   "expenses": {
     "title": "المصروفات",
