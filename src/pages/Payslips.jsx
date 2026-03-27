@@ -11,6 +11,16 @@ import { formatIQD } from '../utils/format';
 
 const COMPANY = import.meta.env.VITE_DEFAULT_COMPANY || 'AFAQ ALFIKER';
 
+/** Escape user-supplied strings before inserting them into document.write HTML */
+function escapeHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 function PayslipDetail({ payslip, onClose }) {
   const { t, i18n } = useTranslation();
   const { addToast } = useToast();
@@ -40,11 +50,18 @@ function PayslipDetail({ payslip, onClose }) {
       netPay:          t('payslips.netPay'),
       to:              t('common.to'),
     };
+    const e_name    = escapeHtml(payslip.employee_name);
+    const e_id      = escapeHtml(payslip.employee);
+    const e_pname   = escapeHtml(payslip.name);
+    const e_start   = escapeHtml(payslip.start_date);
+    const e_end     = escapeHtml(payslip.end_date);
+    const e_company = escapeHtml(COMPANY);
+
     printWin.document.write(`
       <!DOCTYPE html>
       <html dir="${dir}">
       <head>
-        <title>${lbl.payslipNo} - ${payslip.name}</title>
+        <title>${escapeHtml(lbl.payslipNo)} - ${e_pname}</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 40px; color: #333; direction: ${dir}; }
           h1 { color: #0C447C; }
@@ -59,33 +76,33 @@ function PayslipDetail({ payslip, onClose }) {
         </style>
       </head>
       <body>
-        <h1>${COMPANY}</h1>
+        <h1>${e_company}</h1>
         <div class="header">
           <div>
-            <p><strong>${lbl.employee}:</strong> ${payslip.employee_name}</p>
-            <p><strong>${lbl.employeeId}:</strong> ${payslip.employee}</p>
+            <p><strong>${escapeHtml(lbl.employee)}:</strong> ${e_name}</p>
+            <p><strong>${escapeHtml(lbl.employeeId)}:</strong> ${e_id}</p>
           </div>
           <div>
-            <p><strong>${lbl.period}:</strong> ${payslip.start_date} ${lbl.to} ${payslip.end_date}</p>
-            <p><strong>${lbl.payslipNo}:</strong> ${payslip.name}</p>
+            <p><strong>${escapeHtml(lbl.period)}:</strong> ${e_start} ${escapeHtml(lbl.to)} ${e_end}</p>
+            <p><strong>${escapeHtml(lbl.payslipNo)}:</strong> ${e_pname}</p>
           </div>
         </div>
-        <p class="currency-note">${lbl.allAmountsIQD}</p>
+        <p class="currency-note">${escapeHtml(lbl.allAmountsIQD)}</p>
         <table>
-          <thead><tr><th>${lbl.earnings}</th><th style="text-align:end">${lbl.amount}</th></tr></thead>
+          <thead><tr><th>${escapeHtml(lbl.earnings)}</th><th style="text-align:end">${escapeHtml(lbl.amount)}</th></tr></thead>
           <tbody>
-            ${(payslip.earnings || []).map(e => `<tr><td>${e.salary_component}</td><td style="text-align:end">${Number(e.amount).toLocaleString('en-US')}</td></tr>`).join('')}
-            <tr class="total-row"><td>${lbl.grossPay}</td><td style="text-align:end">${Number(payslip.gross_pay || 0).toLocaleString('en-US')}</td></tr>
+            ${(payslip.earnings || []).map(e => `<tr><td>${escapeHtml(e.salary_component)}</td><td style="text-align:end">${Number(e.amount).toLocaleString('en-US')}</td></tr>`).join('')}
+            <tr class="total-row"><td>${escapeHtml(lbl.grossPay)}</td><td style="text-align:end">${Number(payslip.gross_pay || 0).toLocaleString('en-US')}</td></tr>
           </tbody>
         </table>
         <table style="margin-top: 16px">
-          <thead><tr><th>${lbl.deductions}</th><th style="text-align:end">${lbl.amount}</th></tr></thead>
+          <thead><tr><th>${escapeHtml(lbl.deductions)}</th><th style="text-align:end">${escapeHtml(lbl.amount)}</th></tr></thead>
           <tbody>
-            ${(payslip.deductions || []).map(d => `<tr><td>${d.salary_component}</td><td style="text-align:end">${Number(d.amount).toLocaleString('en-US')}</td></tr>`).join('')}
-            <tr class="total-row"><td>${lbl.totalDeductions}</td><td style="text-align:end">${Number(payslip.total_deduction || 0).toLocaleString('en-US')}</td></tr>
+            ${(payslip.deductions || []).map(d => `<tr><td>${escapeHtml(d.salary_component)}</td><td style="text-align:end">${Number(d.amount).toLocaleString('en-US')}</td></tr>`).join('')}
+            <tr class="total-row"><td>${escapeHtml(lbl.totalDeductions)}</td><td style="text-align:end">${Number(payslip.total_deduction || 0).toLocaleString('en-US')}</td></tr>
           </tbody>
         </table>
-        <p class="net-pay">${lbl.netPay}: ${Number(payslip.net_pay || 0).toLocaleString('en-US')} IQD</p>
+        <p class="net-pay">${escapeHtml(lbl.netPay)}: ${Number(payslip.net_pay || 0).toLocaleString('en-US')} IQD</p>
       </body>
       </html>
     `);

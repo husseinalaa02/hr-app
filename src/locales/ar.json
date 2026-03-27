@@ -84,7 +84,9 @@
     "resetEmailSent": "إذا كان هذا البريد مرتبطاً بحساب، ستصلك رابط الإعادة قريباً.",
     "resetEmailPlaceholder": "your@email.com",
     "resetFailed": "تعذّر إرسال رابط إعادة التعيين.",
-    "rateLimitError": "محاولات فاشلة كثيرة. حاول مرة أخرى بعد {{minutes}} دقيقة."
+    "rateLimitError": "محاولات فاشلة كثيرة. حاول مرة أخرى بعد {{minutes}} دقيقة.",
+    "retryIn": "الحساب مقفل. حاول مرة أخرى بعد {{minutes}} دقيقة.",
+    "resetLinkExpired": "انتهت صلاحية رابط إعادة التعيين. يرجى طلب رابط جديد."
   },
   "dashboard": {
     "goodMorning": "صباح الخير",
@@ -718,6 +720,9 @@
     "legendManuallyGranted": "ممنوح يدوياً",
     "legendManuallyRevoked": "مسحوب يدوياً",
     "savingLabel": "جاري الحفظ…",
+    "systemOk": "النظام يعمل",
+    "systemSlow": "النظام بطيء",
+    "systemDown": "النظام متوقف",
     "permGroup": {
       "employees": "الموظفون",
       "payroll": "الرواتب",

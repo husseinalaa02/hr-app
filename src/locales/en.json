@@ -84,7 +84,9 @@
     "resetEmailSent": "If an account exists for this email, you'll receive a reset link shortly.",
     "resetEmailPlaceholder": "your@email.com",
     "resetFailed": "Could not send reset email.",
-    "rateLimitError": "Too many failed attempts. Try again in {{minutes}} minute(s)."
+    "rateLimitError": "Too many failed attempts. Try again in {{minutes}} minute(s).",
+    "retryIn": "Account locked. Retry in {{minutes}} minute(s).",
+    "resetLinkExpired": "This password reset link has expired. Please request a new one."
   },
   "dashboard": {
     "goodMorning": "Good morning",
@@ -724,6 +726,9 @@
     "legendManuallyGranted": "Manually granted",
     "legendManuallyRevoked": "Manually revoked",
     "savingLabel": "Saving…",
+    "systemOk": "System OK",
+    "systemSlow": "System Slow",
+    "systemDown": "System Down",
     "permGroup": {
       "employees": "Employees",
       "payroll": "Payroll",

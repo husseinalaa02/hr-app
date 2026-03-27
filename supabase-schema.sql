@@ -8,8 +8,14 @@ returns text language sql stable as $$
 $$;
 
 create or replace function auth_employee_id()
-returns text language sql stable as $$
-  select auth.jwt() -> 'app_metadata' ->> 'employee_id'
+returns text language sql stable security definer as $$
+  -- Primary: read from JWT app_metadata (fast, no DB query).
+  -- Fallback: look up by auth.uid() in case app_metadata.employee_id was never set
+  --           (e.g. accounts created before the metadata migration was applied).
+  select coalesce(
+    auth.jwt() -> 'app_metadata' ->> 'employee_id',
+    (select name from employees where auth_id = auth.uid())
+  )
 $$;
 
 -- Fan-out notifications to all employees with a given role (or custom role whose
@@ -238,6 +244,11 @@ create table if not exists attendance (
 alter table attendance add column if not exists late_minutes        numeric default 0;
 alter table attendance add column if not exists early_leave_minutes numeric default 0;
 alter table attendance add column if not exists overtime_minutes    numeric default 0;
+-- salary_deduction_iqd: IQD amount deducted from salary when employee is late and has no hourly leave balance
+alter table attendance add column if not exists salary_deduction_iqd numeric default 0;
+-- late_deductions / absence_deductions: stored per payroll period for audit trail and recalculation
+alter table payroll add column if not exists late_deductions    numeric default 0;
+alter table payroll add column if not exists absence_deductions numeric default 0;
 -- Revert audit_logs.details from jsonb back to text (JS callers pass plain strings, not JSON)
 alter table audit_logs alter column details type text using details::text;
 
@@ -581,6 +592,15 @@ create index if not exists idx_payroll_employee_period   on payroll(employee_id,
 create index if not exists idx_day_requests_employee     on day_requests(employee_id, approval_status);
 create index if not exists idx_notifications_recipient   on notifications(recipient_id, read, created_at);
 create index if not exists idx_timesheets_employee       on timesheets(employee, start_date);
+create index if not exists idx_expenses_employee_status  on expenses(employee_id, status);
+create index if not exists idx_expenses_employee_date    on expenses(employee_id, expense_date);
+create index if not exists idx_audit_logs_user_time      on audit_logs(user_id, timestamp desc);
+create index if not exists idx_audit_logs_action         on audit_logs(action);
+create index if not exists idx_audit_logs_resource       on audit_logs(resource);
+create index if not exists idx_recruitment_jobs          on recruitment_jobs(department, status);
+create index if not exists idx_recruitment_candidates    on recruitment_candidates(job_id, stage);
+create index if not exists idx_employees_department      on employees(department);
+create index if not exists idx_employees_role            on employees(role);
 
 -- ─── Salary Integrity Trigger ─────────────────────────────────────────────────
 -- Enforces that calculated_salary always equals the formula result on every INSERT

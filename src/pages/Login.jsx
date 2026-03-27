@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -20,6 +20,38 @@ export default function Login() {
   const [resetEmail, setResetEmail] = useState('');
   const [resetSending, setResetSending] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [retryIn, setRetryIn] = useState(null); // rate-limit countdown (minutes)
+
+  // Show countdown if the account is currently locked out
+  useEffect(() => {
+    const MAX_ATTEMPTS = 5;
+    const LOCKOUT_MS   = 15 * 60 * 1000;
+    const check = () => {
+      try {
+        const raw = localStorage.getItem('_login_attempts');
+        if (!raw) { setRetryIn(null); return; }
+        const { count, since } = JSON.parse(raw);
+        const elapsed = Date.now() - since;
+        if (count >= MAX_ATTEMPTS && elapsed < LOCKOUT_MS) {
+          setRetryIn(Math.ceil((LOCKOUT_MS - elapsed) / 60000));
+        } else {
+          setRetryIn(null);
+        }
+      } catch { setRetryIn(null); }
+    };
+    check();
+    const id = setInterval(check, 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Handle Supabase password-reset link expired error (arrives in the URL fragment)
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes('error_code=otp_expired') || hash.includes('error=access_denied')) {
+      addToast(t('auth.resetLinkExpired'), 'error');
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleReset = async (e) => {
     e.preventDefault();
@@ -86,7 +118,12 @@ export default function Login() {
               required
             />
           </div>
-          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+          {retryIn !== null && (
+            <div className="demo-notice" style={{ color: 'var(--danger)', background: 'var(--danger-light, #fef2f2)', borderColor: 'var(--danger)' }}>
+              {t('auth.retryIn', { minutes: retryIn })}
+            </div>
+          )}
+          <button type="submit" className="btn btn-primary btn-full" disabled={loading || retryIn !== null}>
             {loading ? <span className="spinner-sm" /> : t('login.signIn')}
           </button>
           <button

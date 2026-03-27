@@ -70,8 +70,8 @@ export async function initDatabase() {
     if (already?.version === SEED_VERSION && empCount >= 6) return;
     await seedAll();
   } catch (err) {
-    console.error('DB init error, retrying seed:', err);
-    try { await seedAll(); } catch (e) { console.error('Seed failed:', e); }
+    if (import.meta.env.DEV) console.error('DB init error, retrying seed:', err);
+    try { await seedAll(); } catch (e) { if (import.meta.env.DEV) console.error('Seed failed:', e); }
   }
 }
 

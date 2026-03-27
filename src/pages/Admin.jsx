@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getAllEmployeesWithOverrides, savePermissionOverrides, getCustomRoles, createCustomRole, updateCustomRole, deleteCustomRole } from '../api/admin';
+import { checkHealth } from '../lib/healthCheck';
 import { updateEmployee, setEmployeeRole } from '../api/employees';
 import { ROLE_PERMISSIONS } from '../rbac/permissions';
 import { Skeleton } from '../components/Skeleton';
@@ -195,6 +196,9 @@ export default function Admin() {
   const [pendingOverrides, setPendingOverrides] = useState({});
   const [savingPerms, setSavingPerms] = useState(false);
 
+  // System health indicator
+  const [health, setHealth] = useState(null);
+
   // Custom Roles tab
   const [customRoles, setCustomRoles]       = useState([]);
   const [customRolesLoading, setCustomRolesLoading] = useState(false);
@@ -215,6 +219,8 @@ export default function Admin() {
   }, [t, addToast]);
 
   useEffect(() => { load(); loadCustomRoles(); }, [load, loadCustomRoles]);
+
+  useEffect(() => { checkHealth().then(setHealth); }, []);
 
   // Save / delete custom role handlers
   const handleSaveCustomRole = async ({ name, label, permissions }) => {
@@ -283,7 +289,7 @@ export default function Admin() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ employee_id: emp.name, new_role: newRole }),
-        }).catch(err => console.warn('[Admin] set-role JWT sync failed (non-fatal):', err));
+        }).catch(err => { if (import.meta.env.DEV) console.warn('[Admin] set-role JWT sync failed (non-fatal):', err); });
       }
 
       setEmployees(p => p.map(e => e.name === emp.name ? { ...e, role: newRole } : e));
@@ -353,6 +359,15 @@ export default function Admin() {
           <h1 className="page-title">{t('admin.title')}</h1>
           <p className="page-subtitle">{t('admin.subtitle')}</p>
         </div>
+        {health && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600,
+            color: health.status === 'ok' ? 'var(--success, #16a34a)' : health.status === 'slow' ? 'var(--warning, #d97706)' : 'var(--danger, #dc2626)',
+          }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }} />
+            {t(`admin.system${health.status.charAt(0).toUpperCase() + health.status.slice(1)}`)}
+          </div>
+        )}
       </div>
 
       {/* Stats row */}
