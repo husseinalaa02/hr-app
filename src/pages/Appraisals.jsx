@@ -329,7 +329,7 @@ function TemplateManager() {
     try { setTemplates(await getAppraisalTemplates()); }
     catch (err) {
       setLoadError(true);
-      addToast(err.message || t('appraisals.failedLoadTemplates', { defaultValue: 'Failed to load templates' }), 'error');
+      addToast(err.message || t('appraisals.failedLoadTemplates'), 'error');
       setTemplates([]);
     }
     finally { setLoading(false); }
@@ -354,7 +354,7 @@ function TemplateManager() {
         </button>
       </div>
 
-      {loadError && <ErrorState message={t('appraisals.failedLoadTemplates', { defaultValue: 'Failed to load templates' })} onRetry={load} />}
+      {loadError && <ErrorState message={t('appraisals.failedLoadTemplates')} onRetry={load} />}
       <div className="leave-card-list">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
@@ -560,7 +560,7 @@ export default function Appraisals() {
               <div className="assessment-section">
                 <h4 className="section-label">{t('appraisals.selfScores')}</h4>
                 {Object.entries(selected.self_scores).map(([k, v]) => {
-                  const qText = viewTemplate?.questions?.find(q => q.id === k)?.text || t('appraisals.question', { defaultValue: 'Question' }) + ' ' + k;
+                  const qText = viewTemplate?.questions?.find(q => q.id === k)?.text || t('appraisals.question') + ' ' + k;
                   return <div key={k} className="score-row">{qText}: <strong>{v}/5</strong></div>;
                 })}
                 {selected.self_comment && <div className="score-comment">"{selected.self_comment}"</div>}
@@ -570,7 +570,7 @@ export default function Appraisals() {
               <div className="assessment-section">
                 <h4 className="section-label">{t('appraisals.managerScores')}</h4>
                 {Object.entries(selected.manager_scores).map(([k, v]) => {
-                  const qText = viewTemplate?.questions?.find(q => q.id === k)?.text || t('appraisals.question', { defaultValue: 'Question' }) + ' ' + k;
+                  const qText = viewTemplate?.questions?.find(q => q.id === k)?.text || t('appraisals.question') + ' ' + k;
                   return <div key={k} className="score-row">{qText}: <strong>{v}/5</strong></div>;
                 })}
                 {selected.manager_comment && <div className="score-comment">"{selected.manager_comment}"</div>}

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { getPayslips, getPayslip } from '../api/payslips';
 import { Skeleton } from '../components/Skeleton';
 import ErrorState from '../components/ErrorState';
@@ -11,59 +12,80 @@ import { formatIQD } from '../utils/format';
 const COMPANY = import.meta.env.VITE_DEFAULT_COMPANY || 'AFAQ ALFIKER';
 
 function PayslipDetail({ payslip, onClose }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { addToast } = useToast();
+
   if (!payslip) return null;
 
   const fmt = (n) => formatIQD(n);
 
   const printPayslip = () => {
     const printWin = window.open('', '_blank');
+    if (!printWin) {
+      addToast(t('common.printNotSupported', { defaultValue: 'Printing is not supported on this device.' }), 'error');
+      return;
+    }
+    const dir = i18n.language === 'ar' ? 'rtl' : 'ltr';
+    const lbl = {
+      employee:        t('payslips.employee'),
+      employeeId:      t('payslips.employeeId'),
+      period:          t('payslips.period'),
+      payslipNo:       t('payslips.payslipTitle'),
+      allAmountsIQD:   t('payslips.allAmountsIQD'),
+      earnings:        t('payslips.earnings'),
+      amount:          t('common.amount'),
+      grossPay:        t('payslips.grossPay'),
+      deductions:      t('payslips.deductions'),
+      totalDeductions: t('payslips.totalDeductions'),
+      netPay:          t('payslips.netPay'),
+      to:              t('common.to'),
+    };
     printWin.document.write(`
       <!DOCTYPE html>
-      <html>
+      <html dir="${dir}">
       <head>
-        <title>Payslip - ${payslip.name}</title>
+        <title>${lbl.payslipNo} - ${payslip.name}</title>
         <style>
-          body { font-family: Arial, sans-serif; margin: 40px; color: #333; direction: ltr; }
+          body { font-family: Arial, sans-serif; margin: 40px; color: #333; direction: ${dir}; }
           h1 { color: #0C447C; }
           .header { display: flex; justify-content: space-between; margin-bottom: 24px; }
           .currency-note { font-size: 12px; color: #888; margin-bottom: 8px; }
           table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-          th { background: #0C447C; color: white; padding: 8px 12px; text-align: left; }
+          th { background: #0C447C; color: white; padding: 8px 12px; text-align: start; }
           td { padding: 8px 12px; border-bottom: 1px solid #eee; }
-          td:last-child { text-align: right; }
+          td:last-child { text-align: end; }
           .total-row td { font-weight: bold; background: #f5f5f5; }
-          .net-pay { font-size: 24px; color: #0C447C; font-weight: bold; margin-top: 24px; text-align: right; border-top: 2px solid #0C447C; padding-top: 12px; }
+          .net-pay { font-size: 24px; color: #0C447C; font-weight: bold; margin-top: 24px; text-align: end; border-top: 2px solid #0C447C; padding-top: 12px; }
         </style>
       </head>
       <body>
         <h1>${COMPANY}</h1>
         <div class="header">
           <div>
-            <p><strong>Employee:</strong> ${payslip.employee_name}</p>
-            <p><strong>ID:</strong> ${payslip.employee}</p>
+            <p><strong>${lbl.employee}:</strong> ${payslip.employee_name}</p>
+            <p><strong>${lbl.employeeId}:</strong> ${payslip.employee}</p>
           </div>
           <div>
-            <p><strong>Period:</strong> ${payslip.start_date} to ${payslip.end_date}</p>
-            <p><strong>Payslip No:</strong> ${payslip.name}</p>
+            <p><strong>${lbl.period}:</strong> ${payslip.start_date} ${lbl.to} ${payslip.end_date}</p>
+            <p><strong>${lbl.payslipNo}:</strong> ${payslip.name}</p>
           </div>
         </div>
-        <p class="currency-note">All amounts in Iraqi Dinar (IQD)</p>
+        <p class="currency-note">${lbl.allAmountsIQD}</p>
         <table>
-          <thead><tr><th>Earnings</th><th style="text-align:right">Amount (IQD)</th></tr></thead>
+          <thead><tr><th>${lbl.earnings}</th><th style="text-align:end">${lbl.amount}</th></tr></thead>
           <tbody>
-            ${(payslip.earnings || []).map(e => `<tr><td>${e.salary_component}</td><td style="text-align:right">${Number(e.amount).toLocaleString('en-US')}</td></tr>`).join('')}
-            <tr class="total-row"><td>Gross Pay</td><td style="text-align:right">${Number(payslip.gross_pay || 0).toLocaleString('en-US')}</td></tr>
+            ${(payslip.earnings || []).map(e => `<tr><td>${e.salary_component}</td><td style="text-align:end">${Number(e.amount).toLocaleString('en-US')}</td></tr>`).join('')}
+            <tr class="total-row"><td>${lbl.grossPay}</td><td style="text-align:end">${Number(payslip.gross_pay || 0).toLocaleString('en-US')}</td></tr>
           </tbody>
         </table>
         <table style="margin-top: 16px">
-          <thead><tr><th>Deductions</th><th style="text-align:right">Amount (IQD)</th></tr></thead>
+          <thead><tr><th>${lbl.deductions}</th><th style="text-align:end">${lbl.amount}</th></tr></thead>
           <tbody>
-            ${(payslip.deductions || []).map(d => `<tr><td>${d.salary_component}</td><td style="text-align:right">${Number(d.amount).toLocaleString('en-US')}</td></tr>`).join('')}
-            <tr class="total-row"><td>Total Deductions</td><td style="text-align:right">${Number(payslip.total_deduction || 0).toLocaleString('en-US')}</td></tr>
+            ${(payslip.deductions || []).map(d => `<tr><td>${d.salary_component}</td><td style="text-align:end">${Number(d.amount).toLocaleString('en-US')}</td></tr>`).join('')}
+            <tr class="total-row"><td>${lbl.totalDeductions}</td><td style="text-align:end">${Number(payslip.total_deduction || 0).toLocaleString('en-US')}</td></tr>
           </tbody>
         </table>
-        <p class="net-pay">Net Pay: ${Number(payslip.net_pay || 0).toLocaleString('en-US')} IQD</p>
+        <p class="net-pay">${lbl.netPay}: ${Number(payslip.net_pay || 0).toLocaleString('en-US')} IQD</p>
       </body>
       </html>
     `);
@@ -87,17 +109,17 @@ function PayslipDetail({ payslip, onClose }) {
           <div>
             <h4>{t('payslips.earnings')}</h4>
             <table className="data-table">
-              <thead><tr><th>{t('payslips.component')}</th><th style={{ textAlign: 'right' }}>{t('common.amount')}</th></tr></thead>
+              <thead><tr><th>{t('payslips.component')}</th><th style={{ textAlign: 'end' }}>{t('common.amount')}</th></tr></thead>
               <tbody>
                 {(payslip.earnings || []).map((e, i) => (
                   <tr key={i}>
                     <td>{e.salary_component}</td>
-                    <td style={{ textAlign: 'right' }}>{fmt(e.amount)}</td>
+                    <td style={{ textAlign: 'end' }}>{fmt(e.amount)}</td>
                   </tr>
                 ))}
                 <tr className="total-row">
                   <td><strong>{t('payslips.grossPay')}</strong></td>
-                  <td style={{ textAlign: 'right' }}><strong>{fmt(payslip.gross_pay)}</strong></td>
+                  <td style={{ textAlign: 'end' }}><strong>{fmt(payslip.gross_pay)}</strong></td>
                 </tr>
               </tbody>
             </table>
@@ -105,17 +127,17 @@ function PayslipDetail({ payslip, onClose }) {
           <div>
             <h4>{t('payslips.deductions')}</h4>
             <table className="data-table">
-              <thead><tr><th>{t('payslips.component')}</th><th style={{ textAlign: 'right' }}>{t('common.amount')}</th></tr></thead>
+              <thead><tr><th>{t('payslips.component')}</th><th style={{ textAlign: 'end' }}>{t('common.amount')}</th></tr></thead>
               <tbody>
                 {(payslip.deductions || []).map((d, i) => (
                   <tr key={i}>
                     <td>{d.salary_component}</td>
-                    <td style={{ textAlign: 'right' }}>{fmt(d.amount)}</td>
+                    <td style={{ textAlign: 'end' }}>{fmt(d.amount)}</td>
                   </tr>
                 ))}
                 <tr className="total-row">
                   <td><strong>{t('payslips.totalDeductions')}</strong></td>
-                  <td style={{ textAlign: 'right' }}><strong>{fmt(payslip.total_deduction)}</strong></td>
+                  <td style={{ textAlign: 'end' }}><strong>{fmt(payslip.total_deduction)}</strong></td>
                 </tr>
               </tbody>
             </table>
@@ -134,9 +156,10 @@ function PayslipDetail({ payslip, onClose }) {
 export default function Payslips() {
   const { t } = useTranslation();
   const { employee } = useAuth();
+  const { addToast } = useToast();
   const [payslips, setPayslips] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -156,10 +179,10 @@ export default function Payslips() {
   useEffect(() => { load(); }, [load]);
 
   const handleView = async (name) => {
-    setLoadingDetail(true);
+    setLoadingDetail(name);
     try { setSelected(await getPayslip(name)); }
-    catch { /* silently ignore — no payslip loaded */ }
-    finally { setLoadingDetail(false); }
+    catch (e) { addToast(e.message || t('errors.failedLoad'), 'error'); }
+    finally { setLoadingDetail(null); }
   };
 
   return (
@@ -206,8 +229,8 @@ export default function Payslips() {
                   <td><strong>{formatIQD(p.net_pay)}</strong></td>
                   <td><Badge status={p.status || 'Submitted'} /></td>
                   <td>
-                    <button className="btn btn-sm btn-secondary" onClick={() => handleView(p.name)} disabled={loadingDetail}>
-                      {t('payslips.viewPayslip')}
+                    <button className="btn btn-sm btn-secondary" onClick={() => handleView(p.name)} disabled={loadingDetail === p.name}>
+                      {loadingDetail === p.name ? <span className="spinner-sm" /> : t('payslips.viewPayslip')}
                     </button>
                   </td>
                 </tr>

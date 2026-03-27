@@ -82,7 +82,9 @@
     "forgotPassword": "نسيت كلمة المرور؟",
     "resetPassword": "إعادة تعيين كلمة المرور",
     "resetEmailSent": "إذا كان هذا البريد مرتبطاً بحساب، ستصلك رابط الإعادة قريباً.",
-    "resetEmailPlaceholder": "your@email.com"
+    "resetEmailPlaceholder": "your@email.com",
+    "resetFailed": "تعذّر إرسال رابط إعادة التعيين.",
+    "rateLimitError": "محاولات فاشلة كثيرة. حاول مرة أخرى بعد {{minutes}} دقيقة."
   },
   "dashboard": {
     "goodMorning": "صباح الخير",
@@ -107,6 +109,7 @@
     "departmentOverview": "نظرة عامة على الأقسام",
     "totalWorkforce": "إجمالي القوى العاملة",
     "allCaughtUp": "أحسنت! لا توجد موافقات معلقة.",
+    "confirmDeleteAnnouncement": "هل أنت متأكد من حذف هذا الإعلان؟",
     "announcements": "الإعلانات",
     "noAnnouncements": "لا توجد إعلانات.",
     "newAnnouncement": "إعلان جديد",
@@ -265,7 +268,13 @@
     "failedAddDept": "فشل إضافة القسم",
     "failedDeleteDept": "فشل حذف القسم",
     "deptAdded": "تمت إضافة قسم \"{{name}}\"",
-    "deptRemoved": "تم حذف قسم \"{{name}}\""
+    "deptRemoved": "تم حذف قسم \"{{name}}\"",
+    "employmentTypes": {
+      "fullTime": "دوام كامل",
+      "partTime": "دوام جزئي",
+      "contract": "عقد",
+      "intern": "متدرب"
+    }
   },
   "payroll": {
     "title": "الرواتب",
@@ -524,7 +533,9 @@
     "templateSaved": "تم حفظ النموذج",
     "templateDeleted": "تم حذف النموذج",
     "atLeastOneQuestion": "أضف سؤالاً واحداً على الأقل",
-    "sharedCommentHint": "سيتم دمج ردك مع أي تعليقات أخرى."
+    "sharedCommentHint": "سيتم دمج ردك مع أي تعليقات أخرى.",
+    "failedLoadTemplates": "فشل تحميل القوالب",
+    "question": "سؤال"
   },
   "dayRequests": {
     "title": "طلبات اليوم",
@@ -575,7 +586,7 @@
     "subtitle": "التحليلات والتقارير التجارية",
     "generate": "إنشاء تقرير",
     "export": "تصدير",
-    "attendance": "تقرير التقييمات",
+    "attendance": "تقرير الحضور",
     "appraisals": "تقرير التقييمات",
     "leave": "تقرير الإجازات",
     "payroll": "تقرير الرواتب",
@@ -633,7 +644,18 @@
     "actionApprove": "موافقة",
     "actionReject": "رفض",
     "actionExport": "تصدير",
-    "actionDelete": "حذف"
+    "actionDelete": "حذف",
+    "truncationWarning": "يتم عرض أحدث 200 إدخال. استخدم مرشحات التاريخ لتضييق النتائج.",
+    "csv": {
+      "timestamp": "الوقت",
+      "user": "المستخدم",
+      "role": "الدور",
+      "action": "الإجراء",
+      "resource": "المورد",
+      "resourceLabel": "وصف المورد",
+      "details": "التفاصيل",
+      "ipAddress": "عنوان IP"
+    }
   },
   "admin": {
     "title": "لوحة الإدارة",

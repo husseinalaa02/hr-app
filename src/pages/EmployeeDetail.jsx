@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getEmployee, getDirectReports, updateEmployee, deleteEmployee } from '../api/employees';
@@ -56,6 +56,8 @@ function ChangePasswordModal({ targetId, isSelf, onClose }) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || t('employeeDetail.failedChangePassword'));
       } else {
+        // DEMO ONLY: plaintext password stored for demo purposes.
+        // In production, password changes go through Supabase Auth.
         await updateEmployee(targetId, { password: newPwd });
       }
       addToast(t('employeeDetail.passwordChanged'), 'success');
@@ -113,7 +115,11 @@ function EditableField({ label, fieldKey, value, type = 'text', options, onChang
       {options ? (
         <select className="form-input form-input-sm" value={value || ''} onChange={e => onChange(fieldKey, e.target.value)}>
           <option value="">{t('employeeDetail.selectPlaceholder')}</option>
-          {options.map(o => <option key={o} value={o}>{o}</option>)}
+          {options.map(o => {
+            const val = typeof o === 'string' ? o : o.value;
+            const lbl = typeof o === 'string' ? o : o.label;
+            return <option key={val} value={val}>{lbl}</option>;
+          })}
         </select>
       ) : (
         <input type={type} className="form-input form-input-sm" value={value || ''} onChange={e => onChange(fieldKey, e.target.value)} />
@@ -143,11 +149,11 @@ export default function EmployeeDetail() {
   const fileInputRef = useRef(null);
 
   const isSelf      = me?.name === id;
-  const canEdit     = isAdmin || isSelf;
+  const canEdit     = isHR || isSelf;  // isHR includes admin (role === 'hr_manager' || 'admin')
   const canChangePwd = isAdmin || isHR || isSelf;
-  const editableKeys = isAdmin ? ADMIN_EDITABLE : SELF_EDITABLE;
+  const editableKeys = isHR ? ADMIN_EDITABLE : SELF_EDITABLE;
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -174,9 +180,9 @@ export default function EmployeeDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, t]);
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   const handleChange = (key, val) => setDraft(d => ({ ...d, [key]: val }));
 
@@ -336,7 +342,12 @@ export default function EmployeeDetail() {
               <h4 className="detail-section-title">{t('employeeDetail.jobInfo')}</h4>
               {field(t('employees.department'), 'department')}
               {field(t('employees.designation'), 'designation')}
-              {field(t('employeeDetail.employmentType'), 'employment_type', 'text', ['Full-time', 'Part-time', 'Contract', 'Intern'])}
+              {field(t('employeeDetail.employmentType'), 'employment_type', 'text', [
+                { value: 'Full-time', label: t('employees.employmentTypes.fullTime') },
+                { value: 'Part-time', label: t('employees.employmentTypes.partTime') },
+                { value: 'Contract',  label: t('employees.employmentTypes.contract') },
+                { value: 'Intern',    label: t('employees.employmentTypes.intern') },
+              ])}
               {field(t('employees.dateOfJoining'), 'date_of_joining', 'date')}
               {field(t('employees.branch'), 'branch')}
               {field(t('employees.companyEmail'), 'company_email', 'email')}

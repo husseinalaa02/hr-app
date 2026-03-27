@@ -104,7 +104,7 @@ export default function Sidebar({ open, onClose }) {
   const isVisible = (item) => {
     if (item.permission === null) return true;
     if (item.permission === '__reports__') return canAny(['reports:hr', 'reports:finance', 'reports:executive']);
-    if (item.permission === '__admin__') return role === 'admin';
+    if (item.permission === '__admin__') return can('admin:access');
     return can(item.permission);
   };
 
@@ -112,7 +112,11 @@ export default function Sidebar({ open, onClose }) {
     if (employee?.name) { navigate(`/employees/${employee.name}`); onClose(); }
   };
 
-  const roleLabel = t(`roles.${role}`, { defaultValue: (customRoles || []).find(r => r.name === role)?.label || role });
+  const BUILT_IN_ROLES = ['admin', 'ceo', 'hr_manager', 'finance_manager', 'it_manager', 'audit_manager', 'employee'];
+  const customRoleMeta = (customRoles || []).find(r => r.name === role);
+  const roleLabel = BUILT_IN_ROLES.includes(role)
+    ? t(`roles.${role}`)
+    : (customRoleMeta?.label || role);
 
   return (
     <>
@@ -121,9 +125,9 @@ export default function Sidebar({ open, onClose }) {
 
         {/* Brand */}
         <div className="sidebar-brand">
-          <img src="/afaq_logo.png" alt="AFAQ ALFIKER" className="brand-logo-img" />
+          <img src="/afaq_logo.png" alt={import.meta.env.VITE_DEFAULT_COMPANY || 'AFAQ ALFIKER'} className="brand-logo-img" />
           <div className="brand-text">
-            <span className="brand-name">AFAQ ALFIKER</span>
+            <span className="brand-name">{import.meta.env.VITE_DEFAULT_COMPANY || 'AFAQ ALFIKER'}</span>
             <span className="brand-sub">{t('nav.hrSystem')}</span>
           </div>
         </div>
@@ -154,7 +158,7 @@ export default function Sidebar({ open, onClose }) {
             );
           })}
 
-          {employee?.name && role !== 'audit_manager' && (
+          {employee?.name && (
             <div className="nav-section">
               <button className="nav-item nav-item-btn" onClick={goToProfile}>
                 <span className="nav-icon"><ProfileIcon /></span>

@@ -2,31 +2,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getAuditLogs } from '../api/auditLog';
 import { usePermission } from '../rbac/usePermission';
+import ErrorState from '../components/ErrorState';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const RESOURCE_OPTIONS = [
-  { value: '', label: 'All Resources' },
-  { value: 'system',            label: 'System' },
-  { value: 'employee',          label: 'Employee' },
-  { value: 'leave_application', label: 'Leave Application' },
-  { value: 'payroll',           label: 'Payroll' },
-  { value: 'expense',           label: 'Expense' },
-  { value: 'recruitment',       label: 'Recruitment' },
-  { value: 'appraisal',         label: 'Appraisal' },
-];
-
-const ACTION_OPTIONS = [
-  { value: '',        label: 'All Actions' },
-  { value: 'LOGIN',   label: 'Login' },
-  { value: 'VIEW',    label: 'View' },
-  { value: 'CREATE',  label: 'Create' },
-  { value: 'UPDATE',  label: 'Update' },
-  { value: 'APPROVE', label: 'Approve' },
-  { value: 'REJECT',  label: 'Reject' },
-  { value: 'EXPORT',  label: 'Export' },
-  { value: 'DELETE',  label: 'Delete' },
-];
-
 const ACTION_STYLE = {
   CREATE:  { color: '#065f46', bg: '#d1fae5' },
   UPDATE:  { color: '#1e40af', bg: '#dbeafe' },
@@ -48,18 +26,10 @@ const ROLE_STYLE = {
   employee:        { color: '#374151', bg: '#f3f4f6' },
 };
 
-const ROLE_LABELS = {
-  admin:           'Admin',
-  ceo:             'CEO',
-  hr_manager:      'HR Manager',
-  finance_manager: 'Finance',
-  it_manager:      'IT Manager',
-  audit_manager:   'Auditor',
-  employee:        'Employee',
-};
-
 function ActionBadge({ action }) {
+  const { t } = useTranslation();
   const s = ACTION_STYLE[action] || { color: '#374151', bg: '#f3f4f6' };
+  const label = t(`audit.action${action.charAt(0).toUpperCase() + action.slice(1).toLowerCase()}`, { defaultValue: action });
   return (
     <span style={{
       background: s.bg, color: s.color,
@@ -67,12 +37,13 @@ function ActionBadge({ action }) {
       padding: '3px 9px', borderRadius: 20,
       whiteSpace: 'nowrap',
     }}>
-      {action}
+      {label}
     </span>
   );
 }
 
 function RoleBadge({ role }) {
+  const { t } = useTranslation();
   const s = ROLE_STYLE[role] || { color: '#374151', bg: '#f3f4f6' };
   return (
     <span style={{
@@ -81,7 +52,7 @@ function RoleBadge({ role }) {
       padding: '3px 9px', borderRadius: 20,
       whiteSpace: 'nowrap',
     }}>
-      {ROLE_LABELS[role] || role}
+      {t(`roles.${role}`, { defaultValue: role })}
     </span>
   );
 }
@@ -93,15 +64,14 @@ function formatTimestamp(ts) {
     return d.toLocaleString('en-GB', {
       year: 'numeric', month: 'short', day: '2-digit',
       hour: '2-digit', minute: '2-digit', second: '2-digit',
-      hour12: false,
+      hour12: false, timeZone: 'Asia/Baghdad',
     });
   } catch {
     return ts;
   }
 }
 
-function exportToCSV(logs) {
-  const headers = ['Timestamp', 'User', 'Role', 'Action', 'Resource', 'Resource Label', 'Details', 'IP Address'];
+function exportToCSV(logs, headers) {
   const rows = logs.map(l => [
     l.timestamp,
     l.user_name,
@@ -150,8 +120,20 @@ export default function AuditView() {
   const { can, role } = usePermission();
   const canExport = can('payroll:export') || role === 'admin' || role === 'ceo';
 
+  const csvHeaders = [
+    t('audit.csv.timestamp'),
+    t('audit.csv.user'),
+    t('audit.csv.role'),
+    t('audit.csv.action'),
+    t('audit.csv.resource'),
+    t('audit.csv.resourceLabel'),
+    t('audit.csv.details'),
+    t('audit.csv.ipAddress'),
+  ];
+
   const [logs, setLogs]             = useState([]);
   const [loading, setLoading]       = useState(true);
+  const [fetchError, setFetchError] = useState(null);
   const [filterResource, setFilterResource] = useState('');
   const [filterAction,   setFilterAction]   = useState('');
   const [filterUser,     setFilterUser]     = useState('');
@@ -160,6 +142,7 @@ export default function AuditView() {
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const result = await getAuditLogs({
         resource: filterResource  || undefined,
@@ -170,10 +153,12 @@ export default function AuditView() {
         limit:    200,
       });
       setLogs(result);
+    } catch (e) {
+      setFetchError(e.message || t('errors.failedLoad'));
     } finally {
       setLoading(false);
     }
-  }, [filterResource, filterAction, filterUser, filterFrom, filterTo]);
+  }, [filterResource, filterAction, filterUser, filterFrom, filterTo, t]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
@@ -196,7 +181,7 @@ export default function AuditView() {
           </span>
           {canExport && (
             <button
-              onClick={() => exportToCSV(logs)}
+              onClick={() => exportToCSV(logs, csvHeaders)}
               style={{
                 background: 'rgba(255,255,255,0.15)',
                 color: '#fff',
@@ -278,7 +263,7 @@ export default function AuditView() {
 
         {(filterResource || filterAction || filterUser || filterFrom || filterTo) && (
           <button
-            className="btn-secondary"
+            className="btn btn-secondary"
             style={{ fontSize: 13, padding: '5px 14px' }}
             onClick={() => {
               setFilterResource('');
@@ -293,13 +278,20 @@ export default function AuditView() {
         )}
       </div>
 
+      {fetchError && <ErrorState message={fetchError} onRetry={fetchLogs} />}
+
       {loading ? (
         <div className="loading-center"><span className="spinner" /></div>
-      ) : (
+      ) : fetchError ? null : (
         <>
           <div className="audit-count-bar" style={{ marginBottom: 8 }}>
             {t('audit.logsFound', { count: logs.length })}
           </div>
+          {logs.length === 200 && (
+            <div style={{ marginBottom: 12, padding: '8px 14px', background: '#fef3c7', color: '#92400e', borderRadius: 6, fontSize: 13 }}>
+              {t('audit.truncationWarning')}
+            </div>
+          )}
 
           {logs.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +12,7 @@ import { getJobs } from '../api/recruitment';
 import { Skeleton } from '../components/Skeleton';
 import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
+import ErrorState from '../components/ErrorState';
 
 function getGreeting(t) {
   const h = parseInt(
@@ -24,7 +25,7 @@ function getGreeting(t) {
 }
 
 function formatDate() {
-  return new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  return new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Baghdad' });
 }
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
@@ -190,6 +191,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [showAnnModal, setShowAnnModal] = useState(false);
   const canWriteAnnouncements = hasPermission('announcements:write');
 
@@ -202,48 +204,49 @@ export default function Dashboard() {
   };
 
   const handleDeleteAnnouncement = async (ann) => {
+    if (!window.confirm(t('dashboard.confirmDeleteAnnouncement'))) return;
     await deleteAnnouncement(ann.name);
     setData(prev => ({ ...prev, announcements: (prev?.announcements || []).filter(a => a.name !== ann.name) }));
   };
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!employee) return;
     setLoading(true);
-
-    const load = async () => {
-      try {
-        if (isManager || isFinance) {
-          const [allEmployees, pendingLeaves, announcements, payrollRecords, pendingExpenses, jobs, checkins] = await Promise.all([
-            getEmployees(),
-            getPendingApprovals({ managerId: employee.name, includeHRQueue: isHR }),
-            getAnnouncements(),
-            getPayrollRecords(),
-            getExpenses({ status: 'Submitted' }),
-            getJobs({ status: 'Open' }),
-            getTodayCheckins(employee.name),
-          ]);
-          setData({ allEmployees, pendingLeaves, announcements, payrollRecords, pendingExpenses, jobs, checkins });
-        } else {
-          const [checkins, balance, leaves, announcements] = await Promise.all([
-            getTodayCheckins(employee.name),
-            getLeaveBalance(employee.name),
-            getLeaveApplications(employee.name),
-            getAnnouncements(),
-          ]);
-          setData({ checkins, allocations: balance, leaves, announcements });
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
+    setLoadError(null);
+    try {
+      if (isManager || isFinance) {
+        const [allEmployees, pendingLeaves, announcements, payrollRecords, pendingExpenses, jobs, checkins] = await Promise.all([
+          getEmployees(),
+          getPendingApprovals({ managerId: employee.name, includeHRQueue: isHR }),
+          getAnnouncements(),
+          getPayrollRecords(),
+          getExpenses({ status: 'Submitted' }),
+          getJobs({ status: 'Open' }),
+          getTodayCheckins(employee.name),
+        ]);
+        setData({ allEmployees, pendingLeaves, announcements, payrollRecords, pendingExpenses, jobs, checkins });
+      } else {
+        const [checkins, balance, leaves, announcements] = await Promise.all([
+          getTodayCheckins(employee.name),
+          getLeaveBalance(employee.name),
+          getLeaveApplications(employee.name),
+          getAnnouncements(),
+        ]);
+        setData({ checkins, allocations: balance, leaves, announcements });
       }
-    };
-    load();
+    } catch (e) {
+      setLoadError(e.message || t('errors.failedLoad'));
+    } finally {
+      setLoading(false);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [employee?.name, isManager, isFinance]);
+  }, [employee?.name, isManager, isFinance, isHR, t]);
 
-  const checkedIn  = data?.checkins?.some(c => c.log_type === 'IN');
-  const checkedOut = data?.checkins?.some(c => c.log_type === 'OUT');
+  useEffect(() => { load(); }, [load]);
+
+  const lastCheckinLog = data?.checkins?.[data.checkins.length - 1];
+  const checkedIn  = lastCheckinLog?.log_type === 'IN';
+  const checkedOut = lastCheckinLog?.log_type === 'OUT';
   const attendanceStatus = checkedOut ? t('dashboard.checkedOut') : checkedIn ? t('dashboard.checkedIn') : t('dashboard.notCheckedIn');
   const attendanceColor  = checkedOut ? '#d97706' : checkedIn ? '#059669' : '#dc2626';
 
@@ -261,6 +264,8 @@ export default function Dashboard() {
 
     return (
       <div className="page-content dash-pro">
+
+        {loadError && <ErrorState message={loadError} onRetry={load} />}
 
         {/* ── Page Header ── */}
         <div className="dash-emp-header">
@@ -435,6 +440,14 @@ export default function Dashboard() {
   }
 
   // ── EMPLOYEE VIEW ────────────────────────────────────────────────────────────
+  if (loadError) {
+    return (
+      <div className="page-content">
+        <ErrorState message={loadError} onRetry={load} />
+      </div>
+    );
+  }
+
   const leaveMap = {};
   (data?.allocations || []).forEach(a => {
     leaveMap[a.leave_type] = { remaining: a.remaining ?? 0, allocated: a.allocated ?? 0 };

@@ -1,8 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getNotifications, markAsRead, markAllAsRead } from '../api/notifications';
 import { useAuth } from '../context/AuthContext';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
+
+const TYPE_ROUTES = {
+  leave:       '/leave',
+  payroll:     '/payroll',
+  appraisal:   '/appraisals',
+  expense:     '/expenses',
+  recruitment: '/recruitment',
+};
 
 const TYPE_ICONS = {
   leave: '📅',
@@ -15,7 +24,9 @@ const TYPE_ICONS = {
 
 export default function NotificationBell() {
   const { employee } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'ar' ? 'ar-IQ' : 'en-GB';
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const panelRef = useRef(null);
@@ -66,11 +77,15 @@ export default function NotificationBell() {
   }, [open]);
 
   const handleRead = async (n) => {
-    if (n.read) return;
-    try {
-      await markAsRead(n.id);
-      setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
-    } catch { /* silent */ }
+    if (!n.read) {
+      try {
+        await markAsRead(n.id);
+        setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+      } catch { /* silent */ }
+    }
+    setOpen(false);
+    const route = n.link || TYPE_ROUTES[n.type];
+    if (route) navigate(route);
   };
 
   const handleMarkAll = async () => {
@@ -110,7 +125,7 @@ export default function NotificationBell() {
                 <div className="notif-content">
                   <div className="notif-title">{n.title}</div>
                   <div className="notif-msg">{n.message}</div>
-                  <div className="notif-time">{new Date(n.created_at).toLocaleDateString()}</div>
+                  <div className="notif-time">{new Date(n.created_at).toLocaleDateString(dateLocale, { timeZone: 'Asia/Baghdad', day: 'numeric', month: 'short', year: 'numeric' })}</div>
                 </div>
                 {!n.read && <span className="notif-dot" />}
               </div>

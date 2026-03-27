@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { getJobs, createJob, updateJob, getCandidates, addCandidate, moveStage, deleteCandidate, deleteJob, STAGES } from '../api/recruitment';
 import Modal from '../components/Modal';
 import { Skeleton } from '../components/Skeleton';
+import ErrorState from '../components/ErrorState';
 
 const STAGE_COLORS = {
   Application: '#607d8b',
@@ -25,16 +26,22 @@ export default function Recruitment() {
   const [candidates, setCandidates] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [movingId, setMovingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [jobsError, setJobsError] = useState(false);
+  const [candidatesError, setCandidatesError] = useState(false);
   const [showJobModal, setShowJobModal] = useState(false);
   const [showCandModal, setShowCandModal] = useState(false);
   const [stageFilter, setStageFilter] = useState('');
 
   const loadJobs = useCallback(async () => {
     setLoading(true);
+    setJobsError(false);
     try {
       const data = await getJobs();
       setJobs(data);
     } catch {
+      setJobsError(true);
       setJobs([]);
     } finally {
       setLoading(false);
@@ -42,11 +49,14 @@ export default function Recruitment() {
   }, []);
 
   const loadCandidates = useCallback(async (jobId = null) => {
+    if (!jobId) { setCandidates([]); return; }
     setLoading(true);
+    setCandidatesError(false);
     try {
       const data = await getCandidates(jobId);
       setCandidates(data);
     } catch {
+      setCandidatesError(true);
       setCandidates([]);
     } finally {
       setLoading(false);
@@ -64,25 +74,29 @@ export default function Recruitment() {
   };
 
   const handleMoveStage = async (cand, stage) => {
+    setMovingId(cand.id);
     try {
       await moveStage(cand.id, stage);
       addToast(t('recruitment.movedToStage', { stage }), 'success');
       loadCandidates(selectedJob?.id);
     } catch (e) { addToast(e.message, 'error'); }
+    finally { setMovingId(null); }
   };
 
   const handleDeleteJob = async (e, job) => {
     e.stopPropagation();
     if (!window.confirm(t('recruitment.deleteJobConfirm', { title: job.job_title }))) return;
+    setDeletingId(job.id);
     try {
       await deleteJob(job.id);
       addToast(t('recruitment.jobDeleted'), 'success');
       loadJobs();
     } catch (err) { addToast(err.message, 'error'); }
+    finally { setDeletingId(null); }
   };
 
   const handleDelete = async (cand) => {
-    if (!window.confirm(t('recruitment.removeConfirm', { name: cand.name }))) return;
+    if (!window.confirm(t('recruitment.confirmDeleteCandidate', { name: cand.name }))) return;
     try {
       await deleteCandidate(cand.id);
       loadCandidates(selectedJob?.id);
@@ -118,11 +132,12 @@ export default function Recruitment() {
 
       {tab === 'jobs' && (
         <div className="leave-card-list">
-          {loading ? (
+          {jobsError && <ErrorState message={t('errors.failedLoad')} onRetry={loadJobs} />}
+          {!jobsError && loading ? (
             Array.from({ length: 3 }).map((_, i) => <div key={i} className="leave-item-card"><Skeleton height={14} width="60%" /><Skeleton height={12} width="40%" style={{ marginTop: 8 }} /></div>)
-          ) : jobs.length === 0 ? (
+          ) : !jobsError && jobs.length === 0 ? (
             <div className="card"><p className="text-center text-muted" style={{ padding: '32px 16px' }}>{t('recruitment.noJobs')}</p></div>
-          ) : jobs.map(j => (
+          ) : !jobsError && jobs.map(j => (
             <div key={j.id} className="leave-item-card" style={{ cursor: 'pointer' }} onClick={() => handleJobClick(j)}>
               <div className="leave-item-top">
                 <div className="leave-item-info">
@@ -139,8 +154,8 @@ export default function Recruitment() {
               </div>
               {canManage && (
                 <div className="leave-item-actions">
-                  <button className="btn btn-sm btn-danger" onClick={e => handleDeleteJob(e, j)}>
-                    {t('common.delete')}
+                  <button className="btn btn-sm btn-danger" onClick={e => handleDeleteJob(e, j)} disabled={deletingId === j.id}>
+                    {deletingId === j.id ? <span className="spinner-sm" /> : t('common.delete')}
                   </button>
                 </div>
               )}
@@ -151,53 +166,67 @@ export default function Recruitment() {
 
       {tab === 'candidates' && (
         <>
+          {!selectedJob && (
+            <div className="card">
+              <p className="text-center text-muted" style={{ padding: '32px 16px' }}>
+                {t('recruitment.selectJobFirst', { defaultValue: 'Select a job from the Jobs tab to view its candidates.' })}
+              </p>
+            </div>
+          )}
           {selectedJob && (
             <div className="info-box" style={{ marginBottom: 12 }}>
               <strong>{selectedJob.job_title}</strong> — {selectedJob.department}
               <button className="btn btn-sm btn-secondary" style={{ marginInlineStart: 12 }} onClick={() => setTab('jobs')}>{t('recruitment.back')}</button>
             </div>
           )}
-          <div className="tab-group" style={{ marginBottom: 12, flexWrap: 'wrap', gap: 6 }}>
-            <button className={`tab-btn${!stageFilter ? ' active' : ''}`} onClick={() => setStageFilter('')}>{t('recruitment.all')}</button>
-            {STAGES.map(s => (
-              <button key={s} className={`tab-btn${stageFilter === s ? ' active' : ''}`} onClick={() => setStageFilter(s)} style={{ fontSize: 12 }}>
-                {s}
-              </button>
-            ))}
-          </div>
-          <div className="leave-card-list">
-            {loading ? (
-              Array.from({ length: 3 }).map((_, i) => <div key={i} className="leave-item-card"><Skeleton height={14} width="60%" /></div>)
-            ) : visibleCandidates.length === 0 ? (
-              <div className="card"><p className="text-center text-muted" style={{ padding: '32px 16px' }}>{stageFilter ? t('recruitment.noCandidatesInStage', { stage: stageFilter }) : t('recruitment.noCandidates')}</p></div>
-            ) : visibleCandidates.map(c => (
-              <div key={c.id} className="leave-item-card">
-                <div className="leave-item-top">
-                  <div className="leave-item-info">
-                    <div className="leave-item-type">{c.name}</div>
-                    <div className="leave-item-dates">{c.email} · {c.phone}</div>
-                    {c.cv_note && <div className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>{c.cv_note}</div>}
-                  </div>
-                  <div className="leave-item-right">
-                    <span className="appraisal-status-badge" style={{ background: STAGE_COLORS[c.stage] || '#607d8b' }}>
-                      {t(`status.${c.stage}`, { defaultValue: c.stage })}
-                    </span>
-                  </div>
-                </div>
-                {canManage && c.status === 'Active' && (
-                  <div className="leave-item-actions" style={{ flexWrap: 'wrap', gap: 6 }}>
-                    {STAGES.filter(s => s !== c.stage && s !== 'Rejected').map(s => (
-                      <button key={s} className="btn btn-sm btn-secondary" style={{ fontSize: 11 }} onClick={() => handleMoveStage(c, s)}>
-                        → {s}
-                      </button>
-                    ))}
-                    <button className="btn btn-sm btn-danger" onClick={() => handleMoveStage(c, 'Rejected')}>{t('recruitment.reject')}</button>
-                    <button className="btn btn-sm btn-secondary" onClick={() => handleDelete(c)}>{t('common.delete')}</button>
-                  </div>
-                )}
+          {selectedJob && candidatesError && (
+            <ErrorState message={t('errors.failedLoad')} onRetry={() => loadCandidates(selectedJob?.id)} />
+          )}
+          {selectedJob && (
+            <>
+              <div className="tab-group" style={{ marginBottom: 12, flexWrap: 'wrap', gap: 6 }}>
+                <button className={`tab-btn${!stageFilter ? ' active' : ''}`} onClick={() => setStageFilter('')}>{t('recruitment.all')}</button>
+                {STAGES.map(s => (
+                  <button key={s} className={`tab-btn${stageFilter === s ? ' active' : ''}`} onClick={() => setStageFilter(s)} style={{ fontSize: 12 }}>
+                    {s}
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
+              <div className="leave-card-list">
+                {loading ? (
+                  Array.from({ length: 3 }).map((_, i) => <div key={i} className="leave-item-card"><Skeleton height={14} width="60%" /></div>)
+                ) : visibleCandidates.length === 0 ? (
+                  <div className="card"><p className="text-center text-muted" style={{ padding: '32px 16px' }}>{stageFilter ? t('recruitment.noCandidatesInStage', { stage: stageFilter }) : t('recruitment.noCandidates')}</p></div>
+                ) : visibleCandidates.map(c => (
+                  <div key={c.id} className="leave-item-card">
+                    <div className="leave-item-top">
+                      <div className="leave-item-info">
+                        <div className="leave-item-type">{c.name}</div>
+                        <div className="leave-item-dates">{c.email} · {c.phone}</div>
+                        {c.cv_note && <div className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>{c.cv_note}</div>}
+                      </div>
+                      <div className="leave-item-right">
+                        <span className="appraisal-status-badge" style={{ background: STAGE_COLORS[c.stage] || '#607d8b' }}>
+                          {t(`status.${c.stage}`, { defaultValue: c.stage })}
+                        </span>
+                      </div>
+                    </div>
+                    {canManage && c.status === 'Active' && (
+                      <div className="leave-item-actions" style={{ flexWrap: 'wrap', gap: 6 }}>
+                        {STAGES.filter(s => s !== c.stage && s !== 'Rejected').map(s => (
+                          <button key={s} className="btn btn-sm btn-secondary" style={{ fontSize: 11 }} onClick={() => handleMoveStage(c, s)} disabled={movingId === c.id}>
+                            {movingId === c.id ? <span className="spinner-sm" /> : `→ ${s}`}
+                          </button>
+                        ))}
+                        <button className="btn btn-sm btn-danger" onClick={() => handleMoveStage(c, 'Rejected')} disabled={movingId === c.id}>{t('recruitment.reject')}</button>
+                        <button className="btn btn-sm btn-secondary" onClick={() => handleDelete(c)}>{t('common.delete')}</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </>
       )}
 

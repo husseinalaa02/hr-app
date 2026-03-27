@@ -31,7 +31,7 @@ export default function Login() {
       }
       setResetSent(true);
     } catch {
-      addToast(t('auth.resetFailed', { defaultValue: 'Could not send reset email.' }), 'error');
+      addToast(t('auth.resetFailed'), 'error');
     } finally {
       setResetSending(false);
     }

@@ -82,7 +82,9 @@
     "forgotPassword": "Forgot password?",
     "resetPassword": "Reset Password",
     "resetEmailSent": "If an account exists for this email, you'll receive a reset link shortly.",
-    "resetEmailPlaceholder": "your@email.com"
+    "resetEmailPlaceholder": "your@email.com",
+    "resetFailed": "Could not send reset email.",
+    "rateLimitError": "Too many failed attempts. Try again in {{minutes}} minute(s)."
   },
   "dashboard": {
     "goodMorning": "Good morning",
@@ -107,6 +109,7 @@
     "departmentOverview": "Department Overview",
     "totalWorkforce": "Total workforce",
     "allCaughtUp": "All caught up! No pending approvals.",
+    "confirmDeleteAnnouncement": "Are you sure you want to delete this announcement?",
     "announcements": "Announcements",
     "noAnnouncements": "No announcements.",
     "newAnnouncement": "New Announcement",
@@ -265,7 +268,13 @@
     "failedAddDept": "Failed to add department",
     "failedDeleteDept": "Failed to delete department",
     "deptAdded": "Department \"{{name}}\" added",
-    "deptRemoved": "Department \"{{name}}\" removed"
+    "deptRemoved": "Department \"{{name}}\" removed",
+    "employmentTypes": {
+      "fullTime": "Full-time",
+      "partTime": "Part-time",
+      "contract": "Contract",
+      "intern": "Intern"
+    }
   },
   "payroll": {
     "title": "Payroll",
@@ -528,7 +537,9 @@
     "templateSaved": "Template saved",
     "templateDeleted": "Template deleted",
     "atLeastOneQuestion": "Add at least one question",
-    "sharedCommentHint": "Your response will be combined with any other comments."
+    "sharedCommentHint": "Your response will be combined with any other comments.",
+    "failedLoadTemplates": "Failed to load templates",
+    "question": "Question"
   },
   "dayRequests": {
     "title": "Day Requests",
@@ -579,7 +590,7 @@
     "subtitle": "Analytics and business reports",
     "generate": "Generate Report",
     "export": "Export",
-    "attendance": "Appraisals Report",
+    "attendance": "Attendance Report",
     "appraisals": "Appraisals Report",
     "leave": "Leave Report",
     "payroll": "Payroll Report",
@@ -639,7 +650,18 @@
     "actionApprove": "Approve",
     "actionReject": "Reject",
     "actionExport": "Export",
-    "actionDelete": "Delete"
+    "actionDelete": "Delete",
+    "truncationWarning": "Showing the most recent 200 entries. Use date filters to narrow results.",
+    "csv": {
+      "timestamp": "Timestamp",
+      "user": "User",
+      "role": "Role",
+      "action": "Action",
+      "resource": "Resource",
+      "resourceLabel": "Resource Label",
+      "details": "Details",
+      "ipAddress": "IP Address"
+    }
   },
   "admin": {
     "title": "Control Panel",

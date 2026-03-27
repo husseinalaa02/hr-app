@@ -27,6 +27,12 @@ const TYPE_MAP = {
   Completed: 'badge-success',
   'Self-Assessment Submitted': 'badge-info',
   'Manager Review': 'badge-warning',
+  Applied:     'badge-info',
+  Shortlisted: 'badge-warning',
+  Screening:   'badge-warning',
+  Interview:   'badge-info',
+  Offer:       'badge-success',
+  Closed:      'badge-secondary',
 };
 
 export default function Badge({ status }) {

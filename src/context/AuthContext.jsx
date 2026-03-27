@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
 import { initDatabase, clearDatabase } from '../db/index';
 import { hasPermission as rbacHasPermission } from '../rbac/permissions';
@@ -13,6 +14,7 @@ const API_BASE  = import.meta.env.VITE_API_BASE_URL || '';
 const MAX_ATTEMPTS     = 5;
 const LOCKOUT_MS       = 15 * 60 * 1000; // 15 minutes
 
+// Returns remaining lockout minutes, or null if not rate-limited.
 function checkRateLimit() {
   try {
     const raw = localStorage.getItem('_login_attempts');
@@ -20,8 +22,7 @@ function checkRateLimit() {
     const { count, since } = JSON.parse(raw);
     const elapsed = Date.now() - since;
     if (count >= MAX_ATTEMPTS && elapsed < LOCKOUT_MS) {
-      const remaining = Math.ceil((LOCKOUT_MS - elapsed) / 60000);
-      return `Too many failed attempts. Try again in ${remaining} minute${remaining > 1 ? 's' : ''}.`;
+      return Math.ceil((LOCKOUT_MS - elapsed) / 60000);
     }
     if (elapsed >= LOCKOUT_MS) localStorage.removeItem('_login_attempts');
     return null;
@@ -67,6 +68,7 @@ function getDemoProfile(id) {
 }
 
 export function AuthProvider({ children }) {
+  const { t } = useTranslation();
   const [user, setUser]         = useState(null);
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading]   = useState(true);
@@ -78,7 +80,9 @@ export function AuthProvider({ children }) {
   // setLoading(false) and causes a permanent spinner on refresh.
   const fetchEmployee = useCallback(async (authUser) => {
     const result = await Promise.race([
-      supabase.from('employees').select('*').eq('auth_id', authUser.id).single(),
+      supabase.from('employees')
+        .select('name, employee_name, department, designation, employment_type, date_of_joining, branch, gender, date_of_birth, personal_email, company_email, cell_number, image, company, reports_to, auth_id, user_id, role, employee_type')
+        .eq('auth_id', authUser.id).single(),
       new Promise((_, reject) => setTimeout(() => reject(new Error('employee fetch timeout')), 8_000)),
     ]);
     return result?.data || null;
@@ -124,7 +128,7 @@ export function AuthProvider({ children }) {
         }
       }
     } catch (err) {
-      console.error('[Auth] Session load failed:', err);
+      if (import.meta.env.DEV) console.error('[Auth] Session load failed:', err);
     } finally {
       setLoading(false);
     }
@@ -159,8 +163,8 @@ export function AuthProvider({ children }) {
 
   const login = async (identifier, password) => {
     // Client-side rate limit check
-    const lockMsg = checkRateLimit();
-    if (lockMsg) throw new Error(lockMsg);
+    const remainingMinutes = checkRateLimit();
+    if (remainingMinutes !== null) throw new Error(t('auth.rateLimitError', { minutes: remainingMinutes }));
 
     if (SUPABASE_MODE) {
       const email = `${identifier.toLowerCase().trim()}@afaqhr.internal`;
