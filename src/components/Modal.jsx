@@ -1,21 +1,26 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 const FOCUSABLE = 'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])';
 
+let modalCounter = 0;
+
 export default function Modal({ title, onClose, children, size = 'md' }) {
   const { t } = useTranslation();
   const dialogRef = useRef(null);
-  const titleId = useRef('modal-title-' + Math.random().toString(36).slice(2));
+  const prevFocusRef = useRef(null);
+  const [titleId] = useState(() => `modal-title-${++modalCounter}`);
 
-  // Escape key
+  // Escape key + focus restoration
   useEffect(() => {
+    prevFocusRef.current = document.activeElement;
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
+      prevFocusRef.current?.focus();
     };
   }, [onClose]);
 
@@ -47,12 +52,12 @@ export default function Modal({ title, onClose, children, size = 'md' }) {
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={titleId.current}
+        aria-labelledby={titleId}
         className={`modal modal-${size}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h3 id={titleId.current} className="modal-title">{title}</h3>
+          <h3 id={titleId} className="modal-title">{title}</h3>
           <button className="modal-close" onClick={onClose} aria-label={t('common.close')}>×</button>
         </div>
         <div className="modal-body">{children}</div>

@@ -8,7 +8,7 @@ const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 export async function getAnnouncements() {
   return cached('announcements', async () => {
     if (SUPABASE_MODE) {
-      const { data, error } = await supabase.from('announcements').select('*').order('creation', { ascending: false }).limit(20);
+      const { data, error } = await supabase.from('announcements').select('name, title, content, notice_date, created_at').order('created_at', { ascending: false }).limit(20);
       if (error) return [];
       return data || [];
     }
@@ -22,14 +22,14 @@ export async function getAnnouncements() {
 
 export async function createAnnouncement({ title, content, notice_date }) {
   if (SUPABASE_MODE) {
-    const record = { name: `ANN-${crypto.randomUUID()}`, title, content, notice_date, creation: new Date().toISOString() };
+    const record = { name: `ANN-${crypto.randomUUID()}`, title, content, notice_date, created_at: new Date().toISOString() };
     const { data, error } = await supabase.from('announcements').insert(record).select().single();
     if (error) throw error;
     invalidate('announcements');
     return data;
   }
   if (DEMO) {
-    const record = { name: `ANN-${crypto.randomUUID()}`, title, content, notice_date, creation: new Date().toISOString() };
+    const record = { name: `ANN-${crypto.randomUUID()}`, title, content, notice_date, created_at: new Date().toISOString() };
     await db.announcements.put(record);
     invalidate('announcements');
     return record;

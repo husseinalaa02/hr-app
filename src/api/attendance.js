@@ -282,7 +282,7 @@ export async function checkin(employeeId, logType) {
 export async function getTodayCheckins(employeeId) {
   if (SUPABASE_MODE) {
     const { data } = await supabase.from('checkins')
-      .select('*')
+      .select('name, employee, log_type, time')
       .eq('employee', employeeId)
       .gte('time', localDayStart())
       .lte('time', localDayEnd())
@@ -290,10 +290,13 @@ export async function getTodayCheckins(employeeId) {
     return data || [];
   }
 
-  const today = localToday();
-  const rows  = await db.checkins
+  // Use the same UTC window as SUPABASE_MODE so checkins made between
+  // Baghdad midnight and 03:00 (which fall on the prior UTC day) are included.
+  const dayStart = localDayStart();
+  const dayEnd   = localDayEnd();
+  const rows = await db.checkins
     .where('employee').equals(employeeId)
-    .filter(c => c.time && c.time.startsWith(today))
+    .filter(c => c.time >= dayStart && c.time <= dayEnd)
     .sortBy('time');
   return rows;
 }
@@ -302,7 +305,8 @@ export async function getWeeklyAttendance(employeeId, weekStart, weekEnd) {
   const end = weekEnd || localToday();
 
   if (SUPABASE_MODE) {
-    const { data, error } = await supabase.from('attendance').select('*')
+    const { data, error } = await supabase.from('attendance')
+      .select('name, employee, attendance_date, status, in_time, out_time, working_hours, late_minutes, early_leave_minutes, overtime_minutes')
       .eq('employee', employeeId)
       .gte('attendance_date', weekStart)
       .lte('attendance_date', end)
@@ -320,7 +324,8 @@ export async function getTodayAttendance(employeeId) {
   const today = localToday();
 
   if (SUPABASE_MODE) {
-    const { data } = await supabase.from('attendance').select('*')
+    const { data } = await supabase.from('attendance')
+      .select('name, employee, attendance_date, status, in_time, out_time, working_hours, late_minutes, early_leave_minutes, overtime_minutes')
       .eq('employee', employeeId).eq('attendance_date', today).maybeSingle();
     return data || null;
   }

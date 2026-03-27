@@ -110,8 +110,10 @@ function GeofenceIndicator({ geo, t }) {
 
 function MissedPunchBanner({ record, t }) {
   if (!record) return null;
-  const date = new Date(record.attendance_date).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
-  const inTime = new Date(record.in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  // attendance_date is a plain YYYY-MM-DD string — parse at noon to avoid UTC midnight boundary crossing
+  const date = new Date(record.attendance_date + 'T12:00:00+03:00').toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+  // in_time is a UTC timestamptz — display in Baghdad timezone
+  const inTime = new Date(record.in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Baghdad' });
   return (
     <div className="missed-punch-banner">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -251,8 +253,10 @@ export default function Attendance() {
     }
   };
 
+  // Always format in Baghdad timezone — timestamps are stored as UTC but must
+  // display in Asia/Baghdad (UTC+3) regardless of the device's local timezone.
   const formatTime = (dt) => dt
-    ? new Date(dt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    ? new Date(dt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Baghdad' })
     : null;
 
   // CHECK IN card: first punch-in today
@@ -286,7 +290,7 @@ export default function Attendance() {
         <button
           className={`btn-checkin ${isCheckedIn ? 'btn-out' : 'btn-in'}${actionLoading ? ' loading' : ''}${geoBlocked ? ' geo-disabled' : ''}`}
           onClick={handleCheckin}
-          disabled={actionLoading || geoBlocked}
+          disabled={actionLoading || geoBlocked || offDay}
         >
           {actionLoading ? (
             <span className="spinner-sm" />

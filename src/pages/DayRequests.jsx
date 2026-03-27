@@ -118,6 +118,16 @@ export default function DayRequests() {
     if (!form.employee_id || !form.request_date) {
       addToast(t('dayRequests.fillRequired'), 'error'); return;
     }
+    // M3: client-side duplicate guard before API call
+    const duplicate = requests.some(r =>
+      r.employee_id === form.employee_id &&
+      r.request_date === form.request_date &&
+      r.request_type === form.request_type &&
+      r.approval_status !== 'Rejected'
+    );
+    if (duplicate) {
+      addToast(t('dayRequests.duplicateRequest'), 'error'); return;
+    }
     setSubmitting(true);
     try {
       await createDayRequest(form);

@@ -48,9 +48,9 @@ export async function logAction({
   };
   if (SUPABASE_MODE) {
     await supabase.from('audit_logs').insert({
-      user_id: userId, role, resource, action, resource_id: resourceId,
-      resource_label: resourceLabel, details, changes: changes || null,
-      // ip_address not sent — server-side capture required
+      user_id: userId, user_name: userName, role, resource, action,
+      resource_id: resourceId, resource_label: resourceLabel, details,
+      changes: changes || null, ip_address: DEMO_IP,
     });
     return;
   }

@@ -43,6 +43,8 @@ export const PERMISSIONS = {
   DAY_REQUESTS_READ:    'day_requests:read',
   DAY_REQUESTS_WRITE:   'day_requests:write',
   DAY_REQUESTS_APPROVE: 'day_requests:approve',
+
+  ADMIN_ACCESS:         'admin:access',
 };
 
 // ─── Role → Permissions Map ────────────────────────────────────────────────────

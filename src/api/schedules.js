@@ -13,7 +13,7 @@ export const SHIFT_PRESETS = {
 // Returns the current (latest) schedule for each employee in the given list
 export async function getSchedules(employeeIds = []) {
   if (SUPABASE_MODE) {
-    let q = supabase.from('work_schedules').select('*').order('effective_date', { ascending: false }).limit(2000);
+    let q = supabase.from('work_schedules').select('id, employee, employee_name, shift_type, start_time, end_time, effective_date, assigned_by, assigned_by_name, notes').order('effective_date', { ascending: false }).limit(2000);
     if (employeeIds.length) q = q.in('employee', employeeIds);
     const { data, error } = await q;
     if (error) throw error;
@@ -69,11 +69,16 @@ export async function getScheduleHistory(employeeId) {
 export async function assignSchedule({ employee, employee_name, shift_type, start_time, end_time, effective_date, assigned_by, assigned_by_name, notes }) {
   const record = { employee, employee_name, shift_type, start_time, end_time, effective_date, assigned_by, assigned_by_name, notes };
   if (SUPABASE_MODE) {
-    // Replace only the record with the same effective_date — older records remain as history
-    await supabase.from('work_schedules').delete().eq('employee', employee).eq('effective_date', effective_date);
+    // Insert first so the old record is only removed after the new one is safely written.
     const { data, error } = await supabase.from('work_schedules').insert(record).select().single();
     if (error) throw error;
-    invalidate(`schedule:${employee}`, 'schedules:');
+    // Delete old record(s) with the same employee+effective_date (but not the one we just inserted).
+    await supabase.from('work_schedules')
+      .delete()
+      .eq('employee', employee)
+      .eq('effective_date', effective_date)
+      .neq('id', data.id);
+    invalidate(`schedule:${employee}`, 'schedule:');
     return data;
   }
   if (DEMO) {

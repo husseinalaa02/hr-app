@@ -4,7 +4,7 @@ import { supabase, SUPABASE_MODE } from '../db/supabase';
 
 export async function getCustomRoles() {
   if (!SUPABASE_MODE) return [];
-  const { data } = await supabase.from('custom_roles').select('*').order('label');
+  const { data } = await supabase.from('custom_roles').select('id, name, label, permissions, notify_as').order('label');
   return data || [];
 }
 
@@ -52,14 +52,16 @@ export async function savePermissionOverrides(employeeId, overrides) {
     else toUpsert.push({ employee_id: employeeId, permission, granted: value, updated_at: new Date().toISOString() });
   }
   if (toUpsert.length) {
-    await supabase.from('employee_permissions')
+    const { error: upsertErr } = await supabase.from('employee_permissions')
       .upsert(toUpsert, { onConflict: 'employee_id,permission' });
+    if (upsertErr) throw new Error(upsertErr.message);
   }
   if (toDelete.length) {
-    await supabase.from('employee_permissions')
+    const { error: deleteErr } = await supabase.from('employee_permissions')
       .delete()
       .eq('employee_id', employeeId)
       .in('permission', toDelete);
+    if (deleteErr) throw new Error(deleteErr.message);
   }
 }
 

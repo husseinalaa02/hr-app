@@ -92,7 +92,7 @@
     "newPassword": "New Password",
     "confirmPassword": "Confirm Password",
     "passwordsDoNotMatch": "Passwords do not match",
-    "passwordTooShort": "Password must be at least 6 characters",
+    "passwordTooShort": "Password must be at least 8 characters",
     "passwordUpdated": "Password updated — please sign in"
   },
   "dashboard": {
@@ -591,6 +591,7 @@
     "pendingApproval": "Pending Approval",
     "dailyRate": "Fixed: 25,000 IQD",
     "baseRate": "Base Salary ÷ 30",
+    "duplicateRequest": "A request for this date and type already exists",
     "types": {
       "friday_day": "Friday Day",
       "extra_day": "Extra Day"
@@ -792,7 +793,7 @@
     "enterNewPassword": "Enter new password",
     "reenterNewPassword": "Re-enter new password",
     "passwordMismatch": "Passwords do not match",
-    "passwordTooShort": "Password must be at least 6 characters",
+    "passwordTooShort": "Password must be at least 8 characters",
     "passwordChanged": "Password changed successfully",
     "failedChangePassword": "Failed to change password",
     "wrongCurrentPassword": "Current password is incorrect",
@@ -832,6 +833,7 @@
   "notifications": {
     "title": "Notifications",
     "markAllRead": "Mark all read",
+    "clearRead": "Clear read",
     "empty": "No notifications",
     "mayNoLongerExist": "This resource may no longer exist"
   },

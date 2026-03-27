@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getNotifications, markAsRead, markAllAsRead } from '../api/notifications';
+import { getNotifications, markAsRead, markAllAsRead, deleteReadNotifications } from '../api/notifications';
 import { useAuth } from '../context/AuthContext';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
 
@@ -99,6 +99,13 @@ export default function NotificationBell() {
     } catch { /* silent */ }
   };
 
+  const handleClearRead = async () => {
+    try {
+      await deleteReadNotifications(employee.name);
+      setNotifications(prev => prev.filter(x => !x.read));
+    } catch { /* silent */ }
+  };
+
   return (
     <div className="notif-bell-wrap" ref={panelRef}>
       <button className="notif-bell-btn" onClick={() => { setOpen(o => !o); load(); }} aria-label={t('notifications.title')}>
@@ -112,9 +119,14 @@ export default function NotificationBell() {
         <div className="notif-panel">
           <div className="notif-panel-header">
             <span>{t('notifications.title')}</span>
-            {unread > 0 && (
-              <button className="notif-mark-all" onClick={handleMarkAll}>{t('notifications.markAllRead')}</button>
-            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              {unread > 0 && (
+                <button className="notif-mark-all" onClick={handleMarkAll}>{t('notifications.markAllRead')}</button>
+              )}
+              {notifications.some(n => n.read) && (
+                <button className="notif-mark-all" onClick={handleClearRead}>{t('notifications.clearRead')}</button>
+              )}
+            </div>
           </div>
           <div className="notif-list">
             {notifications.length === 0 ? (

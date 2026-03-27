@@ -42,7 +42,7 @@ export default function ResetPassword() {
   const handle = async (e) => {
     e.preventDefault();
     if (newPwd !== confirm) { addToast(t('auth.passwordsDoNotMatch'), 'error'); return; }
-    if (newPwd.length < 6)  { addToast(t('auth.passwordTooShort'), 'error'); return; }
+    if (newPwd.length < 8)  { addToast(t('auth.passwordTooShort'), 'error'); return; }
     setLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPwd });
@@ -64,7 +64,9 @@ export default function ResetPassword() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-brand">
-          <h2>{t('auth.setNewPasswordTitle')}</h2>
+          <img src="/afaq_logo.png" alt={import.meta.env.VITE_DEFAULT_COMPANY || 'AFAQ ALFIKER'} className="login-logo-img" />
+          <h2>{import.meta.env.VITE_DEFAULT_COMPANY || 'AFAQ ALFIKER'}</h2>
+          <p>{t('auth.setNewPasswordTitle')}</p>
         </div>
         <form onSubmit={handle} className="login-form">
           <div className="form-group">
@@ -77,7 +79,7 @@ export default function ResetPassword() {
               onChange={e => setNewPwd(e.target.value)}
               required
               autoFocus
-              minLength={6}
+              minLength={8}
               placeholder="••••••••"
             />
           </div>

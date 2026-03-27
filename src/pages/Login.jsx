@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useTranslation } from 'react-i18next';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
+import Modal from '../components/Modal';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 const COMPANY = import.meta.env.VITE_DEFAULT_COMPANY || 'AFAQ ALFIKER';
@@ -153,40 +154,32 @@ export default function Login() {
     </div>
 
     {showReset && (
-      <div className="modal-backdrop" onClick={() => setShowReset(false)}>
-        <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
-          <div className="modal-header">
-            <span className="modal-title">{t('auth.resetPassword')}</span>
-            <button className="modal-close" onClick={() => setShowReset(false)}>✕</button>
-          </div>
-          <div className="modal-body">
-            {resetSent ? (
-              <p style={{ textAlign: 'center', padding: '16px 0', color: 'var(--primary)' }}>{t('auth.resetEmailSent')}</p>
-            ) : (
-              <form onSubmit={handleReset} className="form-stack">
-                <div className="form-group">
-                  <label>{t('login.email')}</label>
-                  <input
-                    type="email"
-                    className="form-input"
-                    placeholder={t('auth.resetEmailPlaceholder')}
-                    value={resetEmail}
-                    onChange={e => setResetEmail(e.target.value)}
-                    required
-                    autoFocus
-                  />
-                </div>
-                <div className="form-actions">
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowReset(false)}>{t('common.cancel')}</button>
-                  <button type="submit" className="btn btn-primary" disabled={resetSending}>
-                    {resetSending ? <span className="spinner-sm" /> : t('auth.resetPassword')}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      </div>
+      <Modal title={t('auth.forgotPassword')} onClose={() => !resetSending && setShowReset(false)} size="sm">
+        {resetSent ? (
+          <p style={{ textAlign: 'center', padding: '16px 0', color: 'var(--primary)' }}>{t('auth.resetEmailSent')}</p>
+        ) : (
+          <form onSubmit={handleReset} className="form-stack">
+            <div className="form-group">
+              <label>{t('login.email')}</label>
+              <input
+                type="email"
+                className="form-input"
+                placeholder={t('auth.resetEmailPlaceholder')}
+                value={resetEmail}
+                onChange={e => setResetEmail(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+            <div className="form-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowReset(false)} disabled={resetSending}>{t('common.cancel')}</button>
+              <button type="submit" className="btn btn-primary" disabled={resetSending}>
+                {resetSending ? <span className="spinner-sm" /> : t('auth.resetPassword')}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
     )}
     </>
   );

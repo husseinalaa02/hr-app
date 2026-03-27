@@ -2,6 +2,7 @@ import { db } from '../db/index';
 import { MOCK_LEAVE_APPLICATIONS, MOCK_HOURLY_APPLICATIONS, MOCK_ALLOCATIONS_V2, MOCK_EMPLOYEES } from './mock';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
 import { addNotification, notifyRole } from './notifications';
+import { buildCalculatedSalary } from './payroll';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -75,12 +76,11 @@ async function applyUnpaidLeaveDeduction(leave) {
   for (const pr of payrollRecords) {
     if (pr.status === 'Paid') continue; // never mutate settled payroll
     const newDays   = Math.max(0, pr.working_days - days);
-    const newSalary = Math.max(0,
-      Math.round(((pr.base_salary + (pr.additional_salary || 0)) / 30) * newDays)
-      + (pr.friday_bonus    || 0)
-      + (pr.extra_day_bonus || 0)
-      - (pr.late_deductions    || 0)
-      - (pr.absence_deductions || 0)
+    // Use the centralised buildCalculatedSalary — same fix as SUPABASE_MODE path above.
+    const newSalary = buildCalculatedSalary(
+      pr.base_salary, pr.additional_salary || 0, newDays,
+      pr.friday_bonus || 0, pr.extra_day_bonus || 0,
+      pr.late_deductions || 0, pr.absence_deductions || 0
     );
     await db.payroll.put({ ...pr, working_days: newDays, calculated_salary: newSalary });
   }
@@ -119,14 +119,17 @@ export async function getPendingApprovals({ managerId = null, includeHRQueue = f
       const { data: reports } = await supabase.from('employees_public').select('name').eq('reports_to', managerId);
       const reportIds = (reports || []).map(e => e.name);
       if (reportIds.length > 0) {
-        const { data } = await supabase.from('leave_apps').select('*')
+        const { data } = await supabase.from('leave_apps')
+          .select('name, employee, employee_name, leave_type, from_date, to_date, total_leave_days, total_hours, is_hourly, status, approval_stage, description, from_time, to_time, posting_date')
           .in('employee', reportIds)
           .eq('approval_stage', 'Pending Manager');
         rows.push(...(data || []));
       }
     }
     if (includeHRQueue) {
-      const { data } = await supabase.from('leave_apps').select('*').eq('approval_stage', 'Pending HR');
+      const { data } = await supabase.from('leave_apps')
+        .select('name, employee, employee_name, leave_type, from_date, to_date, total_leave_days, total_hours, is_hourly, status, approval_stage, description, from_time, to_time, posting_date')
+        .eq('approval_stage', 'Pending HR');
       const existing = new Set(rows.map(r => r.name));
       (data || []).forEach(r => { if (!existing.has(r.name)) rows.push(r); });
     }
@@ -147,10 +150,11 @@ export async function getPendingApprovals({ managerId = null, includeHRQueue = f
       ? directReports
       : MOCK_EMPLOYEES.map(e => e.name);
 
-    // Manager queue: 'Pending Manager' for direct reports
+    // Manager queue: only 'Pending Manager' stage — do NOT include 'Open' status here
+    // because 'Open' also covers 'Pending HR' leaves which must not appear in manager queue.
     let rows = await db.leave_apps
       .filter(l =>
-        (l.approval_stage === 'Pending Manager' || l.status === 'Open') &&
+        l.approval_stage === 'Pending Manager' &&
         allEmployeeIds.includes(l.employee)
       )
       .toArray();
@@ -344,8 +348,13 @@ export async function submitLeaveApplication(data) {
     const { data: usedRows } = await supabase.from('leave_apps')
       .select('total_leave_days').eq('employee', data.employee).eq('leave_type', data.leave_type)
       .in('status', ['Approved', 'Open']).eq('is_hourly', false);
-    const allocated = (balRows  || []).reduce((s, r) => s + r.total_leaves_allocated, 0);
-    const used      = (usedRows || []).reduce((s, r) => s + (r.total_leave_days || 0), 0);
+    const rawAllocated = (balRows  || []).reduce((s, r) => s + r.total_leaves_allocated, 0);
+    const used         = (usedRows || []).reduce((s, r) => s + (r.total_leave_days || 0), 0);
+    // For Annual Leave: enforce accrual limit (2 days/month) so employees cannot
+    // book ahead of what they have actually accrued this year.
+    const allocated = data.leave_type === 'Annual Leave'
+      ? getAccruedAnnualDays(rawAllocated)
+      : rawAllocated;
     if (allocated > 0 && days > allocated - used) {
       throw new Error(`Only ${Math.max(0, allocated - used)} day(s) remaining for ${data.leave_type}.`);
     }
@@ -431,12 +440,12 @@ export async function updateLeaveStatus(name, action, actorRole = 'manager') {
       for (const pr of (prs || [])) {
         if (pr.status === 'Paid') continue; // never mutate a settled payroll record
         const newDays   = Math.max(0, pr.working_days - days);
-        const newSalary = Math.max(0,
-          Math.round(((pr.base_salary + (pr.additional_salary || 0)) / 30) * newDays)
-          + (pr.friday_bonus    || 0)
-          + (pr.extra_day_bonus || 0)
-          - (pr.late_deductions    || 0)
-          - (pr.absence_deductions || 0)
+        // Use the centralised buildCalculatedSalary so the formula stays in sync
+        // with createPayroll/updatePayroll (previously was inlined here — drift risk).
+        const newSalary = buildCalculatedSalary(
+          pr.base_salary, pr.additional_salary || 0, newDays,
+          pr.friday_bonus || 0, pr.extra_day_bonus || 0,
+          pr.late_deductions || 0, pr.absence_deductions || 0
         );
         await supabase.from('payroll').update({
           working_days:      newDays,
@@ -446,7 +455,7 @@ export async function updateLeaveStatus(name, action, actorRole = 'manager') {
         await supabase.from('payroll_log').insert({
           payroll_id: pr.id, action: 'Unpaid Leave Deduction',
           performed_by: existing.employee, performed_by_name: existing.employee_name,
-          notes: `Deducted ${newSalary} IQD (${days}d unpaid leave from ${existing.from_date})`,
+          notes: `Deducted ${pr.calculated_salary - newSalary} IQD for ${days}d unpaid leave (${existing.from_date}); new total: ${newSalary} IQD`,
         }).catch(() => {});
       }
     } else {

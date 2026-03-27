@@ -48,7 +48,7 @@ export async function getReportData({ year = new Date().getFullYear() } = {}) {
     employees,
     leaves:     allLeaves.filter(l => (l.from_date || '').startsWith(year)),
     payroll:    allPayroll.filter(r => (r.period_start || '').startsWith(year)),
-    appraisals: allAppraisals,
+    appraisals: allAppraisals.filter(a => (a.period || '').includes(String(year))),
     expenses:   allExpenses.filter(e => (e.expense_date || '').startsWith(year)),
   };
 }

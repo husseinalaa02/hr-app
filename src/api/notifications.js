@@ -7,7 +7,7 @@ export async function getNotifications(recipientId) {
   if (SUPABASE_MODE) {
     const { data } = await supabase
       .from('notifications')
-      .select('*')
+      .select('id, recipient_id, title, message, type, read, created_at')
       .eq('recipient_id', recipientId)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -62,9 +62,9 @@ export async function markAllAsRead(recipientId) {
 
 export async function addNotification({ recipient_id, title, message, type = 'info' }) {
   if (SUPABASE_MODE) {
+    // Use security-definer RPC so non-HR managers can send notifications to other employees
     const { data } = await supabase
-      .from('notifications')
-      .insert({ recipient_id, title, message, type })
+      .rpc('insert_notification', { p_recipient_id: recipient_id, p_title: title, p_message: message, p_type: type })
       .select()
       .single();
     return data;
@@ -73,6 +73,18 @@ export async function addNotification({ recipient_id, title, message, type = 'in
     const record = { recipient_id, title, message, type, read: false, created_at: new Date().toISOString() };
     const id = await db.notifications.add(record);
     return { ...record, id };
+  }
+}
+
+export async function deleteReadNotifications(recipientId) {
+  if (SUPABASE_MODE) {
+    await supabase.from('notifications').delete()
+      .eq('recipient_id', recipientId).eq('read', true);
+    return;
+  }
+  if (DEMO) {
+    const rows = await db.notifications.filter(n => n.recipient_id === recipientId && n.read).toArray();
+    await Promise.all(rows.map(n => db.notifications.delete(n.id)));
   }
 }
 

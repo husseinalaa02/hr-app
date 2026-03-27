@@ -18,6 +18,22 @@ returns text language sql stable security definer as $$
   )
 $$;
 
+-- C2: Single-recipient notification insert that bypasses RLS for non-HR callers.
+-- Managers sending notifications to their reports would fail the notif_insert policy
+-- which only allows admin/hr_manager or self-sends. This function runs as SECURITY
+-- DEFINER (owner's privileges) so any authenticated user can call it.
+create or replace function insert_notification(
+  p_recipient_id text,
+  p_title        text,
+  p_message      text,
+  p_type         text default 'info'
+) returns void language plpgsql security definer as $$
+begin
+  insert into notifications(recipient_id, title, message, type)
+  values (p_recipient_id, p_title, p_message, p_type);
+end;
+$$;
+
 -- Fan-out notifications to all employees with a given role (or custom role whose
 -- notify_as maps to that role). Runs as security definer so it bypasses RLS on
 -- the employees table — callers (incl. regular employees) only need INSERT on notifications.
@@ -111,7 +127,7 @@ create table if not exists day_requests (
 -- Payroll
 create table if not exists payroll (
   id                  bigserial primary key,
-  employee_id         text,
+  employee_id         text references employees(name) on delete set null,
   employee_name       text,
   period_start        date,
   period_end          date,
@@ -128,7 +144,9 @@ create table if not exists payroll (
   submitted_at        timestamptz,
   paid_by             text,
   paid_by_name        text,
-  paid_at             timestamptz
+  paid_at             timestamptz,
+  created_at          timestamptz default now(),
+  updated_at          timestamptz default now()
 );
 
 -- Payroll Log
@@ -162,7 +180,7 @@ create table if not exists announcements (
   name        text primary key,
   title       text,
   content     text,
-  creation    timestamptz default now(),
+  created_at  timestamptz default now(),
   notice_date date
 );
 
@@ -175,7 +193,8 @@ create table if not exists recruitment_jobs (
   target_date date,
   status      text default 'Open',
   hired_count integer default 0,
-  created_at  date default current_date
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now()
 );
 
 -- Recruitment Candidates
@@ -224,7 +243,8 @@ create table if not exists checkins (
   name        text primary key default ('CHK-' || gen_random_uuid()),
   employee    text references employees(name) on delete cascade,
   log_type    text,
-  time        timestamptz default now()
+  time        timestamptz default now(),
+  created_at  timestamptz default now()
 );
 
 -- Daily Attendance Records
@@ -251,6 +271,33 @@ alter table payroll add column if not exists late_deductions    numeric default 
 alter table payroll add column if not exists absence_deductions numeric default 0;
 -- Revert audit_logs.details from jsonb back to text (JS callers pass plain strings, not JSON)
 alter table audit_logs alter column details type text using details::text;
+-- C1: audit trail columns
+alter table audit_logs add column if not exists user_name  text default '';
+alter table audit_logs add column if not exists ip_address text default '127.0.0.1';
+-- C3/H5: employee_type column (employees_public view uses it)
+alter table employees add column if not exists employee_type text;
+-- M1: payroll timestamps and FK
+alter table payroll add column if not exists created_at timestamptz default now();
+alter table payroll add column if not exists updated_at timestamptz default now();
+-- M2: unique leave allocation per employee/type/year
+alter table leave_allocs add constraint if not exists leave_allocs_unique unique (employee, leave_type, leave_year);
+-- M3: unique day request per employee/date/type
+alter table day_requests add constraint if not exists day_requests_unique unique (employee_id, request_date, request_type);
+-- M4: unique attendance per employee/date
+alter table attendance add constraint if not exists attendance_unique unique (employee, attendance_date);
+-- M7: updated_at on key tables
+alter table leave_apps             add column if not exists updated_at timestamptz default now();
+alter table expenses               add column if not exists updated_at timestamptz default now();
+alter table announcements          add column if not exists updated_at timestamptz default now();
+alter table recruitment_candidates add column if not exists updated_at timestamptz default now();
+-- M8/M9: rename creation → created_at on announcements (only needed on pre-existing DBs)
+do $$ begin
+  if exists (select 1 from information_schema.columns where table_name='announcements' and column_name='creation') then
+    alter table announcements rename column creation to created_at;
+  end if;
+end $$;
+-- L6: created_at on checkins
+alter table checkins add column if not exists created_at timestamptz default now();
 
 -- Notifications
 create table if not exists notifications (
@@ -288,6 +335,8 @@ create table if not exists audit_logs (
   id             bigserial primary key,
   timestamp      timestamptz default now(),
   user_id        text,
+  user_name      text default '',
+  ip_address     text default '127.0.0.1',
   role           text,
   resource       text,
   action         text,
@@ -511,6 +560,8 @@ create policy "audit_insert" on audit_logs for insert to authenticated
 -- NOTIFICATIONS
 create policy "notif_select" on notifications for select to authenticated
   using (recipient_id = auth_employee_id());
+-- C2: insert_notification() is SECURITY DEFINER and does the actual insert, bypassing RLS.
+-- Direct inserts are still allowed for admin/hr_manager and self-sends.
 create policy "notif_insert" on notifications for insert to authenticated
   with check (
     auth_role() in ('admin', 'hr_manager')
@@ -518,6 +569,9 @@ create policy "notif_insert" on notifications for insert to authenticated
   );
 create policy "notif_update" on notifications for update to authenticated
   using (recipient_id = auth_employee_id());
+-- L2: allow employees to delete their own read notifications (for "Clear read" feature)
+create policy "notif_delete" on notifications for delete to authenticated
+  using (recipient_id = auth_employee_id() and read = true);
 
 -- WORK SCHEDULES
 create policy "ws_select" on work_schedules for select to authenticated
@@ -579,8 +633,11 @@ create policy "ep_self_read" on employee_permissions for select to authenticated
   using (employee_id = (select name from employees where auth_id = auth.uid()));
 
 -- ─── Public directory view — safe columns only, no PII ────────────────────────
+-- C3: added employment_type, date_of_joining, gender, employee_type for Employees page
+-- H5: removed cell_number (PII — only HR/admin should see it via the full employees table)
 create or replace view employees_public as
-  select name, employee_name, department, designation, role, branch, company, reports_to, image, cell_number
+  select name, employee_name, department, designation, role, branch, company,
+         reports_to, image, employment_type, date_of_joining, gender, employee_type
   from employees;
 grant select on employees_public to authenticated;
 

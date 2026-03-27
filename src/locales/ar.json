@@ -92,7 +92,7 @@
     "newPassword": "كلمة المرور الجديدة",
     "confirmPassword": "تأكيد كلمة المرور",
     "passwordsDoNotMatch": "كلمتا المرور غير متطابقتين",
-    "passwordTooShort": "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل",
+    "passwordTooShort": "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل",
     "passwordUpdated": "تم تحديث كلمة المرور — يرجى تسجيل الدخول"
   },
   "dashboard": {
@@ -337,7 +337,11 @@
     "toFinance": "للمالية",
     "financePays": "المالية تدفع",
     "salary": "الراتب",
+    "pendingPayment_one": "سجل راتب واحد في انتظار الدفع",
+    "pendingPayment_other": "{{count}} سجل راتب في انتظار الدفع",
     "pendingPayment": "{{count}} سجل راتب في انتظار الدفع",
+    "draftPending_one": "سجل مسودة واحد — راجع وقدم للمالية عند الجاهزية",
+    "draftPending_other": "{{count}} سجل مسودة — راجع وقدم للمالية عند الجاهزية",
     "draftPending": "{{count}} سجل مسودة — راجع وقدم للمالية عند الجاهزية",
     "totalAcross": "الإجمالي: {{amount}} عبر {{count}} سجل",
     "createSuccess": "تم إنشاء سجل الراتب كمسودة",
@@ -587,6 +591,7 @@
     "pendingApproval": "بانتظار الموافقة",
     "dailyRate": "ثابت: 25,000 دينار",
     "baseRate": "الراتب الأساسي ÷ 30",
+    "duplicateRequest": "يوجد طلب لهذا التاريخ والنوع بالفعل",
     "types": {
       "friday_day": "يوم الجمعة",
       "extra_day": "يوم إضافي"
@@ -638,6 +643,8 @@
     "readOnly": "للقراءة فقط",
     "allUsers": "جميع المستخدمين",
     "clearFilters": "مسح الفلاتر",
+    "logsFound_one": "سجل واحد موجود",
+    "logsFound_other": "{{count}} سجل موجود",
     "logsFound": "{{count}} سجل موجود",
     "allResources": "جميع الموارد",
     "resourceSystem": "النظام",
@@ -786,7 +793,7 @@
     "enterNewPassword": "أدخل كلمة المرور الجديدة",
     "reenterNewPassword": "أعد إدخال كلمة المرور الجديدة",
     "passwordMismatch": "كلمتا المرور غير متطابقتين",
-    "passwordTooShort": "يجب أن تكون كلمة المرور 6 أحرف على الأقل",
+    "passwordTooShort": "يجب أن تكون كلمة المرور 8 أحرف على الأقل",
     "passwordChanged": "تم تغيير كلمة المرور بنجاح",
     "failedChangePassword": "فشل تغيير كلمة المرور",
     "wrongCurrentPassword": "كلمة المرور الحالية غير صحيحة",
@@ -826,6 +833,7 @@
   "notifications": {
     "title": "الإشعارات",
     "markAllRead": "تحديد الكل كمقروء",
+    "clearRead": "حذف المقروءة",
     "empty": "لا توجد إشعارات",
     "mayNoLongerExist": "قد لا يكون هذا المورد موجوداً بعد الآن"
   },

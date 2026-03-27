@@ -1,4 +1,5 @@
 import { useState, lazy, Suspense, Component } from 'react';
+import { logAction } from './api/auditLog';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { NetworkProvider, useNetwork } from './context/NetworkContext';
@@ -56,6 +57,13 @@ function ErrorFallback({ error, onRetry }) {
 class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) {
+    if (import.meta.env.DEV) console.error('[ErrorBoundary]', error, info);
+    logAction({
+      userId: 'system', userName: 'System', role: 'system',
+      action: 'ERROR', resource: 'app', details: error.message,
+    }).catch(() => {});
+  }
   render() {
     if (this.state.error) {
       return <ErrorFallback error={this.state.error} onRetry={() => this.setState({ error: null })} />;
