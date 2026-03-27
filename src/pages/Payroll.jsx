@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -25,23 +25,32 @@ function StatusBadge({ status }) {
 }
 
 // ─── Process Log entry ────────────────────────────────────────────────────────
-const LOG_ICONS = { 'Created': '📝', 'Submitted to Finance': '📤', 'Marked as Paid': '✅' };
+const LOG_ICONS = {
+  'Created':              { emoji: '📝', labelKey: 'payroll.logIcon.draft' },
+  'Submitted to Finance': { emoji: '📤', labelKey: 'payroll.logIcon.submitted' },
+  'Marked as Paid':       { emoji: '✅', labelKey: 'payroll.logIcon.paid' },
+};
 function LogTimeline({ entries }) {
   const { t } = useTranslation();
   if (!entries.length) return <p className="text-muted" style={{ fontSize: 13 }}>{t('payroll.noLog')}</p>;
   return (
     <div className="process-log">
-      {entries.map((e, i) => (
+      {entries.map((e, i) => {
+        const icon = LOG_ICONS[e.action];
+        return (
         <div key={e.id ?? i} className="log-entry">
           <div className="log-dot" />
           <div className="log-body">
-            <div className="log-action">{LOG_ICONS[e.action] || '•'} {e.action}</div>
+            <div className="log-action">
+              {icon ? <span role="img" aria-label={t(icon.labelKey)}>{icon.emoji}</span> : '•'} {e.action}
+            </div>
             <div className="log-by">{e.performed_by_name}</div>
             <div className="log-time">{new Date(e.timestamp).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Baghdad' })}</div>
             {e.notes && <div className="log-notes">{e.notes}</div>}
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -73,7 +82,7 @@ export default function Payroll() {
     period_start: '', period_end: '',
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
@@ -83,9 +92,9 @@ export default function Payroll() {
     } catch (e) {
       setLoadError(e.message || t('payroll.failedLoad'));
     } finally { setLoading(false); }
-  };
+  }, [t]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const openDetail = async (r) => {
     setDetail(r);
@@ -122,8 +131,11 @@ export default function Payroll() {
     if (!form.employee_id || !form.period_start || !form.period_end) {
       addToast(t('errors.fillRequired'), 'error'); return;
     }
+    if (Number(form.base_salary) <= 0) {
+      addToast(t('payroll.baseSalaryRequired'), 'error'); return;
+    }
     if (form.period_start > form.period_end) {
-      addToast(t('payroll.dateOrderError', { defaultValue: 'Start date must be before end date' }), 'error'); return;
+      addToast(t('payroll.dateOrderError'), 'error'); return;
     }
     setSaving(true);
     try {
@@ -141,8 +153,8 @@ export default function Payroll() {
     try {
       await submitPayroll(r.id, employee);
       addToast(t('payroll.submitSuccess', { name: r.employee_name }), 'success');
+      setDetail(null);
       load();
-      if (detail?.id === r.id) openDetail({ ...r, status: 'Submitted' });
     } catch (e) { addToast(e.message || t('errors.actionFailed'), 'error'); }
     finally { setActionId(null); }
   };
@@ -155,14 +167,15 @@ export default function Payroll() {
     try {
       await markAsPaid(r.id, employee);
       addToast(t('payroll.paySuccess', { name: r.employee_name }), 'success');
+      setDetail(null);
       load();
-      if (detail?.id === r.id) openDetail({ ...r, status: 'Paid' });
     } catch (e) { addToast(e.message || t('errors.actionFailed'), 'error'); }
     finally { setActionId(null); }
   };
 
   const handleDelete = async (r) => {
     if (r.status !== 'Draft') { addToast(t('payroll.onlyDraftDelete'), 'error'); return; }
+    if (!window.confirm(t('payroll.confirmDelete', { name: r.employee_name }))) return;
     setActionId(r.id);
     try {
       await deletePayroll(r.id);
@@ -368,11 +381,11 @@ export default function Payroll() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t('payroll.baseSalary')} (IQD)</label>
-                  <input type="number" className="form-input" value={form.base_salary} onChange={e => setForm(f => ({ ...f, base_salary: e.target.value }))} />
+                  <input type="number" className="form-input" min="0" value={form.base_salary} onChange={e => setForm(f => ({ ...f, base_salary: e.target.value }))} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t('payroll.additionalSalary')} (IQD)</label>
-                  <input type="number" className="form-input" value={form.additional_salary} onChange={e => setForm(f => ({ ...f, additional_salary: e.target.value }))} />
+                  <input type="number" className="form-input" min="0" value={form.additional_salary} onChange={e => setForm(f => ({ ...f, additional_salary: e.target.value }))} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t('payroll.workingDays')}</label>
@@ -380,11 +393,11 @@ export default function Payroll() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t('payroll.fridayBonus')} (IQD)</label>
-                  <input type="number" className="form-input" value={form.friday_bonus} onChange={e => setForm(f => ({ ...f, friday_bonus: e.target.value }))} />
+                  <input type="number" className="form-input" min="0" value={form.friday_bonus} onChange={e => setForm(f => ({ ...f, friday_bonus: e.target.value }))} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t('payroll.extraDayBonus')} (IQD)</label>
-                  <input type="number" className="form-input" value={form.extra_day_bonus} onChange={e => setForm(f => ({ ...f, extra_day_bonus: e.target.value }))} />
+                  <input type="number" className="form-input" min="0" value={form.extra_day_bonus} onChange={e => setForm(f => ({ ...f, extra_day_bonus: e.target.value }))} />
                 </div>
 
                 {form.base_salary && (
@@ -462,6 +475,21 @@ export default function Payroll() {
                   {logLoading ? <div className="loading-center"><span className="spinner" /></div> : <LogTimeline entries={logEntries} />}
                 </div>
               </div>
+              {/* Modal footer actions */}
+              {(canCreate && detail.status === 'Draft') || (canPay && detail.status === 'Submitted') ? (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                  {canCreate && detail.status === 'Draft' && (
+                    <button className="btn btn-primary btn-sm" disabled={actionId === detail.id} onClick={() => handleSubmit(detail)}>
+                      {t('payroll.submitToFinance')}
+                    </button>
+                  )}
+                  {canPay && detail.status === 'Submitted' && (
+                    <button className="btn btn-sm btn-success" disabled={actionId === detail.id} onClick={() => handlePay(detail)}>
+                      {`✓ ${t('payroll.markAsPaid')}`}
+                    </button>
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

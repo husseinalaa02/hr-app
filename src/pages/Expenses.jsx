@@ -6,6 +6,7 @@ import { getExpenses, submitExpense, saveDraftExpense, approveExpense, rejectExp
 import Modal from '../components/Modal';
 import Badge from '../components/Badge';
 import { Skeleton } from '../components/Skeleton';
+import ErrorState from '../components/ErrorState';
 
 const STATUS_COLOR = {
   Draft:     '#9e9e9e',
@@ -18,52 +19,65 @@ function fmt(n) { return Number(n).toLocaleString() + ' IQD'; }
 
 export default function Expenses() {
   const { t } = useTranslation();
-  const { employee, isAdmin } = useAuth();
+  const { employee, isAdmin, hasPermission } = useAuth();
+  const canApprove = isAdmin || hasPermission('expenses:approve');
   const { addToast } = useToast();
   const [tab, setTab] = useState('mine');
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [actionId, setActionId] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
+  const [loadError, setLoadError] = useState(null);
 
   const load = useCallback(async () => {
+    if (!employee) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const opts = tab === 'mine' ? { employeeId: employee.name } : {};
       if (statusFilter) opts.status = statusFilter;
       const data = await getExpenses(opts);
       setExpenses(data);
-    } catch {
+    } catch (e) {
+      setLoadError(e.message || t('errors.failedLoad'));
       setExpenses([]);
     } finally {
       setLoading(false);
     }
-  }, [tab, employee?.name, statusFilter]);
+  }, [tab, employee?.name, statusFilter, t]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleApprove = async (id) => {
+    setActionId(id);
     try {
       await approveExpense(id, employee.employee_name);
       addToast(t('expenses.approvedSuccess'), 'success');
       load();
     } catch (e) { addToast(e.message, 'error'); }
+    finally { setActionId(null); }
   };
 
   const handleReject = async (id) => {
+    if (!window.confirm(t('common.confirmReject'))) return;
+    setActionId(id);
     try {
       await rejectExpense(id);
       addToast(t('expenses.rejectedSuccess'), 'success');
       load();
     } catch (e) { addToast(e.message, 'error'); }
+    finally { setActionId(null); }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm(t('expenses.deleteConfirm'))) return;
+    setActionId(id);
     try {
       await deleteExpense(id);
       load();
     } catch (e) { addToast(e.message, 'error'); }
+    finally { setActionId(null); }
   };
 
   const rows = expenses;
@@ -80,7 +94,7 @@ export default function Expenses() {
       <div className="page-toolbar">
         <div className="tab-group">
           <button className={`tab-btn${tab === 'mine' ? ' active' : ''}`} onClick={() => setTab('mine')}>{t('expenses.myExpenses')}</button>
-          {isAdmin && <button className={`tab-btn${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>{t('expenses.allExpenses')}</button>}
+          {canApprove && <button className={`tab-btn${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>{t('expenses.allExpenses')}</button>}
         </div>
       </div>
 
@@ -97,6 +111,8 @@ export default function Expenses() {
           </button>
         ))}
       </div>
+
+      {loadError && <ErrorState message={loadError} onRetry={load} />}
 
       <div className="leave-card-list">
         {loading ? (
@@ -122,14 +138,20 @@ export default function Expenses() {
               </div>
             </div>
             <div className="leave-item-actions">
-              {isAdmin && e.status === 'Submitted' && (
+              {canApprove && e.status === 'Submitted' && (
                 <>
-                  <button className="btn btn-sm btn-success" onClick={() => handleApprove(e.id)}>{t('common.approve')}</button>
-                  <button className="btn btn-sm btn-danger" onClick={() => handleReject(e.id)}>{t('common.reject')}</button>
+                  <button className="btn btn-sm btn-success" onClick={() => handleApprove(e.id)} disabled={actionId === e.id}>
+                    {actionId === e.id ? <span className="spinner-sm" /> : t('common.approve')}
+                  </button>
+                  <button className="btn btn-sm btn-danger" onClick={() => handleReject(e.id)} disabled={actionId === e.id}>
+                    {actionId === e.id ? <span className="spinner-sm" /> : t('common.reject')}
+                  </button>
                 </>
               )}
               {e.employee_id === employee.name && e.status === 'Draft' && (
-                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(e.id)}>{t('common.delete')}</button>
+                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(e.id)} disabled={actionId === e.id}>
+                  {actionId === e.id ? <span className="spinner-sm" /> : t('common.delete')}
+                </button>
               )}
             </div>
           </div>
@@ -172,7 +194,7 @@ function ExpenseForm({ employee, onClose, onCreated }) {
         <label>{t('expenses.expenseType')} *</label>
         <select className="form-input" value={form.expense_type} onChange={e => set('expense_type', e.target.value)} required>
           <option value="">{t('expenses.selectType')}</option>
-          {EXPENSE_TYPE_LIST.map(t => <option key={t} value={t}>{t}</option>)}
+          {EXPENSE_TYPE_LIST.map(et => <option key={et} value={et}>{et}</option>)}
         </select>
       </div>
       <div className="form-row">

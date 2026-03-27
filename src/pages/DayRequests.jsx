@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getDayRequests, createDayRequest, managerApproveDayRequest, hrApproveDayRequest, rejectDayRequest, REQUEST_TYPES } from '../api/dayRequests';
 import { getEmployees } from '../api/employees';
+import { Skeleton } from '../components/Skeleton';
+import ErrorState from '../components/ErrorState';
 
 const STATUS_COLORS = {
   Pending:  { color: '#b45309', bg: '#fef3c7' },
@@ -56,7 +58,9 @@ export default function DayRequests() {
   const [requests, setRequests]   = useState([]);
   const [employees, setEmployees] = useState([]);
   const [filter, setFilter]       = useState('All');
+  const [listTab, setListTab]     = useState('mine');
   const [loading, setLoading]     = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [actionId, setActionId]   = useState(null);
@@ -65,8 +69,10 @@ export default function DayRequests() {
     employee_id: '', employee_name: '', request_type: 'Friday Day', request_date: '', notes: '',
   });
 
-  const load = async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!employee) return;
+    if (!silent) setLoading(true);
+    setLoadError(null);
     try {
       const [reqs, emps] = await Promise.all([
         getDayRequests(
@@ -81,13 +87,13 @@ export default function DayRequests() {
       setRequests(reqs);
       setEmployees(emps);
     } catch (e) {
-      addToast(e.message || t('dayRequests.failedLoad'), 'error');
+      setLoadError(e.message || t('dayRequests.failedLoad'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [employee?.name, isAdmin, isHR, canApprove]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   // Pre-fill employee for non-admins
   const openModal = () => {
@@ -128,7 +134,7 @@ export default function DayRequests() {
     try {
       await managerApproveDayRequest(id);
       addToast(t('dayRequests.forwardedToHR'), 'success');
-      load();
+      load(true);
     } catch (e) {
       addToast(e.message || t('errors.actionFailed'), 'error');
     } finally {
@@ -141,7 +147,7 @@ export default function DayRequests() {
     try {
       await hrApproveDayRequest(id);
       addToast(t('dayRequests.requestApproved'), 'success');
-      load();
+      load(true);
     } catch (e) {
       addToast(e.message || t('errors.actionFailed'), 'error');
     } finally {
@@ -150,11 +156,12 @@ export default function DayRequests() {
   };
 
   const handleReject = async (id) => {
+    if (!window.confirm(t('common.confirmReject'))) return;
     setActionId(id);
     try {
       await rejectDayRequest(id);
       addToast(t('dayRequests.requestRejected'), 'success');
-      load();
+      load(true);
     } catch (e) {
       addToast(e.message || t('errors.actionFailed'), 'error');
     } finally {
@@ -162,18 +169,27 @@ export default function DayRequests() {
     }
   };
 
-  const filtered = filter === 'All'
+  // For canApprove non-admin users, split requests by ownership
+  const baseRequests = isAdmin
     ? requests
+    : canApprove
+      ? (listTab === 'mine'
+          ? requests.filter(r => r.employee_id === employee?.name)
+          : requests.filter(r => r.employee_id !== employee?.name))
+      : requests;
+
+  const filtered = filter === 'All'
+    ? baseRequests
     : filter === 'Pending Manager'
-      ? requests.filter(r => r.approval_status === 'Pending Manager' || r.approval_status === 'Pending')
-      : requests.filter(r => r.approval_status === filter);
+      ? baseRequests.filter(r => r.approval_status === 'Pending Manager' || r.approval_status === 'Pending')
+      : baseRequests.filter(r => r.approval_status === filter);
 
   const counts = {
-    All:              requests.length,
-    'Pending Manager': requests.filter(r => r.approval_status === 'Pending Manager' || r.approval_status === 'Pending').length,
-    'Pending HR':     requests.filter(r => r.approval_status === 'Pending HR').length,
-    Approved:         requests.filter(r => r.approval_status === 'Approved').length,
-    Rejected:         requests.filter(r => r.approval_status === 'Rejected').length,
+    All:              baseRequests.length,
+    'Pending Manager': baseRequests.filter(r => r.approval_status === 'Pending Manager' || r.approval_status === 'Pending').length,
+    'Pending HR':     baseRequests.filter(r => r.approval_status === 'Pending HR').length,
+    Approved:         baseRequests.filter(r => r.approval_status === 'Approved').length,
+    Rejected:         baseRequests.filter(r => r.approval_status === 'Rejected').length,
   };
 
   return (
@@ -183,10 +199,22 @@ export default function DayRequests() {
           <h1 className="page-title">{t('dayRequests.title')}</h1>
           <p className="page-subtitle">{t('dayRequests.subtitle')}</p>
         </div>
-        {!isAudit && (
+        {!isAudit && !isAdmin && !isHR && (
           <button className="btn btn-primary" onClick={openModal}>{t('dayRequests.newRequest')}</button>
         )}
       </div>
+
+      {/* List Tabs — shown for canApprove non-admin users */}
+      {canApprove && !isAdmin && (
+        <div className="tab-group" style={{ marginBottom: 16 }}>
+          <button className={`tab-btn${listTab === 'mine' ? ' active' : ''}`} onClick={() => setListTab('mine')}>
+            {t('dayRequests.myRequests')}
+          </button>
+          <button className={`tab-btn${listTab === 'pending' ? ' active' : ''}`} onClick={() => setListTab('pending')}>
+            {t('dayRequests.pendingApproval')}
+          </button>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="filter-tabs">
@@ -208,9 +236,26 @@ export default function DayRequests() {
         ))}
       </div>
 
+      {loadError && <ErrorState message={loadError} onRetry={load} />}
+
       {/* Request List */}
       {loading ? (
-        <div className="loading-center"><span className="spinner" /></div>
+        <div className="request-list">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="request-card">
+              <div className="request-card-header">
+                <div className="request-card-info">
+                  <Skeleton height={14} width="40%" />
+                  <div className="request-card-meta" style={{ marginTop: 8 }}>
+                    <Skeleton height={12} width={80} />
+                    <Skeleton height={12} width={90} />
+                  </div>
+                </div>
+                <Skeleton height={22} width={70} />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state">
           <p>{t('dayRequests.noRequests')}</p>
@@ -232,8 +277,8 @@ export default function DayRequests() {
                   <StatusBadge status={req.approval_status} />
                   <div className="request-payment-hint">
                     {req.request_type === 'Friday Day'
-                      ? '+25,000 IQD'
-                      : '+Base ÷ 30 IQD'
+                      ? t('dayRequests.dailyRate')
+                      : t('dayRequests.baseRate')
                     }
                   </div>
                 </div>
@@ -313,7 +358,7 @@ export default function DayRequests() {
                     onChange={e => setForm(f => ({ ...f, request_type: e.target.value }))}
                   >
                     {REQUEST_TYPES.map(rt => (
-                      <option key={rt} value={rt}>{rt}</option>
+                      <option key={rt} value={rt}>{t(`dayRequests.types.${rt.toLowerCase().replace(' ', '_')}`, { defaultValue: rt })}</option>
                     ))}
                   </select>
                 </div>

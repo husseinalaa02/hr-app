@@ -32,7 +32,9 @@
     "type": "Type",
     "from": "From",
     "to": "To",
-    "actions": "Actions"
+    "actions": "Actions",
+    "printNotSupported": "Printing is not supported on this device.",
+    "confirmReject": "Are you sure you want to reject this request?"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -75,6 +77,12 @@
     "invalidCredentials": "Invalid credentials. Please try again.",
     "demoMode": "Demo Mode",
     "demoNote": "any password works"
+  },
+  "auth": {
+    "forgotPassword": "Forgot password?",
+    "resetPassword": "Reset Password",
+    "resetEmailSent": "If an account exists for this email, you'll receive a reset link shortly.",
+    "resetEmailPlaceholder": "your@email.com"
   },
   "dashboard": {
     "goodMorning": "Good morning",
@@ -163,6 +171,7 @@
     "newRequest": "+ New Request",
     "fullDay": "📅 Full / Multi Day",
     "hourly": "⏱ Hourly",
+    "hourlyTag": "Hourly",
     "leaveType": "Leave Type",
     "selectLeaveType": "Select leave type",
     "daysLeft": "days left",
@@ -195,6 +204,7 @@
     "rejectedSuccess": "Leave rejected",
     "accrued": "(accrued {{allocated}}/{{max}} for the year)",
     "monthlyQuota": "(monthly quota)",
+    "monthlyQuotaLabel": "monthly quota",
     "annualLeave": "Annual Leave",
     "sickLeave": "Sick Leave",
     "casualLeave": "Casual Leave",
@@ -319,7 +329,15 @@
     "confirmPay": "Mark {{name}}'s salary of {{amount}} as Paid?\n\nThis cannot be undone.",
     "paySuccess": "{{name}}'s salary marked as Paid",
     "onlyDraftDelete": "Only Draft records can be deleted",
-    "deleteSuccess": "Deleted"
+    "confirmDelete": "Delete payroll record for {{name}}? This cannot be undone.",
+    "deleteSuccess": "Deleted",
+    "baseSalaryRequired": "Base salary must be greater than 0.",
+    "dateOrderError": "Start date must be before end date.",
+    "logIcon": {
+      "draft": "Draft",
+      "submitted": "Submitted",
+      "paid": "Paid"
+    }
   },
   "payslips": {
     "title": "My Payslips",
@@ -339,7 +357,8 @@
     "payslipNo": "Payslip No",
     "payslipTitle": "Payslip",
     "component": "Component",
-    "allAmountsIQD": "All amounts in Iraqi Dinar (IQD)"
+    "allAmountsIQD": "All amounts in Iraqi Dinar (IQD)",
+    "employeeId": "Employee ID"
   },
   "timesheets": {
     "title": "Timesheets",
@@ -385,7 +404,8 @@
     "enterStartTime": "Enter a start time for the custom shift",
     "morningShift": "Morning Shift",
     "eveningShift": "Evening Shift",
-    "customShift": "Custom Shift"
+    "customShift": "Custom Shift",
+    "nextDay": "+1"
   },
   "recruitment": {
     "title": "Recruitment",
@@ -421,6 +441,8 @@
     "target": "Target:",
     "movedToStage": "Moved to {{stage}}",
     "removeConfirm": "Remove {{name}}?",
+    "selectJobFirst": "Select a job from the Jobs tab to view its candidates.",
+    "confirmDeleteCandidate": "Remove candidate {{name}}?",
     "addCandidateTitle": "Add Candidate",
     "jobCreated": "Job created",
     "candidateAdded": "Candidate added",
@@ -505,7 +527,8 @@
     "deleteTemplateConfirm": "Delete this template? Existing appraisals using it will not be affected.",
     "templateSaved": "Template saved",
     "templateDeleted": "Template deleted",
-    "atLeastOneQuestion": "Add at least one question"
+    "atLeastOneQuestion": "Add at least one question",
+    "sharedCommentHint": "Your response will be combined with any other comments."
   },
   "dayRequests": {
     "title": "Day Requests",
@@ -541,7 +564,15 @@
     "reason": "Reason",
     "status": "Status",
     "submitRequest": "Submit Request",
-    "failedLoad": "Failed to load requests"
+    "failedLoad": "Failed to load requests",
+    "myRequests": "My Requests",
+    "pendingApproval": "Pending Approval",
+    "dailyRate": "Fixed: 25,000 IQD",
+    "baseRate": "Base Salary ÷ 30",
+    "types": {
+      "friday_day": "Friday Day",
+      "extra_day": "Extra Day"
+    }
   },
   "reports": {
     "title": "Reports",
@@ -571,7 +602,9 @@
     "appraisalBreakdown": "Appraisal Status Breakdown",
     "score": "Score",
     "pendingExpenses": "Pending Expenses",
-    "failedLoad": "Failed to load report data"
+    "failedLoad": "Failed to load report data",
+    "year": "Year",
+    "totalPaid": "Total Paid"
   },
   "audit": {
     "title": "Audit Log",
@@ -653,6 +686,8 @@
     "roleDeleted": "Role deleted",
     "failedDeleteRole": "Failed to delete role",
     "failedUpdateRole": "Failed to update role",
+    "confirmRoleChange": "Change role for {{name}} to \"{{role}}\"?",
+    "roleNameDuplicate": "A role with this name already exists.",
     "permissionsSaved": "Permissions saved",
     "failedSavePerms": "Failed to save",
     "confirmDeleteRole": "Delete role \"{{label}}\"? Employees with this role will become \"employee\".",

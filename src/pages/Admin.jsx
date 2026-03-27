@@ -72,7 +72,8 @@ function PermToggle({ roleHas, override, onChange }) {
   const effective = override !== undefined ? override : roleHas;
 
   const handleClick = () => {
-    if (override === undefined) onChange(!roleHas);
+    if (override === undefined) onChange(true);
+    else if (override === true) onChange(false);
     else onChange(undefined);
   };
 
@@ -107,14 +108,24 @@ function StatCard({ label, value, color }) {
   );
 }
 
-function RoleEditor({ role: roleObj, onSave, onCancel }) {
+function RoleEditor({ role: roleObj, onSave, onCancel, existingNames = [] }) {
   const { t } = useTranslation();
   const [label, setLabel] = useState(roleObj?.label || '');
   const [name, setName]   = useState(roleObj?.name  || '');
   const [perms, setPerms] = useState(roleObj?.permissions || []);
+  const [nameError, setNameError] = useState('');
   const isEdit = !!roleObj?.id;
 
   const toggle = (p) => setPerms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
+
+  const handleSave = () => {
+    if (!isEdit && existingNames.some(n => n.toLowerCase() === name.trim().toLowerCase())) {
+      setNameError(t('admin.roleNameDuplicate'));
+      return;
+    }
+    setNameError('');
+    onSave({ name: name.trim(), label: label.trim(), permissions: perms });
+  };
 
   return (
     <div style={{ padding: '20px' }}>
@@ -126,7 +137,8 @@ function RoleEditor({ role: roleObj, onSave, onCancel }) {
         {!isEdit && (
           <div style={{ flex: 1, minWidth: 160 }}>
             <label className="form-label">{t('admin.roleEditorIdField')}</label>
-            <input className="form-control" value={name} onChange={e => setName(e.target.value.toLowerCase().replace(/\s+/g, '_'))} placeholder={t('admin.roleEditorIdPlaceholder')} />
+            <input className="form-control" value={name} onChange={e => { setName(e.target.value.toLowerCase().replace(/\s+/g, '_')); setNameError(''); }} placeholder={t('admin.roleEditorIdPlaceholder')} />
+            {nameError && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>{nameError}</div>}
           </div>
         )}
       </div>
@@ -156,7 +168,7 @@ function RoleEditor({ role: roleObj, onSave, onCancel }) {
         ))}
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn btn-primary btn-sm" onClick={() => onSave({ name: name.trim(), label: label.trim(), permissions: perms })} disabled={!label.trim() || (!isEdit && !name.trim())}>
+        <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={!label.trim() || (!isEdit && !name.trim())}>
           {isEdit ? t('common.save') : t('admin.createRole')}
         </button>
         <button className="btn btn-sm" onClick={onCancel}>{t('common.cancel')}</button>
@@ -193,14 +205,14 @@ export default function Admin() {
     try { setEmployees(await getAllEmployeesWithOverrides()); }
     catch { addToast(t('admin.failedLoad'), 'error'); }
     finally { setLoading(false); }
-  }, []);
+  }, [t, addToast]);
 
   const loadCustomRoles = useCallback(async () => {
     setCustomRolesLoading(true);
     try { setCustomRoles(await getCustomRoles()); }
     catch { addToast(t('admin.failedLoadRoles'), 'error'); }
     finally { setCustomRolesLoading(false); }
-  }, []);
+  }, [t, addToast]);
 
   useEffect(() => { load(); loadCustomRoles(); }, [load, loadCustomRoles]);
 
@@ -241,14 +253,22 @@ export default function Admin() {
   const withOverrides = employees.filter(e => Object.keys(e.overrides).length > 0).length;
 
   // ── Roles tab ──────────────────────────────────────────────────────────────
-  const filtered = employees.filter(e =>
-    !search || e.employee_name.toLowerCase().includes(search.toLowerCase()) ||
-    e.department?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = employees.filter(e => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      e.employee_name.toLowerCase().includes(q) ||
+      e.department?.toLowerCase().includes(q) ||
+      e.role?.toLowerCase().includes(q) ||
+      e.name?.toLowerCase().includes(q)
+    );
+  });
 
   const saveRole = async (emp) => {
     const newRole = roleEdits[emp.name];
     if (!newRole || newRole === emp.role) return;
+    const newRoleLabel = t(`roles.${newRole}`, { defaultValue: customRoles.find(r => r.name === newRole)?.label || newRole });
+    if (!window.confirm(t('admin.confirmRoleChange', { name: emp.employee_name, role: newRoleLabel }))) return;
     setSavingRole(p => ({ ...p, [emp.name]: true }));
     try {
       // 1. Update the employees table (bypasses EMPLOYEE_ALLOWED_FIELDS whitelist — role is intentionally excluded from it)
@@ -268,7 +288,6 @@ export default function Admin() {
 
       setEmployees(p => p.map(e => e.name === emp.name ? { ...e, role: newRole } : e));
       setRoleEdits(p => { const n = { ...p }; delete n[emp.name]; return n; });
-      const newRoleLabel = t(`roles.${newRole}`, { defaultValue: customRoles.find(r => r.name === newRole)?.label || newRole });
       addToast(`${emp.employee_name} → ${newRoleLabel}`, 'success');
     } catch { addToast(t('admin.failedUpdateRole'), 'error'); }
     finally { setSavingRole(p => ({ ...p, [emp.name]: false })); }
@@ -469,6 +488,7 @@ export default function Admin() {
                 role={editingRole}
                 onSave={handleSaveCustomRole}
                 onCancel={() => setEditingRole(null)}
+                existingNames={customRoles.map(r => r.name)}
               />
             ) : (
               <>

@@ -7,6 +7,7 @@ import { getSchedules, getMySchedule, getScheduleHistory, assignSchedule, SHIFT_
 import Modal from '../components/Modal';
 import Avatar from '../components/Avatar';
 import { Skeleton } from '../components/Skeleton';
+import ErrorState from '../components/ErrorState';
 
 // Add 8 hours to a HH:MM time string
 function addEightHours(time) {
@@ -14,6 +15,13 @@ function addEightHours(time) {
   const [h, m] = time.split(':').map(Number);
   const total = h * 60 + m + 480; // 8h = 480 min
   return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
+// Returns true when end time (start + 8h) crosses midnight
+function crossesMidnight(start) {
+  if (!start) return false;
+  const [h] = start.split(':').map(Number);
+  return h >= 16; // start at 16:00+ means end ≥ 00:00 next day
 }
 
 function fmt(time) {
@@ -45,7 +53,9 @@ function ShiftBadge({ shift_type, start_time, end_time }) {
         {label}
       </span>
       {start_time && end_time && (
-        <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>{fmt(start_time)} – {fmt(end_time)}</span>
+        <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>
+          {fmt(start_time)} – {fmt(end_time)}{crossesMidnight(start_time) && <span style={{ fontSize: 10, marginInlineStart: 4, color: 'var(--gray-400)' }}>{t('timesheets.nextDay')}</span>}
+        </span>
       )}
     </div>
   );
@@ -169,7 +179,7 @@ function AssignScheduleModal({ employees, onClose, onAssigned, preselectedEmploy
 
         <div className="form-group">
           <label>{t('timesheets.notes')}</label>
-          <input className="form-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder={t('timesheets.optionalNote')} />
+          <textarea className="form-input" rows={3} value={notes} onChange={e => setNotes(e.target.value)} placeholder={t('timesheets.optionalNote')} style={{ resize: 'vertical' }} />
         </div>
 
         <div className="form-actions">
@@ -187,11 +197,12 @@ function ScheduleHistoryModal({ employee, onClose }) {
   const { t } = useTranslation();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
     getScheduleHistory(employee.name)
       .then(setHistory)
-      .catch(() => setHistory([]))
+      .catch(() => setLoadError(t('errors.failedLoad')))
       .finally(() => setLoading(false));
   }, [employee.name]);
 
@@ -199,6 +210,8 @@ function ScheduleHistoryModal({ employee, onClose }) {
     <Modal title={`${t('timesheets.scheduleHistoryTitle')} — ${employee.employee_name}`} onClose={onClose} size="lg">
       {loading ? (
         <div style={{ padding: 16 }}><Skeleton height={14} /><Skeleton height={14} style={{ marginTop: 8 }} /></div>
+      ) : loadError ? (
+        <p className="text-muted" style={{ padding: 16, color: '#c62828' }}>{loadError}</p>
       ) : history.length === 0 ? (
         <p className="text-muted" style={{ padding: 16 }}>{t('timesheets.noEntries')}</p>
       ) : (
@@ -242,6 +255,7 @@ export default function Timesheets() {
   const [employees, setEmployees]     = useState([]);
   const [schedules, setSchedules]     = useState([]);
   const [loading, setLoading]         = useState(true);
+  const [loadError, setLoadError]     = useState(null);
   const [showAssign, setShowAssign]   = useState(false);
   const [editTarget, setEditTarget]   = useState(null);
   const [historyTarget, setHistoryTarget] = useState(null);
@@ -249,6 +263,7 @@ export default function Timesheets() {
   const load = useCallback(async () => {
     if (!employee) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const myS = await getMySchedule(employee.name);
       setMySchedule(myS);
@@ -260,7 +275,7 @@ export default function Timesheets() {
         setSchedules(sched);
       }
     } catch (e) {
-      addToast(e.message || t('timesheets.failedLoadSchedules'), 'error');
+      setLoadError(e.message || t('timesheets.failedLoadSchedules'));
     } finally {
       setLoading(false);
     }
@@ -283,6 +298,8 @@ export default function Timesheets() {
           </button>
         )}
       </div>
+
+      {loadError && <ErrorState message={loadError} onRetry={load} />}
 
       {/* My Schedule Card */}
       <div className="card" style={{ marginBottom: 24 }}>

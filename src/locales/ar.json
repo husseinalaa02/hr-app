@@ -32,7 +32,9 @@
     "type": "النوع",
     "from": "من",
     "to": "إلى",
-    "actions": "الإجراءات"
+    "actions": "الإجراءات",
+    "printNotSupported": "الطباعة غير مدعومة على هذا الجهاز.",
+    "confirmReject": "هل أنت متأكد أنك تريد رفض هذا الطلب؟"
   },
   "nav": {
     "dashboard": "لوحة التحكم",
@@ -75,6 +77,12 @@
     "invalidCredentials": "بيانات غير صحيحة. يرجى المحاولة مرة أخرى.",
     "demoMode": "وضع تجريبي",
     "demoNote": "أي كلمة مرور تعمل"
+  },
+  "auth": {
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "resetPassword": "إعادة تعيين كلمة المرور",
+    "resetEmailSent": "إذا كان هذا البريد مرتبطاً بحساب، ستصلك رابط الإعادة قريباً.",
+    "resetEmailPlaceholder": "your@email.com"
   },
   "dashboard": {
     "goodMorning": "صباح الخير",
@@ -163,6 +171,7 @@
     "newRequest": "+ طلب جديد",
     "fullDay": "📅 يوم كامل / متعدد الأيام",
     "hourly": "⏱ ساعي",
+    "hourlyTag": "ساعي",
     "leaveType": "نوع الإجازة",
     "selectLeaveType": "اختر نوع الإجازة",
     "daysLeft": "أيام متبقية",
@@ -195,6 +204,7 @@
     "rejectedSuccess": "تم رفض الإجازة",
     "accrued": "(مستحق {{allocated}}/{{max}} للسنة)",
     "monthlyQuota": "(حصة شهرية)",
+    "monthlyQuotaLabel": "حصة شهرية",
     "annualLeave": "إجازة سنوية",
     "sickLeave": "إجازة مرضية",
     "casualLeave": "إجازة عارضة",
@@ -315,7 +325,15 @@
     "confirmPay": "هل تريد تحديد راتب {{name}} البالغ {{amount}} كمدفوع؟\n\nلا يمكن التراجع عن هذا الإجراء.",
     "paySuccess": "تم تحديد راتب {{name}} كمدفوع",
     "onlyDraftDelete": "يمكن حذف السجلات المسودة فقط",
-    "deleteSuccess": "تم الحذف"
+    "confirmDelete": "حذف سجل الرواتب لـ {{name}}؟ لا يمكن التراجع عن هذا الإجراء.",
+    "deleteSuccess": "تم الحذف",
+    "baseSalaryRequired": "يجب أن يكون الراتب الأساسي أكبر من صفر.",
+    "dateOrderError": "يجب أن يكون تاريخ البداية قبل تاريخ النهاية.",
+    "logIcon": {
+      "draft": "مسودة",
+      "submitted": "مُقدَّم",
+      "paid": "مدفوع"
+    }
   },
   "payslips": {
     "title": "قسائم راتبي",
@@ -335,7 +353,8 @@
     "payslipNo": "رقم القسيمة",
     "payslipTitle": "قسيمة الراتب",
     "component": "البند",
-    "allAmountsIQD": "جميع المبالغ بالدينار العراقي (IQD)"
+    "allAmountsIQD": "جميع المبالغ بالدينار العراقي (IQD)",
+    "employeeId": "رقم الموظف"
   },
   "timesheets": {
     "title": "جداول الوقت",
@@ -381,7 +400,8 @@
     "enterStartTime": "أدخل وقت البداية للمناوبة المخصصة",
     "morningShift": "مناوبة الصباح",
     "eveningShift": "مناوبة المساء",
-    "customShift": "مناوبة مخصصة"
+    "customShift": "مناوبة مخصصة",
+    "nextDay": "+1"
   },
   "recruitment": {
     "title": "التوظيف",
@@ -417,6 +437,8 @@
     "target": "الهدف:",
     "movedToStage": "تم النقل إلى {{stage}}",
     "removeConfirm": "إزالة {{name}}؟",
+    "selectJobFirst": "اختر وظيفة من تبويب الوظائف لعرض مرشحيها.",
+    "confirmDeleteCandidate": "إزالة المرشح {{name}}؟",
     "addCandidateTitle": "إضافة مرشح",
     "jobCreated": "تم إنشاء الوظيفة",
     "candidateAdded": "تم إضافة المرشح",
@@ -501,7 +523,8 @@
     "deleteTemplateConfirm": "حذف هذا النموذج؟ التقييمات الموجودة التي تستخدمه لن تتأثر.",
     "templateSaved": "تم حفظ النموذج",
     "templateDeleted": "تم حذف النموذج",
-    "atLeastOneQuestion": "أضف سؤالاً واحداً على الأقل"
+    "atLeastOneQuestion": "أضف سؤالاً واحداً على الأقل",
+    "sharedCommentHint": "سيتم دمج ردك مع أي تعليقات أخرى."
   },
   "dayRequests": {
     "title": "طلبات اليوم",
@@ -537,7 +560,15 @@
     "reason": "السبب",
     "status": "الحالة",
     "submitRequest": "تقديم الطلب",
-    "failedLoad": "فشل تحميل الطلبات"
+    "failedLoad": "فشل تحميل الطلبات",
+    "myRequests": "طلباتي",
+    "pendingApproval": "بانتظار الموافقة",
+    "dailyRate": "ثابت: 25,000 دينار",
+    "baseRate": "الراتب الأساسي ÷ 30",
+    "types": {
+      "friday_day": "يوم الجمعة",
+      "extra_day": "يوم إضافي"
+    }
   },
   "reports": {
     "title": "التقارير",
@@ -567,7 +598,9 @@
     "appraisalBreakdown": "تفصيل حالات التقييم",
     "score": "الدرجة",
     "pendingExpenses": "المصروفات المعلقة",
-    "failedLoad": "فشل تحميل بيانات التقرير"
+    "failedLoad": "فشل تحميل بيانات التقرير",
+    "year": "السنة",
+    "totalPaid": "إجمالي المدفوع"
   },
   "audit": {
     "title": "سجل المراجعة",
@@ -647,6 +680,8 @@
     "roleDeleted": "تم حذف الدور",
     "failedDeleteRole": "فشل حذف الدور",
     "failedUpdateRole": "فشل تحديث الدور",
+    "confirmRoleChange": "تغيير دور {{name}} إلى \"{{role}}\"؟",
+    "roleNameDuplicate": "يوجد دور بهذا الاسم بالفعل.",
     "permissionsSaved": "تم حفظ الصلاحيات",
     "failedSavePerms": "فشل الحفظ",
     "confirmDeleteRole": "حذف الدور \"{{label}}\"؟ سيصبح الموظفون بهذا الدور \"موظف\".",

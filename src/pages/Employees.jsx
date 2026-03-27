@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEmployees, getDepartments, createEmployee, addDepartment, deleteDepartment } from '../api/employees';
 import { useAuth } from '../context/AuthContext';
@@ -314,22 +314,26 @@ export default function Employees() {
   const [showCreate, setShowCreate] = useState(false);
   const [showDepts, setShowDepts]   = useState(false);
 
+  const departmentsRef = useRef(departments);
+  useEffect(() => { departmentsRef.current = departments; }, [departments]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      const deps = departmentsRef.current;
       const [emps, depts] = await Promise.all([
         getEmployees({ search, department }),
-        departments.length ? Promise.resolve(departments) : getDepartments(),
+        deps.length ? Promise.resolve(deps) : getDepartments(),
       ]);
       setEmployees(emps);
-      if (!departments.length) setDepartments(depts);
+      if (!deps.length) setDepartments(depts);
     } catch (e) {
       setError(e.message || t('errors.failedLoad'));
     } finally {
       setLoading(false);
     }
-  }, [search, department]);
+  }, [search, department, t]);
 
   useEffect(() => {
     const timer = setTimeout(load, 300);

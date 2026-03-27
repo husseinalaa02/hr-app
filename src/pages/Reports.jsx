@@ -20,13 +20,14 @@ export default function Reports() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  const [year, setYear] = useState(() => new Date().getFullYear());
 
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    setData(null);
     try {
-      const currentYear = new Date().getFullYear();
-      const { employees, leaves, payroll, appraisals, expenses } = await getReportData({ year: currentYear });
+      const { employees, leaves, payroll, appraisals, expenses } = await getReportData({ year });
 
       const deptMap = {};
       employees.forEach(e => { deptMap[e.department] = (deptMap[e.department] || 0) + 1; });
@@ -57,13 +58,11 @@ export default function Reports() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, year]);
 
   useEffect(() => { load(); }, [load]);
 
-  if (loading) return <div className="page-content"><div className="loading-center"><span className="spinner" /></div></div>;
   if (loadError) return <div className="page-content"><ErrorState message={loadError} onRetry={load} /></div>;
-  if (!data) return null;
 
   return (
     <div className="page-content">
@@ -72,17 +71,44 @@ export default function Reports() {
           <h1 className="page-title">{t('reports.title')}</h1>
           <p className="page-subtitle">{t('reports.subtitle')}</p>
         </div>
+        <div className="page-header-actions">
+          <label className="filter-label" htmlFor="report-year">{t('reports.year')}</label>
+          <select
+            id="report-year"
+            className="form-input"
+            style={{ width: 'auto' }}
+            value={year}
+            onChange={e => setYear(Number(e.target.value))}
+          >
+            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {loading && (
+        <div className="stats-row" style={{ marginBottom: 16 }}>
+          {[1,2,3,4].map(i => <div key={i} className="stat-card"><Skeleton height={28} width="60%" /><Skeleton height={12} width="40%" style={{ marginTop: 8 }} /></div>)}
+        </div>
+      )}
+
       <div className="page-toolbar">
         <div className="tab-group">
           <button className={`tab-btn${tab === 'overview' ? ' active' : ''}`} onClick={() => setTab('overview')}>{t('reports.headcount')}</button>
           <button className={`tab-btn${tab === 'leave' ? ' active' : ''}`} onClick={() => setTab('leave')}>{t('reports.leave')}</button>
           <button className={`tab-btn${tab === 'payroll' ? ' active' : ''}`} onClick={() => setTab('payroll')}>{t('reports.payroll')}</button>
-          <button className={`tab-btn${tab === 'appraisals' ? ' active' : ''}`} onClick={() => setTab('appraisals')}>{t('reports.attendance')}</button>
+          <button className={`tab-btn${tab === 'appraisals' ? ' active' : ''}`} onClick={() => setTab('appraisals')}>{t('reports.appraisals')}</button>
         </div>
       </div>
 
-      {tab === 'overview' && (
+      {loading && data === null && (
+        <div className="stats-row" style={{ marginTop: 16 }}>
+          {[1,2,3,4].map(i => <div key={i} className="stat-card"><Skeleton height={28} width="60%" /><Skeleton height={12} width="40%" style={{ marginTop: 8 }} /></div>)}
+        </div>
+      )}
+
+      {tab === 'overview' && data && (
         <>
           <div className="stats-row">
             <StatCard label={t('reports.headcount')} value={data.employees.length} color="#1565c0" />
@@ -106,7 +132,7 @@ export default function Reports() {
         </>
       )}
 
-      {tab === 'leave' && (
+      {tab === 'leave' && data && (
         <>
           <div className="stats-row">
             <StatCard label={t('reports.totalApplications')} value={data.leaves.length} color="#1565c0" />
@@ -130,13 +156,14 @@ export default function Reports() {
         </>
       )}
 
-      {tab === 'payroll' && (
+      {tab === 'payroll' && data && (
         <>
           <div className="stats-row">
             <StatCard label={t('reports.totalRecords')} value={data.payroll.length} color="#1565c0" />
             <StatCard label={t('reports.draft')} value={data.payroll.filter(r => r.status === 'Draft').length} color="#9e9e9e" />
             <StatCard label={t('reports.submitted')} value={data.payroll.filter(r => r.status === 'Submitted').length} color="#ef6c00" />
             <StatCard label={t('reports.paid')} value={data.payroll.filter(r => r.status === 'Paid').length} color="#2e7d32" />
+            <StatCard label={t('reports.totalPaid')} value={(data.paidTotal / 1_000_000).toFixed(2) + 'M IQD'} color="#2e7d32" />
           </div>
           <div className="card" style={{ marginTop: 16 }}>
             <div className="card-header"><h3>{t('reports.payroll')}</h3></div>
@@ -159,7 +186,7 @@ export default function Reports() {
         </>
       )}
 
-      {tab === 'appraisals' && (
+      {tab === 'appraisals' && data && (
         <>
           <div className="stats-row">
             <StatCard label={t('reports.totalAppraisals')} value={data.appraisals.length} color="#1565c0" />

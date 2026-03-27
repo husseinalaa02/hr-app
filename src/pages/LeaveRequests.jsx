@@ -23,7 +23,7 @@ function BalanceBar({ label, remaining, allocated, unit, color, annualMax, month
   const { t } = useTranslation();
   const pct = allocated > 0 ? Math.max(0, (remaining / allocated) * 100) : 0;
   const subLabel = monthly
-    ? `(${t('leave.monthlyQuota').replace(/[()]/g, '')})`
+    ? t('leave.monthlyQuotaLabel')
     : annualMax && allocated < annualMax
       ? t('leave.accrued', { allocated, max: annualMax })
       : null;
@@ -32,7 +32,7 @@ function BalanceBar({ label, remaining, allocated, unit, color, annualMax, month
       <div className="balance-bar-header">
         <span className="balance-bar-label">
           {label}
-          {subLabel && <span style={{ fontSize: 10, color: 'var(--gray-400)', marginLeft: 5 }}>{subLabel}</span>}
+          {subLabel && <span style={{ fontSize: 10, color: 'var(--gray-400)', marginInlineStart: 5 }}>{subLabel}</span>}
         </span>
         <span className="balance-bar-value" style={{ color }}>
           <strong>{typeof remaining === 'number' ? remaining.toFixed(remaining % 1 ? 1 : 0) : remaining}</strong> / {allocated} {unit} {t('leave.daysLeft')}
@@ -99,14 +99,14 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
         <button
           type="button"
           className={`mode-btn ${!isHourly ? 'active' : ''}`}
-          onClick={() => setIsHourly(false)}
+          onClick={() => { setIsHourly(false); setForm(f => ({ ...f, from_date: '', to_date: '', from_time: '09:00', to_time: '10:00' })); }}
         >
           {t('leave.fullDay')}
         </button>
         <button
           type="button"
           className={`mode-btn ${isHourly ? 'active' : ''}`}
-          onClick={() => setIsHourly(true)}
+          onClick={() => { setIsHourly(true); setForm(f => ({ ...f, from_date: '', to_date: '', from_time: '09:00', to_time: '10:00' })); }}
         >
           {t('leave.hourly')}
         </button>
@@ -215,10 +215,11 @@ export default function LeaveRequests() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [actionId, setActionId] = useState(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     if (!employee) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const [my, types, bal] = await Promise.all([
@@ -238,7 +239,7 @@ export default function LeaveRequests() {
     } finally {
       setLoading(false);
     }
-  }, [employee?.name, isAdmin]);
+  }, [employee?.name, isAdmin, isHR]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -249,13 +250,17 @@ export default function LeaveRequests() {
   };
 
   const handleAction = async (leaveApp, action) => {
+    if (action === 'Rejected' && !window.confirm(t('common.confirmReject'))) return;
+    setActionId(leaveApp.name);
     try {
       const actorRole = isHR && leaveApp.approval_stage === 'Pending HR' ? 'hr' : 'manager';
       await updateLeaveStatus(leaveApp.name, action, actorRole);
       addToast(action === 'Approved' ? t('leave.approvedSuccess') : t('leave.rejectedSuccess'), 'success');
-      load();
+      load(true);
     } catch (err) {
       addToast(err.message || t('errors.actionFailed'), 'error');
+    } finally {
+      setActionId(null);
     }
   };
 
@@ -344,7 +349,7 @@ export default function LeaveRequests() {
             l.status === 'Rejected' ? '#c62828' :
             BALANCE_COLORS[l.leave_type] || '#ef6c00';
           return (
-            <div key={l.name} className="leave-item-card" style={{ borderLeft: `4px solid ${accentColor}` }}>
+            <div key={l.name} className="leave-item-card" style={{ borderInlineStart: `4px solid ${accentColor}` }}>
               <div className="leave-item-top">
                 <div className="leave-item-info">
                   {(tab === 'pending' || tab === 'approved') && (
@@ -358,7 +363,7 @@ export default function LeaveRequests() {
                   )}
                   <div className="leave-item-type">
                     {l.leave_type}
-                    {isHourlyLeave && <span className="hourly-tag">{t('leave.hourly').replace('⏱ ', '')}</span>}
+                    {isHourlyLeave && <span className="hourly-tag">{t('leave.hourlyTag')}</span>}
                   </div>
                   <div className="leave-item-dates">
                     {l.from_date}
@@ -383,10 +388,10 @@ export default function LeaveRequests() {
                   (stage === 'Pending Manager' && isAdmin);
                 return canActNow ? (
                   <div className="leave-item-actions">
-                    <button className="btn btn-sm btn-success" onClick={() => handleAction(l, 'Approved')}>
-                      {t('leave.approve')}
+                    <button className="btn btn-sm btn-success" onClick={() => handleAction(l, 'Approved')} disabled={actionId === l.name}>
+                      {actionId === l.name ? <span className="spinner-sm" /> : t('leave.approve')}
                     </button>
-                    <button className="btn btn-sm btn-danger" onClick={() => handleAction(l, 'Rejected')}>
+                    <button className="btn btn-sm btn-danger" onClick={() => handleAction(l, 'Rejected')} disabled={actionId === l.name}>
                       {t('leave.reject')}
                     </button>
                   </div>

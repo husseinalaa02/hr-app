@@ -13,6 +13,7 @@ import { SUPABASE_MODE } from '../db/supabase';
 import Modal from '../components/Modal';
 import { Skeleton } from '../components/Skeleton';
 import Badge from '../components/Badge';
+import ErrorState from '../components/ErrorState';
 
 const STATUS_COLOR = {
   'Not Started': '#9e9e9e',
@@ -58,13 +59,9 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
     getAppraisalTemplates().then(templates => {
       const tmpl = templates.find(tmpl => tmpl.id === appraisal.template_id);
       setTemplateData(tmpl || null);
-      // Seed comment map with existing answers keyed by question id
-      if (tmpl?.questions) {
-        const textQs = tmpl.questions.filter(q => q.type === 'text');
-        if (textQs.length > 0) {
-          setComments(Object.fromEntries(textQs.map(q => [q.id, existingComment])));
-        }
-      }
+      // existingComment is stored as a single string — keep it in _default only.
+      // Do NOT spread it across per-question keys; that would duplicate the same
+      // text into every textarea and concatenate them again on save.
     });
   }, [appraisal.template_id]);
 
@@ -123,10 +120,14 @@ function AssessmentModal({ appraisal, role, onClose, onSave }) {
           {textQuestions.map(q => (
             <div key={q.id} className="form-group">
               <label>{q.text}</label>
-              <textarea className="form-input" rows={3} value={comments[q.id] || ''}
-                onChange={e => setComments(c => ({ ...c, [q.id]: e.target.value }))} />
+              <p className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>{t('appraisals.sharedCommentHint')}</p>
             </div>
           ))}
+          {/* Single textarea — comments are stored as one string; per-question split is not supported */}
+          <div className="form-group">
+            <textarea className="form-input" rows={4} value={comments._default || ''}
+              onChange={e => setComments(c => ({ ...c, _default: e.target.value }))} />
+          </div>
         </div>
       )}
 
@@ -157,13 +158,17 @@ function CreateAppraisalModal({ onClose, onCreated }) {
   const { addToast } = useToast();
   const [templates, setTemplates] = useState([]);
   const [employees, setEmployees] = useState([]);
-  const [form, setForm] = useState({ template_id: '', employee_id: '', period: 'Q1 2026' });
+  const [form, setForm] = useState(() => {
+    const now = new Date();
+    const quarter = Math.ceil((now.getMonth() + 1) / 3);
+    return { template_id: '', employee_id: '', period: `Q${quarter} ${now.getFullYear()}` };
+  });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    Promise.all([getAppraisalTemplates(), getEmployees()]).then(([t, e]) => {
-      setTemplates(t);
-      setEmployees(e);
+    Promise.all([getAppraisalTemplates(), getEmployees()]).then(([tmpls, emps]) => {
+      setTemplates(tmpls);
+      setEmployees(emps);
     });
   }, []);
 
@@ -314,13 +319,19 @@ function TemplateManager() {
   const { addToast } = useToast();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [editing, setEditing]   = useState(null);   // template obj or null
   const [creating, setCreating] = useState(false);
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     try { setTemplates(await getAppraisalTemplates()); }
-    catch { setTemplates([]); }
+    catch (err) {
+      setLoadError(true);
+      addToast(err.message || t('appraisals.failedLoadTemplates', { defaultValue: 'Failed to load templates' }), 'error');
+      setTemplates([]);
+    }
     finally { setLoading(false); }
   };
 
@@ -343,6 +354,7 @@ function TemplateManager() {
         </button>
       </div>
 
+      {loadError && <ErrorState message={t('appraisals.failedLoadTemplates', { defaultValue: 'Failed to load templates' })} onRetry={load} />}
       <div className="leave-card-list">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
@@ -416,28 +428,41 @@ export default function Appraisals() {
   const [tab, setTab] = useState(canManage ? 'all' : 'mine');
   const [appraisals, setAppraisals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [selected, setSelected] = useState(null);
   const [modalMode, setModalMode] = useState(null); // 'self' | 'manager' | 'view' | 'create'
+  const [viewTemplate, setViewTemplate] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const opts = {};
       if (tab === 'mine') opts.employeeId = employee.name;
       if (tab === 'review') opts.appraiserId = employee.name;
       const data = await getAppraisals(opts);
       setAppraisals(data);
-    } catch {
+    } catch (e) {
+      setLoadError(e.message || t('errors.failedLoad'));
       setAppraisals([]);
     } finally {
       setLoading(false);
     }
-  }, [tab, employee?.name]);
+  }, [tab, employee?.name, t]);
 
   useEffect(() => { load(); }, [load]);
 
-  const openModal = (appraisal, mode) => { setSelected(appraisal); setModalMode(mode); };
-  const closeModal = () => { setSelected(null); setModalMode(null); };
+  const openModal = (appraisal, mode) => {
+    setSelected(appraisal);
+    setModalMode(mode);
+    if (mode === 'view') {
+      setViewTemplate(null);
+      getAppraisalTemplates()
+        .then(templates => setViewTemplate(templates.find(tmpl => tmpl.id === appraisal.template_id) || null))
+        .catch(() => setViewTemplate(null));
+    }
+  };
+  const closeModal = () => { setSelected(null); setModalMode(null); setViewTemplate(null); };
 
   return (
     <div className="page-content">
@@ -461,7 +486,9 @@ export default function Appraisals() {
 
       {tab === 'templates' && <TemplateManager />}
 
-      <div className="leave-card-list" style={{ display: tab === 'templates' ? 'none' : undefined }}>
+      {tab !== 'templates' && loadError && <ErrorState message={loadError} onRetry={load} />}
+
+      {tab !== 'templates' && <div className="leave-card-list">
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="leave-item-card">
@@ -512,7 +539,7 @@ export default function Appraisals() {
             </div>
           );
         })}
-      </div>
+      </div>}
 
       {(modalMode === 'self' || modalMode === 'manager') && selected && (
         <Modal title={modalMode === 'self' ? t('appraisals.selfAssessment') : t('appraisals.managerReview')} onClose={closeModal}>
@@ -532,18 +559,20 @@ export default function Appraisals() {
             {selected.self_scores && (
               <div className="assessment-section">
                 <h4 className="section-label">{t('appraisals.selfScores')}</h4>
-                {Object.entries(selected.self_scores).map(([k, v]) => (
-                  <div key={k} className="score-row">Question {k}: <strong>{v}/5</strong></div>
-                ))}
+                {Object.entries(selected.self_scores).map(([k, v]) => {
+                  const qText = viewTemplate?.questions?.find(q => q.id === k)?.text || t('appraisals.question', { defaultValue: 'Question' }) + ' ' + k;
+                  return <div key={k} className="score-row">{qText}: <strong>{v}/5</strong></div>;
+                })}
                 {selected.self_comment && <div className="score-comment">"{selected.self_comment}"</div>}
               </div>
             )}
             {selected.manager_scores && (
               <div className="assessment-section">
                 <h4 className="section-label">{t('appraisals.managerScores')}</h4>
-                {Object.entries(selected.manager_scores).map(([k, v]) => (
-                  <div key={k} className="score-row">Question {k}: <strong>{v}/5</strong></div>
-                ))}
+                {Object.entries(selected.manager_scores).map(([k, v]) => {
+                  const qText = viewTemplate?.questions?.find(q => q.id === k)?.text || t('appraisals.question', { defaultValue: 'Question' }) + ' ' + k;
+                  return <div key={k} className="score-row">{qText}: <strong>{v}/5</strong></div>;
+                })}
                 {selected.manager_comment && <div className="score-comment">"{selected.manager_comment}"</div>}
               </div>
             )}
