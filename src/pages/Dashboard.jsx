@@ -13,6 +13,7 @@ import { Skeleton } from '../components/Skeleton';
 import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
 import ErrorState from '../components/ErrorState';
+import { useConfirm } from '../hooks/useConfirm';
 
 function getGreeting(t) {
   const h = parseInt(
@@ -194,6 +195,7 @@ export default function Dashboard() {
   const [loadError, setLoadError] = useState(null);
   const [showAnnModal, setShowAnnModal] = useState(false);
   const canWriteAnnouncements = hasPermission('announcements:write');
+  const { confirm, ConfirmModalComponent } = useConfirm();
 
   const role = employee?.role;
   const isManager = isAdmin || isCEO || isHR || role === 'it_manager';
@@ -204,7 +206,8 @@ export default function Dashboard() {
   };
 
   const handleDeleteAnnouncement = async (ann) => {
-    if (!window.confirm(t('dashboard.confirmDeleteAnnouncement'))) return;
+    const ok = await confirm({ message: t('dashboard.confirmDeleteAnnouncement'), danger: true });
+    if (!ok) return;
     await deleteAnnouncement(ann.name);
     setData(prev => ({ ...prev, announcements: (prev?.announcements || []).filter(a => a.name !== ann.name) }));
   };
@@ -361,7 +364,7 @@ export default function Dashboard() {
                       key={l.name}
                       icon={<div className="pending-type-icon" style={{background:'#fee2e2',color:'#dc2626'}}>{Icons.leave}</div>}
                       name={l.employee_name}
-                      detail={`${l.leave_type} · ${l.from_date}${l.to_date !== l.from_date ? ` → ${l.to_date}` : ''}`}
+                      detail={`${l.leave_type} · ${l.from_date}${l.to_date && l.to_date !== l.from_date ? ` → ${l.to_date}` : ''}`}
                       meta={`${l.total_leave_days}d`}
                       status={l.status}
                     />
@@ -550,7 +553,7 @@ export default function Dashboard() {
               myLeaves.slice(0, 5).map(l => (
                 <div key={l.name} className="my-leave-item">
                   <div className="my-leave-type">{l.leave_type}</div>
-                  <div className="my-leave-dates">{l.from_date}{l.to_date !== l.from_date ? ` → ${l.to_date}` : ''} · {l.total_leave_days}d</div>
+                  <div className="my-leave-dates">{l.from_date}{l.to_date && l.to_date !== l.from_date ? ` → ${l.to_date}` : ''} · {l.total_leave_days}d</div>
                   <Badge status={l.status} />
                 </div>
               ))
@@ -580,6 +583,7 @@ export default function Dashboard() {
 
       </div>
 
+      {ConfirmModalComponent}
     </div>
   );
 }

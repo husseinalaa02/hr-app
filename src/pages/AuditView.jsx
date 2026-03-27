@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getAuditLogs } from '../api/auditLog';
 import { usePermission } from '../rbac/usePermission';
+import { useToast } from '../context/ToastContext';
 import ErrorState from '../components/ErrorState';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -71,6 +72,10 @@ function formatTimestamp(ts) {
   }
 }
 
+function csvEscape(v) {
+  return '"' + String(v ?? '').replace(/"/g, '""') + '"';
+}
+
 function exportToCSV(logs, headers) {
   const rows = logs.map(l => [
     l.timestamp,
@@ -79,10 +84,10 @@ function exportToCSV(logs, headers) {
     l.action,
     l.resource,
     l.resource_label || '',
-    (l.details || '').replace(/,/g, ';'),
+    l.details || '',
     l.ip_address || '',
   ]);
-  const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  const csv = [headers, ...rows].map(r => r.map(v => csvEscape(v)).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -119,6 +124,7 @@ export default function AuditView() {
   ];
   const { can, role } = usePermission();
   const canExport = can('payroll:export') || role === 'admin' || role === 'ceo';
+  const { addToast } = useToast();
 
   const csvHeaders = [
     t('audit.csv.timestamp'),
@@ -148,8 +154,8 @@ export default function AuditView() {
         resource: filterResource  || undefined,
         action:   filterAction    || undefined,
         userId:   filterUser      || undefined,
-        fromDate: filterFrom      || undefined,
-        toDate:   filterTo        || undefined,
+        fromDate: filterFrom ? filterFrom + 'T00:00:00+03:00' : undefined,
+        toDate:   filterTo   ? filterTo   + 'T23:59:59+03:00' : undefined,
         limit:    200,
       });
       setLogs(result);
@@ -181,7 +187,10 @@ export default function AuditView() {
           </span>
           {canExport && (
             <button
-              onClick={() => exportToCSV(logs, csvHeaders)}
+              onClick={() => {
+                if (logs.length === 0) { addToast(t('audit.noLogsToExport'), 'error'); return; }
+                exportToCSV(logs, csvHeaders);
+              }}
               style={{
                 background: 'rgba(255,255,255,0.15)',
                 color: '#fff',
@@ -288,7 +297,7 @@ export default function AuditView() {
             {t('audit.logsFound', { count: logs.length })}
           </div>
           {logs.length === 200 && (
-            <div style={{ marginBottom: 12, padding: '8px 14px', background: '#fef3c7', color: '#92400e', borderRadius: 6, fontSize: 13 }}>
+            <div role="alert" aria-live="polite" style={{ marginBottom: 12, padding: '8px 14px', background: '#fef3c7', color: '#92400e', borderRadius: 6, fontSize: 13 }}>
               {t('audit.truncationWarning')}
             </div>
           )}

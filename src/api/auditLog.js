@@ -40,9 +40,10 @@ export async function logAction({
     resource_id:    resourceId,
     resource_label: resourceLabel,
     details:        details || (changes ? JSON.stringify(changes) : null),
-    // ip_address is intentionally omitted from the Supabase insert — it must be
-    // captured server-side from req.headers['x-forwarded-for']. TODO: route
-    // audit writes through a Vercel API function so real IPs can be stored.
+    // ip_address is intentionally omitted from the client-side insert.
+    // Real IPs must be captured server-side (req.headers['x-forwarded-for']).
+    // To implement: route audit writes through an API function (e.g. /api/audit)
+    // that reads the IP from the request and adds it before inserting to Supabase.
     ip_address:     DEMO_IP,
   };
   if (SUPABASE_MODE) {

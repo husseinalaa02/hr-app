@@ -115,7 +115,7 @@ function AssignScheduleModal({ employees, onClose, onAssigned, preselectedEmploy
 
   return (
     <Modal title={t('timesheets.assignScheduleTitle')} onClose={onClose}>
-      <form onSubmit={handle} className="form-stack">
+      <form onSubmit={handle} className="form-stack" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
         <div className="form-group">
           <label>{t('employees.employee')} *</label>
           <select className="form-input" value={empId} onChange={e => setEmpId(e.target.value)} required disabled={!!preselectedEmployee}>

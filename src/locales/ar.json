@@ -34,7 +34,8 @@
     "to": "إلى",
     "actions": "الإجراءات",
     "printNotSupported": "الطباعة غير مدعومة على هذا الجهاز.",
-    "confirmReject": "هل أنت متأكد أنك تريد رفض هذا الطلب؟"
+    "confirmReject": "هل أنت متأكد أنك تريد رفض هذا الطلب؟",
+    "confirm": "تأكيد"
   },
   "nav": {
     "dashboard": "لوحة التحكم",
@@ -86,7 +87,13 @@
     "resetFailed": "تعذّر إرسال رابط إعادة التعيين.",
     "rateLimitError": "محاولات فاشلة كثيرة. حاول مرة أخرى بعد {{minutes}} دقيقة.",
     "retryIn": "الحساب مقفل. حاول مرة أخرى بعد {{minutes}} دقيقة.",
-    "resetLinkExpired": "انتهت صلاحية رابط إعادة التعيين. يرجى طلب رابط جديد."
+    "resetLinkExpired": "انتهت صلاحية رابط إعادة التعيين. يرجى طلب رابط جديد.",
+    "setNewPasswordTitle": "تعيين كلمة مرور جديدة",
+    "newPassword": "كلمة المرور الجديدة",
+    "confirmPassword": "تأكيد كلمة المرور",
+    "passwordsDoNotMatch": "كلمتا المرور غير متطابقتين",
+    "passwordTooShort": "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل",
+    "passwordUpdated": "تم تحديث كلمة المرور — يرجى تسجيل الدخول"
   },
   "dashboard": {
     "goodMorning": "صباح الخير",
@@ -213,7 +220,8 @@
     "annualLeave": "إجازة سنوية",
     "sickLeave": "إجازة مرضية",
     "casualLeave": "إجازة عارضة",
-    "hourlyLeave": "إجازة ساعية"
+    "hourlyLeave": "إجازة ساعية",
+    "alreadyProcessed": "تمت معالجة هذا الطلب بالفعل"
   },
   "employees": {
     "title": "دليل الموظفين",
@@ -276,7 +284,8 @@
       "partTime": "دوام جزئي",
       "contract": "عقد",
       "intern": "متدرب"
-    }
+    },
+    "largeDatasetWarning": "عرض أول 1,000 موظف — استخدم المرشحات لتضييق النتائج"
   },
   "payroll": {
     "title": "الرواتب",
@@ -648,6 +657,7 @@
     "actionExport": "تصدير",
     "actionDelete": "حذف",
     "truncationWarning": "يتم عرض أحدث 200 إدخال. استخدم مرشحات التاريخ لتضييق النتائج.",
+    "noLogsToExport": "لا توجد سجلات للتصدير — استخدم المرشحات للبحث عن إدخالات أولاً",
     "csv": {
       "timestamp": "الوقت",
       "user": "المستخدم",
@@ -708,6 +718,7 @@
     "roleNameDuplicate": "يوجد دور بهذا الاسم بالفعل.",
     "permissionsSaved": "تم حفظ الصلاحيات",
     "failedSavePerms": "فشل الحفظ",
+    "partialSaveFailed": "تم حفظ الصلاحيات جزئياً — جاري إعادة التحميل",
     "confirmDeleteRole": "حذف الدور \"{{label}}\"؟ سيصبح الموظفون بهذا الدور \"موظف\".",
     "granted": "ممنوح",
     "revoked": "مسحوب",
@@ -798,7 +809,10 @@
     "failedDelete": "فشل حذف الموظف",
     "deletedSuccess": "تم حذف {{name}}",
     "selectPlaceholder": "— اختر —",
-    "clickToChangePhoto": "انقر لتغيير الصورة"
+    "clickToChangePhoto": "انقر لتغيير الصورة",
+    "fileTooLarge": "يجب أن يكون حجم الصورة أقل من 2 ميغابايت",
+    "invalidFileType": "يرجى اختيار صورة JPEG أو PNG أو WebP",
+    "uploadFailed": "فشل رفع الصورة"
   },
   "errors": {
     "failedLoad": "فشل تحميل البيانات",
@@ -812,7 +826,8 @@
   "notifications": {
     "title": "الإشعارات",
     "markAllRead": "تحديد الكل كمقروء",
-    "empty": "لا توجد إشعارات"
+    "empty": "لا توجد إشعارات",
+    "mayNoLongerExist": "قد لا يكون هذا المورد موجوداً بعد الآن"
   },
   "status": {
     "Open": "مفتوح",

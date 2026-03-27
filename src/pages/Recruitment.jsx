@@ -6,6 +6,7 @@ import { getJobs, createJob, updateJob, getCandidates, addCandidate, moveStage, 
 import Modal from '../components/Modal';
 import { Skeleton } from '../components/Skeleton';
 import ErrorState from '../components/ErrorState';
+import { useConfirm } from '../hooks/useConfirm';
 
 const STAGE_COLORS = {
   Application: '#607d8b',
@@ -21,6 +22,7 @@ export default function Recruitment() {
   const { hasPermission } = useAuth();
   const canManage = hasPermission('recruitment:manage');
   const { addToast } = useToast();
+  const { confirm, ConfirmModalComponent } = useConfirm();
   const [tab, setTab] = useState('jobs');
   const [jobs, setJobs] = useState([]);
   const [candidates, setCandidates] = useState([]);
@@ -85,7 +87,8 @@ export default function Recruitment() {
 
   const handleDeleteJob = async (e, job) => {
     e.stopPropagation();
-    if (!window.confirm(t('recruitment.deleteJobConfirm', { title: job.job_title }))) return;
+    const ok = await confirm({ message: t('recruitment.deleteJobConfirm', { title: job.job_title }), danger: true });
+    if (!ok) return;
     setDeletingId(job.id);
     try {
       await deleteJob(job.id);
@@ -96,14 +99,17 @@ export default function Recruitment() {
   };
 
   const handleDelete = async (cand) => {
-    if (!window.confirm(t('recruitment.confirmDeleteCandidate', { name: cand.name }))) return;
+    const ok = await confirm({ message: t('recruitment.confirmDeleteCandidate', { name: cand.name }), danger: true });
+    if (!ok) return;
     try {
       await deleteCandidate(cand.id);
       loadCandidates(selectedJob?.id);
     } catch (e) { addToast(e.message, 'error'); }
   };
 
-  const visibleCandidates = stageFilter ? candidates.filter(c => c.stage === stageFilter) : candidates;
+  const visibleCandidates = stageFilter
+    ? candidates.filter(c => (c.stage ?? 'Application') === stageFilter)
+    : candidates;
 
   return (
     <div className="page-content">
@@ -136,7 +142,10 @@ export default function Recruitment() {
           {!jobsError && loading ? (
             Array.from({ length: 3 }).map((_, i) => <div key={i} className="leave-item-card"><Skeleton height={14} width="60%" /><Skeleton height={12} width="40%" style={{ marginTop: 8 }} /></div>)
           ) : !jobsError && jobs.length === 0 ? (
-            <div className="card"><p className="text-center text-muted" style={{ padding: '32px 16px' }}>{t('recruitment.noJobs')}</p></div>
+            <div className="card" style={{ padding: '32px 16px', textAlign: 'center' }}>
+              <p className="text-muted">{t('recruitment.noJobs')}</p>
+              {canManage && <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => setShowJobModal(true)}>{t('recruitment.newJob')}</button>}
+            </div>
           ) : !jobsError && jobs.map(j => (
             <div key={j.id} className="leave-item-card" style={{ cursor: 'pointer' }} onClick={() => handleJobClick(j)}>
               <div className="leave-item-top">
@@ -184,13 +193,15 @@ export default function Recruitment() {
           )}
           {selectedJob && (
             <>
-              <div className="tab-group" style={{ marginBottom: 12, flexWrap: 'wrap', gap: 6 }}>
-                <button className={`tab-btn${!stageFilter ? ' active' : ''}`} onClick={() => setStageFilter('')}>{t('recruitment.all')}</button>
-                {STAGES.map(s => (
-                  <button key={s} className={`tab-btn${stageFilter === s ? ' active' : ''}`} onClick={() => setStageFilter(s)} style={{ fontSize: 12 }}>
-                    {s}
-                  </button>
-                ))}
+              <div style={{ position: 'relative' }}>
+                <div className="tab-group" style={{ marginBottom: 4, overflowX: 'auto', flexWrap: 'nowrap', gap: 6, paddingBottom: 4 }}>
+                  <button className={`tab-btn${!stageFilter ? ' active' : ''}`} onClick={() => setStageFilter('')}>{t('recruitment.all')}</button>
+                  {STAGES.map(s => (
+                    <button key={s} className={`tab-btn${stageFilter === s ? ' active' : ''}`} onClick={() => setStageFilter(s)} style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="leave-card-list">
                 {loading ? (
@@ -241,6 +252,7 @@ export default function Recruitment() {
           <CandidateForm jobId={selectedJob.id} onClose={() => setShowCandModal(false)} onCreated={() => loadCandidates(selectedJob.id)} />
         </Modal>
       )}
+      {ConfirmModalComponent}
     </div>
   );
 }

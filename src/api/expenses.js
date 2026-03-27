@@ -17,10 +17,10 @@ function validateAmount(amount) {
 
 export async function getExpenses({ employeeId = '', status = '' } = {}) {
   if (SUPABASE_MODE) {
-    let query = supabase.from('expenses').select('*');
+    let query = supabase.from('expenses').select('id, employee_id, employee_name, expense_type, amount, expense_date, description, status, approved_by, approved_at, created_at');
     if (employeeId) query = query.eq('employee_id', employeeId);
     if (status) query = query.eq('status', status);
-    const { data, error } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query.order('created_at', { ascending: false }).limit(500);
     if (error) return [];
     return data || [];
   }
@@ -109,6 +109,9 @@ export async function approveExpense(id, approverName) {
 
 export async function rejectExpense(id) {
   if (SUPABASE_MODE) {
+    const { data: existing } = await supabase.from('expenses').select('status').eq('id', id).single();
+    if (!existing) throw new Error('Expense not found');
+    if (existing.status !== 'Submitted') throw new Error('Only submitted expenses can be rejected');
     const { data: updated, error } = await supabase.from('expenses').update({ status: 'Rejected' }).eq('id', id).select().single();
     if (error) throw error;
     if (updated?.employee_id) {
@@ -124,6 +127,7 @@ export async function rejectExpense(id) {
   if (DEMO) {
     const rec = await db.expenses.get(Number(id));
     if (!rec) throw new Error('Expense not found');
+    if (rec.status !== 'Submitted') throw new Error('Only submitted expenses can be rejected');
     const updated = { ...rec, status: 'Rejected' };
     await db.expenses.put(updated);
     return updated;

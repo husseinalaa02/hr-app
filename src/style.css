@@ -295,7 +295,7 @@ body {
 .topbar-user { font-size: 13px; color: var(--gray-500); font-weight: 600; }
 
 /* ===== APP LOADING ===== */
-.app-loading { display: flex; align-items: center; justify-content: center; height: 100vh; }
+.app-loading { display: flex; align-items: center; justify-content: center; height: 100vh; height: 100dvh; }
 
 /* ===== NETWORK BANNER ===== */
 .net-banner {
@@ -2686,6 +2686,8 @@ body {
   padding-left: 0;
   padding-right: 12px;
 }
+
+[dir="rtl"] .ann-card:hover { transform: translateX(-2px); }
 
 [dir="rtl"] .ann-card-bar {
   order: 1;

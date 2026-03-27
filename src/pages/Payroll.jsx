@@ -10,6 +10,7 @@ import {
 import { getEmployees } from '../api/employees';
 import { formatIQD } from '../utils/format';
 import ErrorState from '../components/ErrorState';
+import { useConfirm } from '../hooks/useConfirm';
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_CFG = {
@@ -59,6 +60,7 @@ export default function Payroll() {
   const { t } = useTranslation();
   const { employee, isAdmin, isHR, isFinance, isAudit } = useAuth();
   const { addToast } = useToast();
+  const { confirm, ConfirmModalComponent } = useConfirm();
 
   const canCreate = (isAdmin || isHR) && !isAudit;
   const canPay    = isFinance || isAdmin;
@@ -160,9 +162,8 @@ export default function Payroll() {
   };
 
   const handlePay = async (r) => {
-    if (!window.confirm(
-      t('payroll.confirmPay', { name: r.employee_name, amount: formatIQD(r.calculated_salary) })
-    )) return;
+    const ok = await confirm({ message: t('payroll.confirmPay', { name: r.employee_name, amount: formatIQD(r.calculated_salary) }) });
+    if (!ok) return;
     setActionId(r.id);
     try {
       await markAsPaid(r.id, employee);
@@ -175,7 +176,8 @@ export default function Payroll() {
 
   const handleDelete = async (r) => {
     if (r.status !== 'Draft') { addToast(t('payroll.onlyDraftDelete'), 'error'); return; }
-    if (!window.confirm(t('payroll.confirmDelete', { name: r.employee_name }))) return;
+    const ok2 = await confirm({ message: t('payroll.confirmDelete', { name: r.employee_name }), danger: true });
+    if (!ok2) return;
     setActionId(r.id);
     try {
       await deletePayroll(r.id);
@@ -282,7 +284,10 @@ export default function Payroll() {
       {loading ? (
         <div className="loading-center"><span className="spinner" /></div>
       ) : filtered.length === 0 ? (
-        <div className="empty-state"><p>{t('payroll.noRecords')}</p></div>
+        <div className="empty-state">
+          <p>{t('payroll.noRecords')}</p>
+          {canCreate && <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => setShowCreate(true)}>{t('payroll.newPayroll')}</button>}
+        </div>
       ) : (
         <div className="table-wrap">
           <table className="data-table">
@@ -494,6 +499,7 @@ export default function Payroll() {
           </div>
         </div>
       )}
+      {ConfirmModalComponent}
     </div>
   );
 }

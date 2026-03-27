@@ -222,7 +222,19 @@ export default function EmployeeDetail() {
   const handlePhotoChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!ALLOWED.includes(file.type)) {
+      addToast(t('employeeDetail.invalidFileType'), 'error');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      addToast(t('employeeDetail.fileTooLarge'), 'error');
+      e.target.value = '';
+      return;
+    }
     const reader = new FileReader();
+    reader.onerror = () => addToast(t('employeeDetail.uploadFailed'), 'error');
     reader.onload = (ev) => handleChange('image', ev.target.result);
     reader.readAsDataURL(file);
   };
@@ -278,7 +290,7 @@ export default function EmployeeDetail() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 style={{ display: 'none' }}
                 onChange={handlePhotoChange}
               />

@@ -76,6 +76,7 @@ export default function BottomNav() {
         <button
           className={`bnav-item bnav-item-btn${profileActive ? ' active' : ''}`}
           onClick={() => profilePath && navigate(profilePath)}
+          aria-label={t('nav.myProfile')}
         >
           <span className="bnav-icon-wrap" aria-hidden="true">
             <span className="bnav-icon bnav-avatar">

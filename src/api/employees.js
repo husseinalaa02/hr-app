@@ -14,7 +14,7 @@ const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 export async function getEmployees({ search = '', department = '' } = {}) {
   const all = await cached('employees:all', async () => {
     if (SUPABASE_MODE) {
-      const { data, error } = await supabase.from('employees_public').select('*').order('employee_name');
+      const { data, error } = await supabase.from('employees_public').select('name, employee_name, department, designation, employment_type, date_of_joining, branch, gender, cell_number, image, company, reports_to, employee_type, role').order('employee_name').limit(1000);
       if (error) throw error;
       return data || [];
     }
@@ -48,7 +48,7 @@ export async function getEmployee(id) {
 
 export async function getDirectReports(managerId) {
   if (SUPABASE_MODE) {
-    const { data, error } = await supabase.from('employees_public').select('*').eq('reports_to', managerId);
+    const { data, error } = await supabase.from('employees_public').select('name, employee_name, department, designation, image, reports_to, role').eq('reports_to', managerId);
     if (error) return [];
     return data || [];
   }

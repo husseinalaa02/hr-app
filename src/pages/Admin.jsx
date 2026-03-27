@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useConfirm } from '../hooks/useConfirm';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getAllEmployeesWithOverrides, savePermissionOverrides, getCustomRoles, createCustomRole, updateCustomRole, deleteCustomRole } from '../api/admin';
@@ -182,6 +183,7 @@ export default function Admin() {
   const { t } = useTranslation();
   const { employee: me, getAccessToken } = useAuth();
   const { addToast } = useToast();
+  const { confirm, ConfirmModalComponent } = useConfirm();
   const [tab, setTab] = useState('roles');
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -240,7 +242,8 @@ export default function Admin() {
   };
 
   const handleDeleteCustomRole = async (role) => {
-    if (!window.confirm(t('admin.confirmDeleteRole', { label: role.label }))) return;
+    const ok = await confirm({ message: t('admin.confirmDeleteRole', { label: role.label }), danger: true });
+    if (!ok) return;
     try {
       await deleteCustomRole(role.id);
       addToast(t('admin.roleDeleted'), 'success');
@@ -274,7 +277,8 @@ export default function Admin() {
     const newRole = roleEdits[emp.name];
     if (!newRole || newRole === emp.role) return;
     const newRoleLabel = t(`roles.${newRole}`, { defaultValue: customRoles.find(r => r.name === newRole)?.label || newRole });
-    if (!window.confirm(t('admin.confirmRoleChange', { name: emp.employee_name, role: newRoleLabel }))) return;
+    const ok = await confirm({ message: t('admin.confirmRoleChange', { name: emp.employee_name, role: newRoleLabel }) });
+    if (!ok) return;
     setSavingRole(p => ({ ...p, [emp.name]: true }));
     try {
       // 1. Update the employees table (bypasses EMPLOYEE_ALLOWED_FIELDS whitelist — role is intentionally excluded from it)
@@ -331,7 +335,11 @@ export default function Admin() {
         e.name === selectedEmpObj.name ? { ...e, overrides: { ...pendingOverrides } } : e
       ));
       addToast(t('admin.permissionsSaved'), 'success');
-    } catch { addToast(t('admin.failedSavePerms'), 'error'); }
+    } catch (err) {
+      // If the operation partially succeeded, reload to restore a consistent state
+      addToast(t('admin.partialSaveFailed'), 'error');
+      try { await load(); } catch { /* silent */ }
+    }
     finally { setSavingPerms(false); }
   };
 
@@ -703,6 +711,7 @@ export default function Admin() {
           </div>
         )}
       </div>
+      {ConfirmModalComponent}
     </div>
   );
 }

@@ -73,7 +73,11 @@ export default function NotificationBell() {
       if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false);
     };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
   }, [open]);
 
   const handleRead = async (n) => {
@@ -125,6 +129,11 @@ export default function NotificationBell() {
                 <div className="notif-content">
                   <div className="notif-title">{n.title}</div>
                   <div className="notif-msg">{n.message}</div>
+                  {(Date.now() - new Date(n.created_at).getTime()) > 30 * 24 * 60 * 60 * 1000 && (
+                    <div className="notif-msg" style={{ fontSize: 11, color: 'var(--gray-400)', fontStyle: 'italic' }}>
+                      {t('notifications.mayNoLongerExist')}
+                    </div>
+                  )}
                   <div className="notif-time">{new Date(n.created_at).toLocaleDateString(dateLocale, { timeZone: 'Asia/Baghdad', day: 'numeric', month: 'short', year: 'numeric' })}</div>
                 </div>
                 {!n.read && <span className="notif-dot" />}

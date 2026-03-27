@@ -8,6 +8,7 @@ export function formatIQD(amount, lang = 'en') {
   const formatted = new Intl.NumberFormat(locale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
+    numberingSystem: 'latn',
   }).format(Number(amount));
   return lang === 'ar' ? `${formatted} د.ع` : `${formatted} IQD`;
 }
@@ -18,7 +19,11 @@ export function formatIQD(amount, lang = 'en') {
  */
 export function formatDate(date, lang = 'en') {
   if (!date) return '—';
-  const d = typeof date === 'string' ? new Date(date) : date;
+  // For bare YYYY-MM-DD strings, append T12:00:00 so the date is parsed at local noon
+  // instead of UTC midnight — prevents off-by-one-day in timezones behind UTC.
+  const d = typeof date === 'string'
+    ? new Date(date.length === 10 ? `${date}T12:00:00` : date)
+    : date;
   if (isNaN(d.getTime())) return String(date);
   const locale = lang === 'ar' ? 'ar-IQ' : 'en-US';
   return d.toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' });

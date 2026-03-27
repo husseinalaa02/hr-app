@@ -6,6 +6,7 @@ import { getDayRequests, createDayRequest, managerApproveDayRequest, hrApproveDa
 import { getEmployees } from '../api/employees';
 import { Skeleton } from '../components/Skeleton';
 import ErrorState from '../components/ErrorState';
+import { useConfirm } from '../hooks/useConfirm';
 
 const STATUS_COLORS = {
   Pending:  { color: '#b45309', bg: '#fef3c7' },
@@ -54,6 +55,7 @@ export default function DayRequests() {
   const { employee, isAdmin, isAudit, isHR, hasPermission } = useAuth();
   const canApprove = hasPermission('day_requests:approve');
   const { addToast } = useToast();
+  const { confirm, ConfirmModalComponent } = useConfirm();
 
   const [requests, setRequests]   = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -156,7 +158,8 @@ export default function DayRequests() {
   };
 
   const handleReject = async (id) => {
-    if (!window.confirm(t('common.confirmReject'))) return;
+    const ok = await confirm({ message: t('common.confirmReject'), danger: true });
+    if (!ok) return;
     setActionId(id);
     try {
       await rejectDayRequest(id);
@@ -325,6 +328,8 @@ export default function DayRequests() {
       )}
 
       {/* Create Request Modal */}
+      {ConfirmModalComponent}
+
       {showModal && (
         <div className="modal-backdrop" onClick={() => !submitting && setShowModal(false)}>
           <div className="modal modal-md" onClick={e => e.stopPropagation()}>

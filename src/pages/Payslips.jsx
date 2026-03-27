@@ -57,13 +57,18 @@ function PayslipDetail({ payslip, onClose }) {
     const e_end     = escapeHtml(payslip.end_date);
     const e_company = escapeHtml(COMPANY);
 
+    const arabicFontLink = dir === 'rtl'
+      ? '<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">'
+      : '';
+
     printWin.document.write(`
       <!DOCTYPE html>
       <html dir="${dir}">
       <head>
         <title>${escapeHtml(lbl.payslipNo)} - ${e_pname}</title>
+        ${arabicFontLink}
         <style>
-          body { font-family: Arial, sans-serif; margin: 40px; color: #333; direction: ${dir}; }
+          body { font-family: ${dir === 'rtl' ? "'Cairo', " : ''}Arial, sans-serif; margin: 40px; color: #333; direction: ${dir}; }
           h1 { color: #0C447C; }
           .header { display: flex; justify-content: space-between; margin-bottom: 24px; }
           .currency-note { font-size: 12px; color: #888; margin-bottom: 8px; }

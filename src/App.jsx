@@ -10,6 +10,7 @@ import Login from './pages/Login';
 import AccessDenied from './components/AccessDenied';
 import { useTranslation } from 'react-i18next';
 
+const ResetPassword  = lazy(() => import('./pages/ResetPassword'));
 const Dashboard      = lazy(() => import('./pages/Dashboard'));
 const Employees      = lazy(() => import('./pages/Employees'));
 const EmployeeDetail = lazy(() => import('./pages/EmployeeDetail'));
@@ -123,8 +124,9 @@ export default function App() {
   if (!user) {
     return (
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="*"      element={<Navigate to="/login" replace />} />
+        <Route path="/login"          element={<Login />} />
+        <Route path="/reset-password" element={<Suspense fallback={<div className="app-loading"><span className="spinner" /></div>}><ResetPassword /></Suspense>} />
+        <Route path="*"               element={<Navigate to="/login" replace />} />
       </Routes>
     );
   }

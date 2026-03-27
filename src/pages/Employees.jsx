@@ -313,6 +313,7 @@ export default function Employees() {
   const [error, setError] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showDepts, setShowDepts]   = useState(false);
+  const [showLargeDatasetWarning, setShowLargeDatasetWarning] = useState(false);
 
   const departmentsRef = useRef(departments);
   useEffect(() => { departmentsRef.current = departments; }, [departments]);
@@ -328,6 +329,7 @@ export default function Employees() {
       ]);
       setEmployees(emps);
       if (!deps.length) setDepartments(depts);
+      if (emps.length >= 1000) setShowLargeDatasetWarning(true);
     } catch (e) {
       setError(e.message || t('errors.failedLoad'));
     } finally {
@@ -382,12 +384,20 @@ export default function Employees() {
       </div>
 
       {error && <ErrorState message={error} onRetry={load} />}
+      {showLargeDatasetWarning && (
+        <div role="alert" style={{ marginBottom: 12, padding: '8px 14px', background: '#fef3c7', color: '#92400e', borderRadius: 8, fontSize: 13 }}>
+          {t('employees.largeDatasetWarning')}
+        </div>
+      )}
 
       <div className="emp-grid">
         {loading ? (
           Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)
         ) : employees.length === 0 ? (
-          <p className="text-muted">{t('employees.noEmployees')}</p>
+          <div style={{ textAlign: 'center', padding: '32px 16px', gridColumn: '1/-1' }}>
+            <p className="text-muted" style={{ marginBottom: 12 }}>{t('employees.noEmployees')}</p>
+            {canWrite && <button className="btn btn-primary" onClick={() => setShowCreate(true)}>{t('employees.newEmployee')}</button>}
+          </div>
         ) : (
           employees.map(emp => (
             <EmployeeCard key={emp.name} emp={emp} onClick={id => navigate(`/employees/${id}`)} />

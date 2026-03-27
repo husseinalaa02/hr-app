@@ -6,6 +6,7 @@ import {
   submitLeaveApplication, updateLeaveStatus, getLeaveTypes,
   getLeaveBalance, calcHours, calcDays,
 } from '../api/leave';
+import { useConfirm } from '../hooks/useConfirm';
 import Badge from '../components/Badge';
 import Modal from '../components/Modal';
 import { Skeleton } from '../components/Skeleton';
@@ -206,6 +207,7 @@ export default function LeaveRequests() {
   const canApprove = hasPermission('leave:approve');
   const { addToast } = useToast();
   const { t } = useTranslation();
+  const { confirm, ConfirmModalComponent } = useConfirm();
   const [tab, setTab] = useState(isAdmin ? 'pending' : 'my');
   const [myLeaves, setMyLeaves] = useState([]);
   const [pending, setPending] = useState([]);
@@ -250,9 +252,19 @@ export default function LeaveRequests() {
   };
 
   const handleAction = async (leaveApp, action) => {
-    if (action === 'Rejected' && !window.confirm(t('common.confirmReject'))) return;
+    if (action === 'Rejected') {
+      const ok = await confirm({ message: t('common.confirmReject'), danger: true });
+      if (!ok) return;
+    }
     setActionId(leaveApp.name);
     try {
+      // Guard against concurrent approval — re-fetch pending list first
+      const fresh = await getPendingApprovals({ managerId: employee.name, includeHRQueue: isHR });
+      if (!fresh.some(l => l.name === leaveApp.name)) {
+        addToast(t('leave.alreadyProcessed'), 'warning');
+        setPending(fresh);
+        return;
+      }
       const actorRole = isHR && leaveApp.approval_stage === 'Pending HR' ? 'hr' : 'manager';
       await updateLeaveStatus(leaveApp.name, action, actorRole);
       addToast(action === 'Approved' ? t('leave.approvedSuccess') : t('leave.rejectedSuccess'), 'success');
@@ -336,11 +348,18 @@ export default function LeaveRequests() {
           ))
         ) : rows.length === 0 ? (
           <div className="card">
-            <p className="text-center text-muted" style={{ padding: '32px 16px' }}>
-              {tab === 'pending'  ? t('leave.noPending')
-               : tab === 'approved' ? t('leave.noApproved')
-               : t('leave.noLeave')}
-            </p>
+            <div style={{ textAlign: 'center', padding: '32px 16px' }}>
+              <p className="text-muted" style={{ marginBottom: tab === 'my' ? 12 : 0 }}>
+                {tab === 'pending'  ? t('leave.noPending')
+                 : tab === 'approved' ? t('leave.noApproved')
+                 : t('leave.noLeave')}
+              </p>
+              {tab === 'my' && (
+                <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={() => setShowModal(true)}>
+                  {t('leave.newRequest')}
+                </button>
+              )}
+            </div>
           </div>
         ) : rows.map(l => {
           const isHourlyLeave = !!l.is_hourly;
@@ -407,6 +426,7 @@ export default function LeaveRequests() {
           <LeaveForm leaveTypes={leaveTypes} balance={balance} onSubmit={handleSubmit} onClose={() => setShowModal(false)} />
         </Modal>
       )}
+      {ConfirmModalComponent}
     </div>
   );
 }

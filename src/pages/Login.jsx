@@ -44,10 +44,12 @@ export default function Login() {
     return () => clearInterval(id);
   }, []);
 
-  // Handle Supabase password-reset link expired error (arrives in the URL fragment)
+  // Handle Supabase password-reset links arriving on the login page
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash.includes('error_code=otp_expired') || hash.includes('error=access_denied')) {
+    if (hash.includes('type=recovery')) {
+      navigate('/reset-password' + window.location.hash, { replace: true });
+    } else if (hash.includes('error_code=otp_expired') || hash.includes('error=access_denied')) {
       addToast(t('auth.resetLinkExpired'), 'error');
       window.history.replaceState(null, '', window.location.pathname);
     }

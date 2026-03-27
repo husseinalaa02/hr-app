@@ -34,7 +34,8 @@
     "to": "To",
     "actions": "Actions",
     "printNotSupported": "Printing is not supported on this device.",
-    "confirmReject": "Are you sure you want to reject this request?"
+    "confirmReject": "Are you sure you want to reject this request?",
+    "confirm": "Confirm"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -86,7 +87,13 @@
     "resetFailed": "Could not send reset email.",
     "rateLimitError": "Too many failed attempts. Try again in {{minutes}} minute(s).",
     "retryIn": "Account locked. Retry in {{minutes}} minute(s).",
-    "resetLinkExpired": "This password reset link has expired. Please request a new one."
+    "resetLinkExpired": "This password reset link has expired. Please request a new one.",
+    "setNewPasswordTitle": "Set New Password",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm Password",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 6 characters",
+    "passwordUpdated": "Password updated — please sign in"
   },
   "dashboard": {
     "goodMorning": "Good morning",
@@ -213,7 +220,8 @@
     "annualLeave": "Annual Leave",
     "sickLeave": "Sick Leave",
     "casualLeave": "Casual Leave",
-    "hourlyLeave": "Hourly Leave"
+    "hourlyLeave": "Hourly Leave",
+    "alreadyProcessed": "This request has already been processed"
   },
   "employees": {
     "title": "Employee Directory",
@@ -276,7 +284,8 @@
       "partTime": "Part-time",
       "contract": "Contract",
       "intern": "Intern"
-    }
+    },
+    "largeDatasetWarning": "Showing first 1,000 employees — use filters to narrow results"
   },
   "payroll": {
     "title": "Payroll",
@@ -654,6 +663,7 @@
     "actionExport": "Export",
     "actionDelete": "Delete",
     "truncationWarning": "Showing the most recent 200 entries. Use date filters to narrow results.",
+    "noLogsToExport": "No logs to export — apply filters to find entries first",
     "csv": {
       "timestamp": "Timestamp",
       "user": "User",
@@ -714,6 +724,7 @@
     "roleNameDuplicate": "A role with this name already exists.",
     "permissionsSaved": "Permissions saved",
     "failedSavePerms": "Failed to save",
+    "partialSaveFailed": "Permissions partially saved — reloading to restore consistent state",
     "confirmDeleteRole": "Delete role \"{{label}}\"? Employees with this role will become \"employee\".",
     "granted": "granted",
     "revoked": "revoked",
@@ -804,7 +815,10 @@
     "failedDelete": "Failed to delete employee",
     "deletedSuccess": "{{name}} has been deleted",
     "selectPlaceholder": "— Select —",
-    "clickToChangePhoto": "Click to change photo"
+    "clickToChangePhoto": "Click to change photo",
+    "fileTooLarge": "Image must be smaller than 2 MB",
+    "invalidFileType": "Please select a JPEG, PNG or WebP image",
+    "uploadFailed": "Failed to upload photo"
   },
   "errors": {
     "failedLoad": "Failed to load data",
@@ -818,7 +832,8 @@
   "notifications": {
     "title": "Notifications",
     "markAllRead": "Mark all read",
-    "empty": "No notifications"
+    "empty": "No notifications",
+    "mayNoLongerExist": "This resource may no longer exist"
   },
   "status": {
     "Open": "Open",

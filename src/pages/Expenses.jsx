@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../hooks/useConfirm';
 import { getExpenses, submitExpense, saveDraftExpense, approveExpense, rejectExpense, deleteExpense, EXPENSE_TYPE_LIST } from '../api/expenses';
 import Modal from '../components/Modal';
 import Badge from '../components/Badge';
@@ -22,6 +23,7 @@ export default function Expenses() {
   const { employee, isAdmin, hasPermission } = useAuth();
   const canApprove = isAdmin || hasPermission('expenses:approve');
   const { addToast } = useToast();
+  const { confirm, ConfirmModalComponent } = useConfirm();
   const [tab, setTab] = useState('mine');
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,8 @@ export default function Expenses() {
   };
 
   const handleReject = async (id) => {
-    if (!window.confirm(t('common.confirmReject'))) return;
+    const ok = await confirm({ message: t('common.confirmReject'), danger: true });
+    if (!ok) return;
     setActionId(id);
     try {
       await rejectExpense(id);
@@ -71,7 +74,8 @@ export default function Expenses() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm(t('expenses.deleteConfirm'))) return;
+    const ok2 = await confirm({ message: t('expenses.deleteConfirm'), danger: true });
+    if (!ok2) return;
     setActionId(id);
     try {
       await deleteExpense(id);
@@ -163,6 +167,7 @@ export default function Expenses() {
           <ExpenseForm employee={employee} onClose={() => setShowModal(false)} onCreated={load} />
         </Modal>
       )}
+      {ConfirmModalComponent}
     </div>
   );
 }
