@@ -107,6 +107,7 @@ create table if not exists employees (
   auth_id         uuid unique references auth.users(id) on delete set null,
   image           text,
   reports_to      text references employees(name) on delete set null,
+  off_days        integer[] default array[5,6],
   company         text default 'AFAQ ALFIKER'
 );
 
@@ -692,10 +693,12 @@ create policy "ep_self_read" on employee_permissions for select to authenticated
 
 -- ─── Public directory view — safe columns only, no PII ────────────────────────
 -- C3: added employment_type, date_of_joining, gender, employee_type for Employees page
--- H5: removed cell_number (PII — only HR/admin should see it via the full employees table)
+-- cell_number included: needed by Employees directory card display (employees.js getEmployees)
+-- off_days included: needed by attendance export and schedule display
 create or replace view employees_public as
   select name, employee_name, department, designation, role, branch, company,
-         reports_to, image, employment_type, date_of_joining, gender, employee_type
+         reports_to, image, employment_type, date_of_joining, gender, employee_type,
+         cell_number, off_days
   from employees;
 grant select on employees_public to authenticated;
 
@@ -766,4 +769,37 @@ on conflict do nothing;
 insert into announcements (name, title, content, notice_date) values
   ('ANN-001', 'Welcome to the HR Portal', 'The new HR portal is now live. Please update your profile information and review your leave balances.', current_date),
   ('ANN-002', 'Ramadan Working Hours', 'During Ramadan, working hours will be reduced to 6 hours per day. Please submit any schedule adjustments through the system.', current_date)
+on conflict (name) do nothing;
+
+-- ─── Public Holidays (011) ────────────────────────────────────────────────────
+create table if not exists public_holidays (
+  id         uuid default gen_random_uuid() primary key,
+  name       text not null,
+  date       date not null unique,
+  created_at timestamptz default now()
+);
+alter table public_holidays enable row level security;
+create policy "holidays_read" on public_holidays for select to authenticated using (true);
+create policy "holidays_write" on public_holidays for all to authenticated
+  using (exists (select 1 from employees where name = auth_employee_id() and role in ('admin', 'hr_manager')));
+create index if not exists idx_holidays_date on public_holidays(date);
+
+-- ─── Departments (012) ────────────────────────────────────────────────────────
+create table if not exists departments (
+  id          uuid default gen_random_uuid() primary key,
+  name        text not null unique,
+  description text,
+  manager_id  text references employees(name) on delete set null,
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now()
+);
+alter table departments enable row level security;
+create policy "dept_read"  on departments for select to authenticated using (true);
+create policy "dept_write" on departments for all to authenticated
+  using (exists (select 1 from employees where name = auth_employee_id() and role in ('admin', 'hr_manager')));
+create index if not exists idx_departments_name on departments(name);
+
+insert into departments (name)
+select distinct department from employees
+where department is not null and department != ''
 on conflict (name) do nothing;

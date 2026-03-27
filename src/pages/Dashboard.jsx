@@ -9,6 +9,7 @@ import { getAnnouncements, createAnnouncement, deleteAnnouncement } from '../api
 import { getPayrollRecords } from '../api/payroll';
 import { getExpenses } from '../api/expenses';
 import { getJobs } from '../api/recruitment';
+import { getAllUpcomingHolidays } from '../api/publicHolidays';
 import { Skeleton } from '../components/Skeleton';
 import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
@@ -194,6 +195,7 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  const [upcomingHolidays, setUpcomingHolidays] = useState([]);
   const [showAnnModal, setShowAnnModal] = useState(false);
   const canWriteAnnouncements = hasPermission('announcements:write');
   const { confirm, ConfirmModalComponent } = useConfirm();
@@ -235,6 +237,7 @@ export default function Dashboard() {
           getJobs({ status: 'Open' }),
         ]);
         setData({ allEmployees, pendingLeaves, announcements, payrollRecords, pendingExpenses, jobs, checkins });
+        getAllUpcomingHolidays().then(h => setUpcomingHolidays(h.slice(0, 3))).catch(() => {});
       } else {
         // Wave 1: attendance status (most visible)
         const [checkins, balance] = await Promise.all([
@@ -249,6 +252,7 @@ export default function Dashboard() {
           getAnnouncements(),
         ]);
         setData({ checkins, allocations: balance, leaves, announcements });
+        getAllUpcomingHolidays().then(h => setUpcomingHolidays(h.slice(0, 3))).catch(() => {});
       }
     } catch (e) {
       setLoadError(e.message || t('errors.failedLoad'));
@@ -449,6 +453,30 @@ export default function Dashboard() {
 
         </div>
 
+      {/* ── Upcoming Holidays ── */}
+      {upcomingHolidays.length > 0 && (
+        <div className="dash-card dash-card-wide">
+          <SectionHeader title={t('holidays.upcomingTitle')} />
+          <div className="dash-card-body">
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {upcomingHolidays.map(h => {
+                const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date());
+                const diffMs = new Date(h.date + 'T12:00:00+03:00') - new Date(today + 'T12:00:00+03:00');
+                const diffDays = Math.round(diffMs / 86400000);
+                const label = diffDays === 0 ? t('holidays.today') : diffDays === 1 ? t('holidays.tomorrow') : t('holidays.inDays', { count: diffDays });
+                return (
+                  <div key={h.id} className="holiday-chip">
+                    <span className="holiday-chip-date">{h.date}</span>
+                    <span className="holiday-chip-name">{h.name}</span>
+                    <span className="holiday-chip-label">{label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAnnModal && <AnnouncementModal onClose={() => setShowAnnModal(false)} onSave={handleCreateAnnouncement} />}
       </div>
     );
@@ -594,6 +622,30 @@ export default function Dashboard() {
         </div>
 
       </div>
+
+      {/* ── Upcoming Holidays ── */}
+      {upcomingHolidays.length > 0 && (
+        <div className="dash-card dash-card-wide">
+          <SectionHeader title={t('holidays.upcomingTitle')} />
+          <div className="dash-card-body">
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {upcomingHolidays.map(h => {
+                const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date());
+                const diffMs = new Date(h.date + 'T12:00:00+03:00') - new Date(today + 'T12:00:00+03:00');
+                const diffDays = Math.round(diffMs / 86400000);
+                const label = diffDays === 0 ? t('holidays.today') : diffDays === 1 ? t('holidays.tomorrow') : t('holidays.inDays', { count: diffDays });
+                return (
+                  <div key={h.id} className="holiday-chip">
+                    <span className="holiday-chip-date">{h.date}</span>
+                    <span className="holiday-chip-name">{h.name}</span>
+                    <span className="holiday-chip-label">{label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {ConfirmModalComponent}
     </div>

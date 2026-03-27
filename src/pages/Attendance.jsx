@@ -3,8 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import {
   checkin, getTodayCheckins, getTodayAttendance,
-  getWeeklyAttendance, getMissedCheckout, isOffDay,
+  getWeeklyAttendance, getMissedCheckout,
 } from '../api/attendance';
+import { getPublicHolidays } from '../api/publicHolidays';
+import { getAttendanceForExport, buildAttendanceCSV, downloadAttendanceCSV } from '../api/attendanceExport';
+import { logAction } from '../api/auditLog';
+import { isOffDay as checkIsOffDay } from '../utils/workSchedule';
 import { useGeofence } from '../hooks/useGeofence';
 import Badge from '../components/Badge';
 import { Skeleton } from '../components/Skeleton';
@@ -167,7 +171,7 @@ function getWeekEnd(weekStart) {
 }
 
 export default function Attendance() {
-  const { employee } = useAuth();
+  const { employee, isHR, isAdmin } = useAuth();
   const { addToast } = useToast();
   const geo = useGeofence();
   const { t } = useTranslation();
@@ -176,27 +180,41 @@ export default function Attendance() {
   const [todayAtt, setTodayAtt]         = useState(null);
   const [weekly, setWeekly]             = useState([]);
   const [missedRecord, setMissedRecord] = useState(null);
+  const [holidays, setHolidays]         = useState([]);
+  const [todayHolidayName, setTodayHolidayName] = useState(null);
   const [loading, setLoading]           = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError]               = useState(null);
+
+  // Export state (HR/Admin only)
+  const today = baghdadFmt.format(new Date());
+  const [exportFrom, setExportFrom] = useState(today);
+  const [exportTo, setExportTo]     = useState(today);
+  const [exporting, setExporting]   = useState(false);
 
   const load = useCallback(async () => {
     if (!employee) return;
     setLoading(true);
     setError(null);
     try {
+      const year = parseInt(today.slice(0, 4), 10);
       const weekStart = getWeekStart();
       const weekEnd   = getWeekEnd(weekStart);
-      const [ci, att, w, missed] = await Promise.all([
+      const [ci, att, w, missed, publicHols] = await Promise.all([
         getTodayCheckins(employee.name),
         getTodayAttendance(employee.name),
         getWeeklyAttendance(employee.name, weekStart, weekEnd),
         getMissedCheckout(employee.name),
+        getPublicHolidays(year).catch(() => []),
       ]);
       setCheckins(ci);
       setTodayAtt(att);
       setWeekly(buildWeekRows(weekStart, w));
       setMissedRecord(missed);
+      const holDates = publicHols.map(h => h.date);
+      setHolidays(holDates);
+      const todayHol = publicHols.find(h => h.date === today);
+      setTodayHolidayName(todayHol?.name || null);
     } catch (e) {
       setError(e.message || t('errors.failedLoad'));
     } finally {
@@ -206,11 +224,36 @@ export default function Attendance() {
 
   useEffect(() => { load(); }, [load]);
 
+  // ── Off-day detection (per-employee schedule + public holidays) ──────────────
+  const empOffDays = employee?.off_days || [5, 6];
+  const offDay     = checkIsOffDay(new Date(), empOffDays, holidays);
+
+  // ── Export handler ─────────────────────────────────────────────────────────
+  const handleExport = async () => {
+    if (!exportFrom || !exportTo) return;
+    setExporting(true);
+    try {
+      const data = await getAttendanceForExport({ dateFrom: exportFrom, dateTo: exportTo });
+      const csv  = buildAttendanceCSV({ ...data, dateFrom: exportFrom, dateTo: exportTo, t });
+      downloadAttendanceCSV(csv, exportFrom, exportTo);
+      addToast(t('attendance.export.success'), 'success');
+      await logAction({
+        action: 'EXPORT',
+        resource: 'Attendance',
+        resourceLabel: `Attendance ${exportFrom} to ${exportTo}`,
+        details: JSON.stringify({ dateFrom: exportFrom, dateTo: exportTo }),
+      });
+    } catch (e) {
+      addToast(e.message || t('attendance.export.error'), 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // ── Button state ────────────────────────────────────────────────────────────
   const lastCheckin = checkins[checkins.length - 1];
   const isCheckedIn = lastCheckin?.log_type === 'IN';
   const nextAction  = isCheckedIn ? 'OUT' : 'IN';
-  const offDay     = isOffDay();
   // Only block on a confirmed "outside zone" result — GPS errors (permission denied,
   // hardware timeout, etc.) must not permanently lock the employee out. Loading state
   // still blocks to avoid a race before the first position fix arrives.
@@ -276,7 +319,11 @@ export default function Attendance() {
         {/* Off-day notice */}
         {offDay && (
           <div className="offday-notice">
-            <span>{t('attendance.offDayNotice')}</span>
+            <span>
+              {todayHolidayName
+                ? t('attendance.publicHoliday', { name: todayHolidayName })
+                : t('attendance.weeklyOffDay')}
+            </span>
           </div>
         )}
 
@@ -383,6 +430,49 @@ export default function Attendance() {
           </table>
         </div>
       </div>
+
+      {/* ── Attendance Export (HR / Admin only) ────────────────────────────── */}
+      {(isHR || isAdmin) && (
+        <div className="card">
+          <div className="card-header"><h3>{t('attendance.export.title')}</h3></div>
+          <div className="card-body">
+            <div className="export-controls">
+              <div className="form-group">
+                <label className="form-label">{t('attendance.export.from')}</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={exportFrom}
+                  max={today}
+                  onChange={e => setExportFrom(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('attendance.export.to')}</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={exportTo}
+                  max={today}
+                  min={exportFrom}
+                  onChange={e => setExportTo(e.target.value)}
+                />
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={handleExport}
+                disabled={!exportFrom || !exportTo || exporting}
+                style={{ alignSelf: 'flex-end' }}
+              >
+                {exporting
+                  ? <><span className="spinner-sm" /> {t('common.loading')}</>
+                  : t('attendance.export.exportBtn')}
+              </button>
+            </div>
+            <p className="form-hint" style={{ marginTop: 8 }}>{t('attendance.export.hint')}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

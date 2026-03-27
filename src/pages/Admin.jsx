@@ -6,6 +6,8 @@ import { useToast } from '../context/ToastContext';
 import { getAllEmployeesWithOverrides, savePermissionOverrides, getCustomRoles, createCustomRole, updateCustomRole, deleteCustomRole } from '../api/admin';
 import { checkHealth } from '../lib/healthCheck';
 import { updateEmployee, setEmployeeRole } from '../api/employees';
+import { getPublicHolidays, createHoliday, updateHoliday, deleteHoliday } from '../api/publicHolidays';
+import { getDepartments, createDepartment, updateDepartment, deleteDepartment } from '../api/departments';
 import { ROLE_PERMISSIONS } from '../rbac/permissions';
 import { Skeleton } from '../components/Skeleton';
 
@@ -206,6 +208,21 @@ export default function Admin() {
   const [customRolesLoading, setCustomRolesLoading] = useState(false);
   const [editingRole, setEditingRole]       = useState(null); // null | {} (new) | role obj (edit)
 
+  // Holidays tab
+  const [holidays, setHolidays]             = useState([]);
+  const [holidaysLoading, setHolidaysLoading] = useState(false);
+  const [holidayYear, setHolidayYear]       = useState(new Date().getFullYear());
+  const [editingHoliday, setEditingHoliday] = useState(null); // null | {} (new) | holiday obj (edit)
+  const [holidayForm, setHolidayForm]       = useState({ name: '', date: '' });
+  const [savingHoliday, setSavingHoliday]   = useState(false);
+
+  // Departments tab
+  const [depts, setDepts]                   = useState([]);
+  const [deptsLoading, setDeptsLoading]     = useState(false);
+  const [editingDept, setEditingDept]       = useState(null);
+  const [deptForm, setDeptForm]             = useState({ name: '' });
+  const [savingDept, setSavingDept]         = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     try { setEmployees(await getAllEmployeesWithOverrides()); }
@@ -220,9 +237,87 @@ export default function Admin() {
     finally { setCustomRolesLoading(false); }
   }, [t, addToast]);
 
+  const loadHolidays = useCallback(async () => {
+    setHolidaysLoading(true);
+    try { setHolidays(await getPublicHolidays(holidayYear)); }
+    catch { addToast(t('errors.failedLoad'), 'error'); }
+    finally { setHolidaysLoading(false); }
+  }, [holidayYear, t, addToast]);
+
+  const loadDepts = useCallback(async () => {
+    setDeptsLoading(true);
+    try { setDepts(await getDepartments()); }
+    catch { addToast(t('errors.failedLoad'), 'error'); }
+    finally { setDeptsLoading(false); }
+  }, [t, addToast]);
+
   useEffect(() => { load(); loadCustomRoles(); }, [load, loadCustomRoles]);
 
   useEffect(() => { checkHealth().then(setHealth); }, []);
+  useEffect(() => { if (tab === 'holidays') loadHolidays(); }, [tab, loadHolidays]);
+  useEffect(() => { if (tab === 'departments') loadDepts(); }, [tab, loadDepts]);
+  useEffect(() => { if (tab === 'holidays') loadHolidays(); }, [holidayYear, loadHolidays]);
+
+  const handleSaveHoliday = async () => {
+    if (!holidayForm.name.trim() || !holidayForm.date) return;
+    setSavingHoliday(true);
+    try {
+      if (editingHoliday?.id) {
+        await updateHoliday(editingHoliday.id, holidayForm);
+        addToast(t('holidays.editSuccess'), 'success');
+      } else {
+        await createHoliday(holidayForm);
+        addToast(t('holidays.addSuccess'), 'success');
+      }
+      setEditingHoliday(null);
+      await loadHolidays();
+    } catch (err) { addToast(err.message || t('errors.actionFailed'), 'error'); }
+    finally { setSavingHoliday(false); }
+  };
+
+  const handleDeleteHoliday = async (h) => {
+    const ok = await confirm({ message: t('holidays.deleteConfirm'), danger: true });
+    if (!ok) return;
+    try {
+      await deleteHoliday(h.id, h.name);
+      addToast(t('holidays.deleteSuccess'), 'success');
+      await loadHolidays();
+    } catch (err) { addToast(err.message || t('errors.actionFailed'), 'error'); }
+  };
+
+  const handleSaveDept = async () => {
+    if (!deptForm.name.trim()) return;
+    setSavingDept(true);
+    try {
+      if (editingDept?.id) {
+        await updateDepartment(editingDept.id, deptForm);
+        addToast(t('departments.editSuccess'), 'success');
+      } else {
+        await createDepartment(deptForm);
+        addToast(t('departments.addSuccess'), 'success');
+      }
+      setEditingDept(null);
+      await loadDepts();
+    } catch (err) { addToast(err.message || t('errors.actionFailed'), 'error'); }
+    finally { setSavingDept(false); }
+  };
+
+  const handleDeleteDept = async (dept) => {
+    const ok = await confirm({ message: t('departments.deleteConfirm'), danger: true });
+    if (!ok) return;
+    try {
+      await deleteDepartment(dept.id, dept.name || dept);
+      addToast(t('departments.deleteSuccess'), 'success');
+      await loadDepts();
+    } catch (err) {
+      if (err.message?.startsWith('HAS_EMPLOYEES:')) {
+        const count = err.message.split(':')[1];
+        addToast(t('departments.hasEmployees', { count }), 'error');
+      } else {
+        addToast(err.message || t('errors.actionFailed'), 'error');
+      }
+    }
+  };
 
   // Save / delete custom role handlers
   const handleSaveCustomRole = async ({ name, label, permissions }) => {
@@ -400,6 +495,12 @@ export default function Admin() {
           </button>
           <button className={`admin-tab${tab === 'custom-roles' ? ' active' : ''}`} onClick={() => setTab('custom-roles')}>
             {t('admin.tabCustomRoles')}
+          </button>
+          <button className={`admin-tab${tab === 'holidays' ? ' active' : ''}`} onClick={() => setTab('holidays')}>
+            {t('holidays.title')}
+          </button>
+          <button className={`admin-tab${tab === 'departments' ? ' active' : ''}`} onClick={() => setTab('departments')}>
+            {t('departments.title')}
           </button>
         </div>
 
@@ -708,6 +809,140 @@ export default function Admin() {
                 </>
               )}
             </div>
+          </div>
+        )}
+        {/* ── Holidays ───────────────────────────────────────────────────────── */}
+        {tab === 'holidays' && (
+          <div style={{ padding: 20 }}>
+            {/* Year selector + Add button */}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+              <select
+                className="form-control"
+                style={{ width: 120, fontSize: 13 }}
+                value={holidayYear}
+                onChange={e => setHolidayYear(Number(e.target.value))}
+              >
+                {[-1, 0, 1].map(offset => {
+                  const y = new Date().getFullYear() + offset;
+                  return <option key={y} value={y}>{y}</option>;
+                })}
+              </select>
+              <button className="btn btn-primary btn-sm" onClick={() => { setEditingHoliday({}); setHolidayForm({ name: '', date: '' }); }}>
+                + {t('holidays.add')}
+              </button>
+            </div>
+
+            {/* Add/Edit form */}
+            {editingHoliday !== null && (
+              <div style={{ background: 'var(--surface-alt, #f9fafb)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <label className="form-label">{t('holidays.name')}</label>
+                  <input className="form-control" value={holidayForm.name} onChange={e => setHolidayForm(f => ({ ...f, name: e.target.value }))} placeholder={t('holidays.name')} />
+                </div>
+                <div style={{ flex: 1, minWidth: 140 }}>
+                  <label className="form-label">{t('holidays.date')}</label>
+                  <input className="form-control" type="date" value={holidayForm.date} onChange={e => setHolidayForm(f => ({ ...f, date: e.target.value }))} />
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="btn btn-primary btn-sm" onClick={handleSaveHoliday} disabled={savingHoliday || !holidayForm.name.trim() || !holidayForm.date}>
+                    {savingHoliday ? '…' : t('common.save')}
+                  </button>
+                  <button className="btn btn-sm" onClick={() => setEditingHoliday(null)}>{t('common.cancel')}</button>
+                </div>
+              </div>
+            )}
+
+            {/* Holiday list */}
+            {holidaysLoading ? <Skeleton height={60} /> : holidays.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>📅</div>
+                <div>{t('holidays.empty')}</div>
+              </div>
+            ) : (
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead><tr><th>{t('holidays.name')}</th><th>{t('holidays.date')}</th><th style={{ width: 100 }}></th></tr></thead>
+                  <tbody>
+                    {holidays.sort((a, b) => a.date.localeCompare(b.date)).map(h => (
+                      <tr key={h.id}>
+                        <td style={{ fontWeight: 600 }}>{h.name}</td>
+                        <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{h.date}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button className="btn btn-sm" onClick={() => { setEditingHoliday(h); setHolidayForm({ name: h.name, date: h.date }); }}>{t('common.edit')}</button>
+                            <button className="btn btn-sm" style={{ color: 'var(--danger)', border: '1px solid var(--danger)' }} onClick={() => handleDeleteHoliday(h)}>{t('common.delete')}</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Departments ─────────────────────────────────────────────────────── */}
+        {tab === 'departments' && (
+          <div style={{ padding: 20 }}>
+            {/* Add button */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+              <button className="btn btn-primary btn-sm" onClick={() => { setEditingDept({}); setDeptForm({ name: '' }); }}>
+                + {t('departments.add')}
+              </button>
+            </div>
+
+            {/* Add/Edit form */}
+            {editingDept !== null && (
+              <div style={{ background: 'var(--surface-alt, #f9fafb)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <label className="form-label">{t('departments.name')}</label>
+                  <input className="form-control" value={deptForm.name} onChange={e => setDeptForm(f => ({ ...f, name: e.target.value }))} placeholder={t('departments.name')} />
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="btn btn-primary btn-sm" onClick={handleSaveDept} disabled={savingDept || !deptForm.name.trim()}>
+                    {savingDept ? '…' : t('common.save')}
+                  </button>
+                  <button className="btn btn-sm" onClick={() => setEditingDept(null)}>{t('common.cancel')}</button>
+                </div>
+              </div>
+            )}
+
+            {/* Departments list */}
+            {deptsLoading ? <Skeleton height={60} /> : depts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>🏢</div>
+                <div>{t('departments.empty')}</div>
+              </div>
+            ) : (
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead><tr><th>{t('departments.name')}</th><th>{t('departments.employeeCount', { count: '' }).replace('{{count}}', '').trim()}</th><th style={{ width: 120 }}></th></tr></thead>
+                  <tbody>
+                    {depts.map(dept => {
+                      const count = employees.filter(e => e.department === (dept.name || dept)).length;
+                      const deptName = dept.name || dept;
+                      return (
+                        <tr key={deptName}>
+                          <td style={{ fontWeight: 600 }}>{deptName}</td>
+                          <td>
+                            <span style={{ fontSize: 12, background: '#e8f2fb', color: '#0C447C', padding: '2px 8px', borderRadius: 12, fontWeight: 600 }}>
+                              {t('departments.employeeCount', { count })}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              {dept.id && <button className="btn btn-sm" onClick={() => { setEditingDept(dept); setDeptForm({ name: dept.name }); }}>{t('common.edit')}</button>}
+                              <button className="btn btn-sm" style={{ color: 'var(--danger)', border: '1px solid var(--danger)' }} onClick={() => handleDeleteDept(dept)}>{t('common.delete')}</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>

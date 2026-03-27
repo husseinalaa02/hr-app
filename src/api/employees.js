@@ -2,6 +2,7 @@ import { db } from '../db/index';
 import { MOCK_EMPLOYEES } from './mock';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
 import { cached, invalidate } from '../utils/cache';
+import { logAction } from './auditLog';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -14,7 +15,7 @@ const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 export async function getEmployees({ search = '', department = '' } = {}) {
   const all = await cached('employees:all', async () => {
     if (SUPABASE_MODE) {
-      const { data, error } = await supabase.from('employees_public').select('name, employee_name, department, designation, employment_type, date_of_joining, branch, gender, cell_number, image, company, reports_to, employee_type, role').order('employee_name').limit(1000);
+      const { data, error } = await supabase.from('employees_public').select('name, employee_name, department, designation, employment_type, date_of_joining, branch, gender, cell_number, image, company, reports_to, employee_type, role, off_days').order('employee_name').limit(1000);
       if (error) throw error;
       return data || [];
     }
@@ -120,6 +121,28 @@ const EMPLOYEE_ALLOWED_FIELDS = [
   'personal_email', 'date_of_birth', 'image', 'reports_to', 'employment_type',
   'employee_type', 'gender', 'nationality', 'address', 'company_email',
 ];
+
+// HR/admin-only: update the weekly off-days schedule for an employee.
+export async function updateEmployeeSchedule(employeeId, offDays) {
+  if (SUPABASE_MODE) {
+    const { error } = await supabase
+      .from('employees')
+      .update({ off_days: offDays })
+      .eq('name', employeeId);
+    if (error) throw error;
+  } else if (DEMO) {
+    const existing = await db.employees.get(employeeId);
+    if (existing) await db.employees.put({ ...existing, off_days: offDays });
+  }
+  invalidate('employees');
+  await logAction({
+    action: 'UPDATE',
+    resource: 'Employee',
+    resourceId: employeeId,
+    resourceLabel: 'Weekly schedule updated',
+    details: JSON.stringify({ off_days: offDays }),
+  });
+}
 
 // Direct role assignment — intentionally bypasses EMPLOYEE_ALLOWED_FIELDS because
 // roles must never be changeable by the employee themselves, only by admin actions.

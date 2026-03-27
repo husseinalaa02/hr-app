@@ -2848,3 +2848,37 @@ body {
     flex-direction: row;
   }
 }
+
+/* ── Work Schedule (EmployeeDetail) ─────────────────────────────────────────── */
+.schedule-section { margin-top: 0; }
+.schedule-days { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.day-toggle {
+  min-width: 44px; padding: 6px 8px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  border: 1.5px solid var(--border); background: var(--surface-alt, #f1f5f9);
+  color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+  text-align: center;
+}
+.day-toggle:hover { border-color: var(--primary); color: var(--primary); }
+.day-toggle-on { background: var(--primary); color: #fff; border-color: var(--primary); }
+.day-toggle-on:hover { background: #0a3a6e; border-color: #0a3a6e; }
+.day-toggle-static { cursor: default; }
+
+/* ── Attendance Export Bar ───────────────────────────────────────────────────── */
+.export-controls {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 16px; margin-top: 16px;
+}
+.export-controls label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.export-controls .form-input { font-size: 13px; padding: 5px 8px; }
+.export-hint { font-size: 11px; color: var(--text-muted); }
+
+/* ── Holiday Chip (Dashboard) ────────────────────────────────────────────────── */
+.holiday-chip {
+  display: flex; flex-direction: column; gap: 3px;
+  background: #fef3c7; border: 1px solid #fcd34d; border-radius: 10px;
+  padding: 10px 14px; min-width: 140px; flex: 1;
+}
+.holiday-chip-date { font-size: 11px; color: #92400e; font-weight: 600; font-variant-numeric: tabular-nums; }
+.holiday-chip-name { font-size: 13px; font-weight: 700; color: #78350f; }
+.holiday-chip-label { font-size: 11px; color: #b45309; }

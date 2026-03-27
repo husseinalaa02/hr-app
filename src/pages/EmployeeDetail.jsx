@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getEmployee, getDirectReports, updateEmployee, deleteEmployee } from '../api/employees';
+import { getEmployee, getDirectReports, updateEmployee, deleteEmployee, updateEmployeeSchedule } from '../api/employees';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import Avatar from '../components/Avatar';
@@ -189,14 +189,26 @@ export default function EmployeeDetail() {
 
   const handleChange = (key, val) => setDraft(d => ({ ...d, [key]: val }));
 
+  const toggleOffDay = (day) => {
+    const current = draft.off_days || [5, 6];
+    const updated = current.includes(day)
+      ? current.filter(d => d !== day)
+      : [...current, day].sort((a, b) => a - b);
+    setDraft(d => ({ ...d, off_days: updated }));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
       const payload = {};
       editableKeys.forEach(k => { payload[k] = draft[k]; });
       const updated = await updateEmployee(id, payload);
-      setEmployee(updated);
-      setDraft(updated);
+      // Save schedule separately if HR/admin changed off_days
+      if ((isHR || isAdmin) && JSON.stringify(draft.off_days) !== JSON.stringify(employee.off_days)) {
+        await updateEmployeeSchedule(id, draft.off_days || [5, 6]);
+      }
+      setEmployee({ ...updated, off_days: draft.off_days });
+      setDraft({ ...updated, off_days: draft.off_days });
       setEditMode(false);
       if (isSelf) refreshEmployee({ ...me, ...payload });
       addToast(t('employeeDetail.profileUpdated'), 'success');
@@ -369,6 +381,51 @@ export default function EmployeeDetail() {
               {isAdmin && field(t('employeeDetail.userIdLogin'), 'user_id', 'email')}
             </div>
           </div>
+
+          {/* Work Schedule — HR/admin only */}
+          {(isHR || isAdmin) && (
+            <div className="detail-section schedule-section">
+              <h4 className="detail-section-title">{t('employees.schedule.weeklyOffDays')}</h4>
+              {editMode ? (
+                <>
+                  <p className="text-muted" style={{ fontSize: 12, marginBottom: 10 }}>{t('employees.schedule.hint')}</p>
+                  <div className="schedule-days">
+                    {[0, 1, 2, 3, 4, 5, 6].map(day => {
+                      const offDays = draft.off_days ?? [5, 6];
+                      const isOff = offDays.includes(day);
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          className={`day-toggle${isOff ? '' : ' day-toggle-on'}`}
+                          onClick={() => toggleOffDay(day)}
+                          title={t(`common.dayLong.${day}`)}
+                        >
+                          {t(`common.dayShort.${day}`)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div className="schedule-days">
+                  {[0, 1, 2, 3, 4, 5, 6].map(day => {
+                    const offDays = employee.off_days ?? [5, 6];
+                    const isOff = offDays.includes(day);
+                    return (
+                      <span
+                        key={day}
+                        className={`day-toggle day-toggle-static${isOff ? '' : ' day-toggle-on'}`}
+                        title={t(`common.dayLong.${day}`)}
+                      >
+                        {t(`common.dayShort.${day}`)}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Org section */}
           <div className="detail-org">
