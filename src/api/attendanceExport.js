@@ -106,13 +106,17 @@ export function buildAttendanceCSV({ employees, attendance, leaves, holidays, da
       if (onLeave) {
         status = t('attendance.export.onLeave');
       } else if (att) {
-        // Determine late: check in_time vs 09:00 Baghdad
-        const inHour = att.in_time
-          ? parseInt(new Date(att.in_time).toLocaleTimeString('en-GB', { hour: '2-digit', timeZone: 'Asia/Baghdad' }), 10)
-          : null;
-        status = (inHour !== null && inHour >= 9)
-          ? t('attendance.export.late')
-          : t('attendance.export.present');
+        if (!att.in_time) {
+          // Record exists but no check-in timestamp — missed punch
+          status = t('attendance.export.missedPunch');
+        } else {
+          // Minute-precision late detection: after 09:00 Baghdad = 540 minutes
+          const timeStr = new Date(att.in_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Baghdad' });
+          const [h, m] = timeStr.split(':').map(Number);
+          status = (h * 60 + m > 540)
+            ? t('attendance.export.late')
+            : t('attendance.export.present');
+        }
       } else {
         status = t('attendance.export.absent');
       }

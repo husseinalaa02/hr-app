@@ -34,7 +34,10 @@ export async function createHoliday({ name, date }) {
     .insert({ name: name.trim(), date })
     .select('id, name, date')
     .single();
-  if (error) throw error;
+  if (error) {
+    if (error.code === '23505') throw new Error('DUPLICATE_DATE');
+    throw error;
+  }
   await logAction({
     action: 'CREATE',
     resource: 'PublicHoliday',

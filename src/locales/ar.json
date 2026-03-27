@@ -22,6 +22,7 @@
     "yes": "نعم",
     "no": "لا",
     "new": "+ جديد",
+    "none": "لا شيء",
     "days": "أيام",
     "hours": "ساعات",
     "status": "الحالة",
@@ -202,7 +203,10 @@
       "present": "حاضر",
       "absent": "غائب",
       "late": "متأخر",
-      "onLeave": "في إجازة"
+      "onLeave": "في إجازة",
+      "missedPunch": "بصمة مفقودة",
+      "invalidRange": "تاريخ البداية يجب أن يكون قبل أو مساوياً لتاريخ النهاية",
+      "largeRangeWarning": "تصدير أكثر من 90 يوماً — قد يستغرق وقتاً"
     },
     "missedCheckout": "نسيت تسجيل الانصراف يوم {{date}} (سجّلت حضورك الساعة {{time}}). يرجى تقديم طلب تصحيح.",
     "checkedInToast": "تم تسجيل الحضور",
@@ -253,6 +257,9 @@
     "toTimeError": "يجب أن يكون وقت الانتهاء بعد وقت البداية.",
     "endDateError": "يجب أن يكون تاريخ الانتهاء في نفس يوم البداية أو بعده.",
     "validDatesError": "يرجى اختيار تواريخ صحيحة.",
+    "includesHolidays_one": "ملاحظة: تشمل فترة إجازتك {{count}} عطلة رسمية",
+    "includesHolidays_other": "ملاحظة: تشمل فترة إجازتك {{count}} عطلات رسمية",
+    "includesHolidays": "ملاحظة: تشمل فترة إجازتك {{count}} عطلة/عطلات رسمية",
     "notEnoughBalance": "الرصيد غير كافٍ. المتبقي {{remaining}} {{unit}} فقط.",
     "submitted": "تم تقديم طلب الإجازة",
     "approvedSuccess": "تمت الموافقة على الإجازة",
@@ -919,7 +926,8 @@
     "upcomingTitle": "العطل القادمة",
     "today": "اليوم",
     "tomorrow": "غداً",
-    "inDays": "بعد {{count}} يوم"
+    "inDays": "بعد {{count}} يوم",
+    "duplicateDate": "يوجد عطلة رسمية بهذا التاريخ مسبقاً"
   },
   "departments": {
     "title": "الأقسام",
@@ -932,7 +940,11 @@
     "addSuccess": "تمت إضافة القسم",
     "editSuccess": "تم تحديث القسم",
     "deleteSuccess": "تم حذف القسم",
-    "employeeCount": "{{count}} موظف"
+    "employeeCount": "{{count}} موظف",
+    "manager": "المدير",
+    "managerOptional": "اختياري",
+    "nameRequired": "اسم القسم مطلوب",
+    "loadError": "فشل تحميل الأقسام"
   },
   "errors": {
     "failedLoad": "فشل تحميل البيانات",

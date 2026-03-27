@@ -219,8 +219,10 @@ export default function Admin() {
   // Departments tab
   const [depts, setDepts]                   = useState([]);
   const [deptsLoading, setDeptsLoading]     = useState(false);
+  const [deptsError, setDeptsError]         = useState(false);
   const [editingDept, setEditingDept]       = useState(null);
-  const [deptForm, setDeptForm]             = useState({ name: '' });
+  const [deptForm, setDeptForm]             = useState({ name: '', manager_id: '' });
+  const [deptNameError, setDeptNameError]   = useState('');
   const [savingDept, setSavingDept]         = useState(false);
 
   const load = useCallback(async () => {
@@ -246,17 +248,17 @@ export default function Admin() {
 
   const loadDepts = useCallback(async () => {
     setDeptsLoading(true);
+    setDeptsError(false);
     try { setDepts(await getDepartments()); }
-    catch { addToast(t('errors.failedLoad'), 'error'); }
+    catch { setDeptsError(true); }
     finally { setDeptsLoading(false); }
-  }, [t, addToast]);
+  }, []);
 
   useEffect(() => { load(); loadCustomRoles(); }, [load, loadCustomRoles]);
 
   useEffect(() => { checkHealth().then(setHealth); }, []);
   useEffect(() => { if (tab === 'holidays') loadHolidays(); }, [tab, loadHolidays]);
   useEffect(() => { if (tab === 'departments') loadDepts(); }, [tab, loadDepts]);
-  useEffect(() => { if (tab === 'holidays') loadHolidays(); }, [holidayYear, loadHolidays]);
 
   const handleSaveHoliday = async () => {
     if (!holidayForm.name.trim() || !holidayForm.date) return;
@@ -271,7 +273,13 @@ export default function Admin() {
       }
       setEditingHoliday(null);
       await loadHolidays();
-    } catch (err) { addToast(err.message || t('errors.actionFailed'), 'error'); }
+    } catch (err) {
+      if (err.message === 'DUPLICATE_DATE') {
+        addToast(t('holidays.duplicateDate'), 'error');
+      } else {
+        addToast(err.message || t('errors.actionFailed'), 'error');
+      }
+    }
     finally { setSavingHoliday(false); }
   };
 
@@ -286,7 +294,11 @@ export default function Admin() {
   };
 
   const handleSaveDept = async () => {
-    if (!deptForm.name.trim()) return;
+    if (!deptForm.name.trim()) {
+      setDeptNameError(t('departments.nameRequired'));
+      return;
+    }
+    setDeptNameError('');
     setSavingDept(true);
     try {
       if (editingDept?.id) {
@@ -887,29 +899,49 @@ export default function Admin() {
           <div style={{ padding: 20 }}>
             {/* Add button */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-              <button className="btn btn-primary btn-sm" onClick={() => { setEditingDept({}); setDeptForm({ name: '' }); }}>
+              <button className="btn btn-primary btn-sm" onClick={() => { setEditingDept({}); setDeptForm({ name: '', manager_id: '' }); setDeptNameError(''); }}>
                 + {t('departments.add')}
               </button>
             </div>
 
             {/* Add/Edit form */}
             {editingDept !== null && (
-              <div style={{ background: 'var(--surface-alt, #f9fafb)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              <div style={{ background: 'var(--surface-alt, #f9fafb)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 200 }}>
-                  <label className="form-label">{t('departments.name')}</label>
-                  <input className="form-control" value={deptForm.name} onChange={e => setDeptForm(f => ({ ...f, name: e.target.value }))} placeholder={t('departments.name')} />
+                  <label className="form-label">{t('departments.name')} *</label>
+                  <input
+                    className="form-control"
+                    value={deptForm.name}
+                    onChange={e => { setDeptForm(f => ({ ...f, name: e.target.value })); setDeptNameError(''); }}
+                    placeholder={t('departments.name')}
+                  />
+                  {deptNameError && <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4 }}>{deptNameError}</div>}
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn btn-primary btn-sm" onClick={handleSaveDept} disabled={savingDept || !deptForm.name.trim()}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <label className="form-label">{t('departments.manager')} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({t('departments.managerOptional')})</span></label>
+                  <select className="form-control" value={deptForm.manager_id} onChange={e => setDeptForm(f => ({ ...f, manager_id: e.target.value }))}>
+                    <option value="">— {t('common.none')} —</option>
+                    {employees.map(emp => (
+                      <option key={emp.name} value={emp.name}>{emp.employee_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', gap: 6, paddingTop: 24 }}>
+                  <button className="btn btn-primary btn-sm" onClick={handleSaveDept} disabled={savingDept}>
                     {savingDept ? '…' : t('common.save')}
                   </button>
-                  <button className="btn btn-sm" onClick={() => setEditingDept(null)}>{t('common.cancel')}</button>
+                  <button className="btn btn-sm" onClick={() => { setEditingDept(null); setDeptNameError(''); }}>{t('common.cancel')}</button>
                 </div>
               </div>
             )}
 
             {/* Departments list */}
-            {deptsLoading ? <Skeleton height={60} /> : depts.length === 0 ? (
+            {deptsError ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
+                <div style={{ marginBottom: 8 }}>{t('departments.loadError')}</div>
+                <button className="btn btn-sm btn-primary" onClick={loadDepts}>{t('common.retry')}</button>
+              </div>
+            ) : deptsLoading ? <Skeleton height={60} /> : depts.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>🏢</div>
                 <div>{t('departments.empty')}</div>
@@ -932,7 +964,7 @@ export default function Admin() {
                           </td>
                           <td>
                             <div style={{ display: 'flex', gap: 6 }}>
-                              {dept.id && <button className="btn btn-sm" onClick={() => { setEditingDept(dept); setDeptForm({ name: dept.name }); }}>{t('common.edit')}</button>}
+                              {dept.id && <button className="btn btn-sm" onClick={() => { setEditingDept(dept); setDeptForm({ name: dept.name, manager_id: dept.manager_id || '' }); setDeptNameError(''); }}>{t('common.edit')}</button>}
                               <button className="btn btn-sm" style={{ color: 'var(--danger)', border: '1px solid var(--danger)' }} onClick={() => handleDeleteDept(dept)}>{t('common.delete')}</button>
                             </div>
                           </td>

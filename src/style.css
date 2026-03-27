@@ -2862,6 +2862,7 @@ body {
 .day-toggle-on { background: var(--primary); color: #fff; border-color: var(--primary); }
 .day-toggle-on:hover { background: #0a3a6e; border-color: #0a3a6e; }
 .day-toggle-static { cursor: default; }
+[dir="rtl"] .schedule-days { direction: ltr; }
 
 /* ── Attendance Export Bar ───────────────────────────────────────────────────── */
 .export-controls {

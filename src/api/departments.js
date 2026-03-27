@@ -44,6 +44,14 @@ export async function createDepartment({ name, description, manager_id }) {
 }
 
 export async function updateDepartment(id, { name, description, manager_id }) {
+  // Fetch current name before updating so we can cascade the rename
+  const { data: current, error: fetchErr } = await supabase
+    .from('departments')
+    .select('name')
+    .eq('id', id)
+    .single();
+  if (fetchErr) throw fetchErr;
+
   const { error } = await supabase
     .from('departments')
     .update({ name: name.trim(), description: description?.trim() || null, manager_id: manager_id || null, updated_at: new Date().toISOString() })
@@ -52,6 +60,17 @@ export async function updateDepartment(id, { name, description, manager_id }) {
     if (error.code === '23505') throw new Error('A department with this name already exists.');
     throw error;
   }
+
+  // Cascade rename to employees.department text field
+  if (current.name !== name.trim()) {
+    const { error: cascadeErr } = await supabase
+      .from('employees')
+      .update({ department: name.trim() })
+      .eq('department', current.name);
+    if (cascadeErr) throw cascadeErr;
+    invalidate('employees');
+  }
+
   invalidate('departments');
   await logAction({
     action: 'UPDATE',
@@ -63,10 +82,11 @@ export async function updateDepartment(id, { name, description, manager_id }) {
 
 export async function deleteDepartment(id, name) {
   // Check for employees still in this department
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from('employees_public')
     .select('name', { count: 'exact', head: true })
     .eq('department', name);
+  if (countError) throw countError;
   if (count > 0) {
     throw new Error(`HAS_EMPLOYEES:${count}`);
   }

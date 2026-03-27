@@ -129,8 +129,8 @@ function MissedPunchBanner({ record, t }) {
 }
 
 // Build a week array (Sat → Fri, company work week) merged with attendance records.
-// Days after today are excluded. Friday is always "Off".
-function buildWeekRows(weekStart, records) {
+// Days after today are excluded. Uses per-employee off_days + public holidays for off-day detection.
+function buildWeekRows(weekStart, records, offDays, holidays) {
   const todayStr = baghdadFmt.format(new Date());
   const recMap   = {};
   for (const r of records) recMap[r.attendance_date] = r;
@@ -147,8 +147,7 @@ function buildWeekRows(weekStart, records) {
     if (recMap[key]) {
       rows.push(recMap[key]);
     } else {
-      const off = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Asia/Baghdad' })
-        .format(new Date(key + 'T12:00:00+03:00')) === 'Fri';
+      const off = checkIsOffDay(new Date(key + 'T12:00:00+03:00'), offDays, holidays);
       rows.push({
         name: `SYNTH-${key}`,
         attendance_date: key,
@@ -160,7 +159,6 @@ function buildWeekRows(weekStart, records) {
     }
   }
   return rows;
-
 }
 
 // Week end = Friday (weekStart + 6 days)
@@ -209,12 +207,12 @@ export default function Attendance() {
       ]);
       setCheckins(ci);
       setTodayAtt(att);
-      setWeekly(buildWeekRows(weekStart, w));
       setMissedRecord(missed);
       const holDates = publicHols.map(h => h.date);
       setHolidays(holDates);
       const todayHol = publicHols.find(h => h.date === today);
       setTodayHolidayName(todayHol?.name || null);
+      setWeekly(buildWeekRows(weekStart, w, employee?.off_days ?? [5, 6], holDates));
     } catch (e) {
       setError(e.message || t('errors.failedLoad'));
     } finally {
@@ -231,6 +229,17 @@ export default function Attendance() {
   // ── Export handler ─────────────────────────────────────────────────────────
   const handleExport = async () => {
     if (!exportFrom || !exportTo) return;
+    if (exportFrom > exportTo) {
+      addToast(t('attendance.export.invalidRange'), 'error');
+      return;
+    }
+    const daysDiff = Math.round(
+      (new Date(exportTo + 'T12:00:00+03:00') - new Date(exportFrom + 'T12:00:00+03:00'))
+      / (1000 * 60 * 60 * 24)
+    );
+    if (daysDiff > 90) {
+      addToast(t('attendance.export.largeRangeWarning'), 'warning');
+    }
     setExporting(true);
     try {
       const data = await getAttendanceForExport({ dateFrom: exportFrom, dateTo: exportTo });
@@ -444,7 +453,11 @@ export default function Attendance() {
                   className="form-input"
                   value={exportFrom}
                   max={today}
-                  onChange={e => setExportFrom(e.target.value)}
+                  onChange={e => {
+                    const newFrom = e.target.value;
+                    setExportFrom(newFrom);
+                    if (exportTo && exportTo < newFrom) setExportTo(newFrom);
+                  }}
                 />
               </div>
               <div className="form-group">

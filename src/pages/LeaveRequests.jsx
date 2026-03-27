@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import {
@@ -6,6 +6,7 @@ import {
   submitLeaveApplication, updateLeaveStatus, getLeaveTypes,
   getLeaveBalance, calcHours, calcDays,
 } from '../api/leave';
+import { getPublicHolidays } from '../api/publicHolidays';
 import { useConfirm } from '../hooks/useConfirm';
 import Badge from '../components/Badge';
 import Modal from '../components/Modal';
@@ -52,8 +53,29 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [isHourly, setIsHourly] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [publicHolidays, setPublicHolidays] = useState([]);
   const { addToast } = useToast();
   const { t } = useTranslation();
+
+  useEffect(() => {
+    const year = new Date().getFullYear();
+    Promise.all([getPublicHolidays(year), getPublicHolidays(year + 1)])
+      .then(([a, b]) => setPublicHolidays([...a, ...b].map(h => h.date)))
+      .catch(() => {});
+  }, []);
+
+  const overlappingHolidays = useMemo(() => {
+    if (isHourly || !form.from_date || !form.to_date || form.to_date < form.from_date) return [];
+    const result = [];
+    const cur = new Date(form.from_date + 'T12:00:00+03:00');
+    const end = new Date(form.to_date + 'T12:00:00+03:00');
+    while (cur <= end) {
+      const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(cur);
+      if (publicHolidays.includes(dateStr)) result.push(dateStr);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return result;
+  }, [isHourly, form.from_date, form.to_date, publicHolidays]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -154,6 +176,14 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
           </div>
         )}
       </div>
+
+      {/* Holiday overlap warning */}
+      {overlappingHolidays.length > 0 && (
+        <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#92400e', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <span>⚠️</span>
+          <span>{t('leave.includesHolidays', { count: overlappingHolidays.length })}</span>
+        </div>
+      )}
 
       {/* Time pickers — hourly only */}
       {isHourly && (

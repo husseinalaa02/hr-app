@@ -22,6 +22,7 @@
     "yes": "Yes",
     "no": "No",
     "new": "+ New",
+    "none": "None",
     "days": "days",
     "hours": "hours",
     "status": "Status",
@@ -202,7 +203,10 @@
       "present": "Present",
       "absent": "Absent",
       "late": "Late",
-      "onLeave": "On Leave"
+      "onLeave": "On Leave",
+      "missedPunch": "Missed Punch",
+      "invalidRange": "From date must be before or equal to To date",
+      "largeRangeWarning": "Exporting more than 90 days — this may take a moment"
     },
     "missedCheckout": "You forgot to check out on {{date}} (checked in at {{time}}). Please submit a regularization request.",
     "checkedInToast": "Checked in",
@@ -253,6 +257,9 @@
     "toTimeError": "To time must be after from time.",
     "endDateError": "End date must be on or after start date.",
     "validDatesError": "Please select valid start and end dates.",
+    "includesHolidays_one": "Note: your leave period includes {{count}} public holiday",
+    "includesHolidays_other": "Note: your leave period includes {{count}} public holidays",
+    "includesHolidays": "Note: your leave period includes {{count}} public holiday(s)",
     "notEnoughBalance": "Not enough balance. Only {{remaining}} {{unit}} remaining.",
     "submitted": "Leave request submitted",
     "approvedSuccess": "Leave approved",
@@ -907,7 +914,8 @@
     "upcomingTitle": "Upcoming Holidays",
     "today": "Today",
     "tomorrow": "Tomorrow",
-    "inDays": "In {{count}} days"
+    "inDays": "In {{count}} days",
+    "duplicateDate": "A holiday on this date already exists"
   },
   "departments": {
     "title": "Departments",
@@ -920,7 +928,11 @@
     "addSuccess": "Department added",
     "editSuccess": "Department updated",
     "deleteSuccess": "Department deleted",
-    "employeeCount": "{{count}} employee(s)"
+    "employeeCount": "{{count}} employee(s)",
+    "manager": "Manager",
+    "managerOptional": "optional",
+    "nameRequired": "Department name is required",
+    "loadError": "Failed to load departments"
   },
   "errors": {
     "failedLoad": "Failed to load data",
