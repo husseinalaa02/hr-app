@@ -79,7 +79,8 @@ export default function Recruitment() {
     setMovingId(cand.id);
     try {
       await moveStage(cand.id, stage);
-      addToast(t('recruitment.movedToStage', { stage }), 'success');
+      const stageLabel = t(`recruitment.stage.${stage.toLowerCase()}`, { defaultValue: stage });
+      addToast(t('recruitment.movedToStage', { stage: stageLabel }), 'success');
       loadCandidates(selectedJob?.id);
     } catch (e) { addToast(e.message, 'error'); }
     finally { setMovingId(null); }

@@ -200,9 +200,13 @@ export default function Payslips() {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleView = async (name) => {
+  const handleView = async (id, name) => {
     setLoadingDetail(name);
-    try { setSelected(await getPayslip(name)); }
+    try {
+      const payslip = await getPayslip(id);
+      if (!payslip) { addToast(t('payslips.notFound'), 'error'); return; }
+      setSelected(payslip);
+    }
     catch (e) { addToast(e.message || t('errors.failedLoad'), 'error'); }
     finally { setLoadingDetail(null); }
   };
@@ -251,7 +255,7 @@ export default function Payslips() {
                   <td><strong>{formatIQD(p.net_pay)}</strong></td>
                   <td><Badge status={p.status || 'Submitted'} /></td>
                   <td>
-                    <button className="btn btn-sm btn-secondary" onClick={() => handleView(p.name)} disabled={loadingDetail === p.name}>
+                    <button className="btn btn-sm btn-secondary" onClick={() => handleView(p.id, p.name)} disabled={loadingDetail === p.name}>
                       {loadingDetail === p.name ? <span className="spinner-sm" /> : t('payslips.viewPayslip')}
                     </button>
                   </td>

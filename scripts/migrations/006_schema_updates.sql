@@ -2,8 +2,14 @@
 -- recruitment_jobs.created_at type fix (M4, M7, M8)
 
 -- M4: unique attendance per employee/date
-alter table attendance add constraint if not exists attendance_unique
-  unique (employee, attendance_date);
+do $$ begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'attendance_unique'
+  ) then
+    alter table attendance add constraint attendance_unique
+      unique (employee, attendance_date);
+  end if;
+end $$;
 
 -- M7: updated_at on tables that were missing it
 alter table leave_apps             add column if not exists updated_at timestamptz default now();

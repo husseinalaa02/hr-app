@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense, Component } from 'react';
+import { useState, useMemo, lazy, Suspense, Component } from 'react';
 import { logAction } from './api/auditLog';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
@@ -59,10 +59,22 @@ class ErrorBoundary extends Component {
   static getDerivedStateFromError(error) { return { error }; }
   componentDidCatch(error, info) {
     if (import.meta.env.DEV) console.error('[ErrorBoundary]', error, info);
-    logAction({
-      userId: 'system', userName: 'System', role: 'system',
-      action: 'ERROR', resource: 'app', details: error.message,
-    }).catch(() => {});
+    // Use action='ERROR' only — the audit_error_insert RLS policy allows any
+    // authenticated user to log errors without requiring a matching user_id/role.
+    // No userId/role override: logAction will use the authenticated session token.
+    try {
+      logAction({
+        action: 'ERROR',
+        resource: 'app',
+        resourceLabel: error.message?.slice(0, 100) || 'Unknown error',
+        details: JSON.stringify({
+          message: error.message,
+          componentStack: info?.componentStack?.slice(0, 500),
+        }),
+      });
+    } catch {
+      // Never throw from an error boundary
+    }
   }
   render() {
     if (this.state.error) {
@@ -106,7 +118,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { t } = useTranslation();
 
-  const PAGE_TITLES = {
+  const PAGE_TITLES = useMemo(() => ({
     '/':             t('nav.dashboard'),
     '/employees':    t('employees.title'),
     '/leave':        t('leave.title'),
@@ -121,7 +133,7 @@ export default function App() {
     '/expenses':     t('expenses.title'),
     '/reports':      t('reports.title'),
     '/admin':        t('admin.title'),
-  };
+  }), [t]);
 
   const title = Object.entries(PAGE_TITLES).find(([path]) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path)

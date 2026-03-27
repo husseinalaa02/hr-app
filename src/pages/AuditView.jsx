@@ -58,11 +58,12 @@ function RoleBadge({ role }) {
   );
 }
 
-function formatTimestamp(ts) {
+function formatTimestamp(ts, locale) {
   if (!ts) return '—';
   try {
     const d = new Date(ts);
-    return d.toLocaleString('en-GB', {
+    const dateLocale = locale === 'ar' ? 'ar-IQ' : 'en-GB';
+    return d.toLocaleString(dateLocale, {
       year: 'numeric', month: 'short', day: '2-digit',
       hour: '2-digit', minute: '2-digit', second: '2-digit',
       hour12: false, timeZone: 'Asia/Baghdad',
@@ -88,7 +89,7 @@ function exportToCSV(logs, headers) {
     l.ip_address || '',
   ]);
   const csv = [headers, ...rows].map(r => r.map(v => csvEscape(v)).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -98,7 +99,7 @@ function exportToCSV(logs, headers) {
 }
 
 export default function AuditView() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const RESOURCE_OPTIONS_T = [
     { value: '', label: t('audit.allResources') },
@@ -151,12 +152,12 @@ export default function AuditView() {
     setFetchError(null);
     try {
       const result = await getAuditLogs({
-        resource: filterResource  || undefined,
-        action:   filterAction    || undefined,
-        userId:   filterUser      || undefined,
-        fromDate: filterFrom ? filterFrom + 'T00:00:00+03:00' : undefined,
-        toDate:   filterTo   ? filterTo   + 'T23:59:59+03:00' : undefined,
-        limit:    200,
+        resource:  filterResource  || undefined,
+        action:    filterAction    || undefined,
+        userName:  filterUser      || undefined,
+        fromDate:  filterFrom ? filterFrom + 'T00:00:00+03:00' : undefined,
+        toDate:    filterTo   ? filterTo   + 'T23:59:59+03:00' : undefined,
+        limit:     1000,
       });
       setLogs(result);
     } catch (e) {
@@ -168,7 +169,6 @@ export default function AuditView() {
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
-  const uniqueUsers = [...new Map(logs.map(l => [l.user_id, l.user_name])).entries()];
 
   return (
     <div className="page-content">
@@ -238,17 +238,14 @@ export default function AuditView() {
           ))}
         </select>
 
-        <select
+        <input
+          type="text"
           className="filter-select"
           value={filterUser}
           onChange={e => setFilterUser(e.target.value)}
+          placeholder={t('audit.filterByName')}
           style={{ minWidth: 160 }}
-        >
-          <option value="">{t('audit.allUsers')}</option>
-          {uniqueUsers.map(([uid, uname]) => (
-            <option key={uid} value={uid}>{uname}</option>
-          ))}
-        </select>
+        />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <label style={{ fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{t('common.from')}</label>
@@ -296,7 +293,7 @@ export default function AuditView() {
           <div className="audit-count-bar" style={{ marginBottom: 8 }}>
             {t('audit.logsFound', { count: logs.length })}
           </div>
-          {logs.length === 200 && (
+          {logs.length === 1000 && (
             <div role="alert" aria-live="polite" style={{ marginBottom: 12, padding: '8px 14px', background: '#fef3c7', color: '#92400e', borderRadius: 6, fontSize: 13 }}>
               {t('audit.truncationWarning')}
             </div>
@@ -324,7 +321,7 @@ export default function AuditView() {
                   {logs.map((log) => (
                     <tr key={log.id}>
                       <td style={{ fontSize: 12, whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
-                        {formatTimestamp(log.timestamp)}
+                        {formatTimestamp(log.timestamp, i18n.language)}
                       </td>
                       <td>
                         <div className="table-emp-name" style={{ fontSize: 13 }}>{log.user_name}</div>

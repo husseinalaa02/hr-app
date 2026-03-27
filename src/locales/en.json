@@ -93,7 +93,8 @@
     "confirmPassword": "Confirm Password",
     "passwordsDoNotMatch": "Passwords do not match",
     "passwordTooShort": "Password must be at least 8 characters",
-    "passwordUpdated": "Password updated — please sign in"
+    "passwordUpdated": "Password updated — please sign in",
+    "accountNotFound": "Your account was not found. Please contact HR."
   },
   "dashboard": {
     "goodMorning": "Good morning",
@@ -357,6 +358,20 @@
       "draft": "Draft",
       "submitted": "Submitted",
       "paid": "Paid"
+    },
+    "csv": {
+      "employeeId": "Employee ID",
+      "employeeName": "Employee Name",
+      "period": "Period",
+      "baseSalary": "Base Salary",
+      "additionalSalary": "Additional Salary",
+      "workingDays": "Working Days",
+      "fridayBonus": "Friday Bonus",
+      "extraDayBonus": "Extra Day Bonus",
+      "lateDeductions": "Late Deductions",
+      "absenceDeductions": "Absence Deductions",
+      "calculatedSalary": "Calculated Salary",
+      "status": "Status"
     }
   },
   "payslips": {
@@ -378,7 +393,8 @@
     "payslipTitle": "Payslip",
     "component": "Component",
     "allAmountsIQD": "All amounts in Iraqi Dinar (IQD)",
-    "employeeId": "Employee ID"
+    "employeeId": "Employee ID",
+    "notFound": "This payslip no longer exists."
   },
   "timesheets": {
     "title": "Timesheets",
@@ -460,6 +476,14 @@
     "reject": "Reject",
     "target": "Target:",
     "movedToStage": "Moved to {{stage}}",
+    "stage": {
+      "application": "Application",
+      "screening": "Screening",
+      "interview": "Interview",
+      "offer": "Offer",
+      "hired": "Hired",
+      "rejected": "Rejected"
+    },
     "removeConfirm": "Remove {{name}}?",
     "selectJobFirst": "Select a job from the Jobs tab to view its candidates.",
     "confirmDeleteCandidate": "Remove candidate {{name}}?",
@@ -627,7 +651,8 @@
     "pendingExpenses": "Pending Expenses",
     "failedLoad": "Failed to load report data",
     "year": "Year",
-    "totalPaid": "Total Paid"
+    "totalPaid": "Total Paid",
+    "approvedLeaveByType": "Approved Leave by Type"
   },
   "audit": {
     "title": "Audit Log",
@@ -663,7 +688,8 @@
     "actionReject": "Reject",
     "actionExport": "Export",
     "actionDelete": "Delete",
-    "truncationWarning": "Showing the most recent 200 entries. Use date filters to narrow results.",
+    "filterByName": "Search by name…",
+    "truncationWarning": "Showing the most recent 1,000 entries. Use date filters to narrow results.",
     "noLogsToExport": "No logs to export — apply filters to find entries first",
     "csv": {
       "timestamp": "Timestamp",

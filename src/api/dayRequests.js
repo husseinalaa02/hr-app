@@ -48,7 +48,7 @@ export async function getDayRequests({ employeeId = '', managerId = '', status =
 export async function getDayRequest(id) {
   if (DEMO) return db.day_requests.get(Number(id));
   if (SUPABASE_MODE) {
-    const { data } = await supabase.from('day_requests').select('*').eq('id', id).single();
+    const { data } = await supabase.from('day_requests').select('*').eq('id', id).maybeSingle();
     return data || null;
   }
   return null;

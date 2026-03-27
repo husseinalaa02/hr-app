@@ -25,8 +25,9 @@ function getGreeting(t) {
   return t('dashboard.goodEvening');
 }
 
-function formatDate() {
-  return new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Baghdad' });
+function formatDate(language) {
+  const locale = language === 'ar' ? 'ar-IQ' : 'en-US';
+  return new Date().toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Baghdad' });
 }
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
@@ -50,7 +51,7 @@ function SectionHeader({ title, to, linkLabel }) {
   return (
     <div className="dash-section-header">
       <h3 className="dash-section-title">{title}</h3>
-      {to && <Link to={to} className="dash-section-link">{linkLabel || t('common.viewAll')} <span className="link-arrow">→</span></Link>}
+      {to && <Link to={to} className="dash-section-link">{linkLabel || t('common.viewAll')} <span className="link-arrow" /></Link>}
     </div>
   );
 }
@@ -187,7 +188,7 @@ function AnnouncementModal({ onClose, onSave }) {
 }
 
 export default function Dashboard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { employee, isAdmin, isCEO, isFinance, isHR, isAudit, hasPermission } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
@@ -218,20 +219,32 @@ export default function Dashboard() {
     setLoadError(null);
     try {
       if (isManager || isFinance) {
-        const [allEmployees, pendingLeaves, announcements, payrollRecords, pendingExpenses, jobs, checkins] = await Promise.all([
+        // Wave 1: critical above-the-fold data
+        const [allEmployees, pendingLeaves, checkins] = await Promise.all([
           getEmployees(),
           getPendingApprovals({ managerId: employee.name, includeHRQueue: isHR }),
+          getTodayCheckins(employee.name),
+        ]);
+        setData({ allEmployees, pendingLeaves, checkins, announcements: [], payrollRecords: [], pendingExpenses: [], jobs: [] });
+        setLoading(false);
+        // Wave 2: secondary panels (non-blocking)
+        const [announcements, payrollRecords, pendingExpenses, jobs] = await Promise.all([
           getAnnouncements(),
           getPayrollRecords(),
           getExpenses({ status: 'Submitted' }),
           getJobs({ status: 'Open' }),
-          getTodayCheckins(employee.name),
         ]);
         setData({ allEmployees, pendingLeaves, announcements, payrollRecords, pendingExpenses, jobs, checkins });
       } else {
-        const [checkins, balance, leaves, announcements] = await Promise.all([
+        // Wave 1: attendance status (most visible)
+        const [checkins, balance] = await Promise.all([
           getTodayCheckins(employee.name),
           getLeaveBalance(employee.name),
+        ]);
+        setData({ checkins, allocations: balance, leaves: [], announcements: [] });
+        setLoading(false);
+        // Wave 2: history and announcements (non-blocking)
+        const [leaves, announcements] = await Promise.all([
           getLeaveApplications(employee.name),
           getAnnouncements(),
         ]);
@@ -239,7 +252,6 @@ export default function Dashboard() {
       }
     } catch (e) {
       setLoadError(e.message || t('errors.failedLoad'));
-    } finally {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -279,7 +291,7 @@ export default function Dashboard() {
             <div className="dash-emp-info">
               <div className="dash-greeting">{getGreeting(t)}, <strong>{employee?.employee_name?.split(' ')[0]}</strong> 👋</div>
               <div className="dash-emp-role">{employee?.designation} · {employee?.department}</div>
-              <div className="dash-date">{formatDate()}</div>
+              <div className="dash-date">{formatDate(i18n.language)}</div>
             </div>
           </div>
           <div className="dash-emp-status-pill" style={{ background: '#e8f2fb', color: '#0C447C', borderColor: '#0C447C40' }}>
@@ -476,7 +488,7 @@ export default function Dashboard() {
           <div className="dash-emp-info">
             <div className="dash-greeting">{getGreeting(t)}, <strong>{employee?.employee_name?.split(' ')[0]}</strong> 👋</div>
             <div className="dash-emp-role">{employee?.designation} · {employee?.department}</div>
-            <div className="dash-date">{formatDate()}</div>
+            <div className="dash-date">{formatDate(i18n.language)}</div>
           </div>
         </div>
         <div className="dash-emp-status-pill" style={{ background: attendanceColor + '18', color: attendanceColor, borderColor: attendanceColor + '40' }}>

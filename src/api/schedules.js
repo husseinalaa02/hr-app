@@ -12,6 +12,9 @@ export const SHIFT_PRESETS = {
 
 // Returns the current (latest) schedule for each employee in the given list
 export async function getSchedules(employeeIds = []) {
+  // Guard: calling with an empty array would fetch ALL schedules (2000+ rows)
+  // before the employee list has loaded. Return early to avoid the unnecessary fetch.
+  if (!employeeIds || employeeIds.length === 0) return [];
   if (SUPABASE_MODE) {
     let q = supabase.from('work_schedules').select('id, employee, employee_name, shift_type, start_time, end_time, effective_date, assigned_by, assigned_by_name, notes').order('effective_date', { ascending: false }).limit(2000);
     if (employeeIds.length) q = q.in('employee', employeeIds);

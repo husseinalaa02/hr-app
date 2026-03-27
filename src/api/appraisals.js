@@ -14,6 +14,14 @@ export async function getAppraisalTemplates() {
 }
 
 export async function getAppraisals({ employeeId = '', appraiserId = '', status = '' } = {}) {
+  // Require at least one filter — calling with no args would return all appraisals
+  // (everyone's performance scores) which is a PII/data-privacy risk.
+  // Use getAllAppraisals() explicitly for admin/HR bulk views.
+  if (!employeeId && !appraiserId && !status) {
+    if (import.meta.env.DEV) console.error('[appraisals] getAppraisals called without any filter — returning empty. Use getAllAppraisals() for admin views.');
+    return [];
+  }
+
   if (SUPABASE_MODE) {
     let q = supabase.from('appraisals').select('*').order('created_at', { ascending: false });
     if (employeeId)  q = q.eq('employee_id', employeeId);
@@ -27,6 +35,28 @@ export async function getAppraisals({ employeeId = '', appraiserId = '', status 
     let rows = await db.appraisals.toArray();
     if (employeeId) rows = rows.filter(a => a.employee_id === employeeId);
     if (appraiserId) rows = rows.filter(a => a.appraiser_id === appraiserId);
+    if (status) rows = rows.filter(a => a.status === status);
+    return rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+  return [];
+}
+
+/**
+ * Fetch all appraisals across all employees.
+ * Only call this from admin/HR contexts — it returns every employee's scores
+ * and manager comments.  RLS on the appraisals table must restrict access to
+ * roles with the appraisals:manage permission.
+ */
+export async function getAllAppraisals({ status = '' } = {}) {
+  if (SUPABASE_MODE) {
+    let q = supabase.from('appraisals').select('*').order('created_at', { ascending: false });
+    if (status) q = q.eq('status', status);
+    const { data, error } = await q;
+    if (error) throw error;
+    return data || [];
+  }
+  if (DEMO) {
+    let rows = await db.appraisals.toArray();
     if (status) rows = rows.filter(a => a.status === status);
     return rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
   }

@@ -5,7 +5,7 @@ export async function getTimesheets(employeeId) {
   if (SUPABASE_MODE) {
     const { data, error } = await supabase
       .from('timesheets')
-      .select('*')
+      .select('name, employee, start_date, end_date, status, total_hours, project, time_logs, notes')
       .eq('employee', employeeId)
       .order('start_date', { ascending: false });
     if (error) return [];

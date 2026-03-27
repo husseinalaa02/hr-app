@@ -22,6 +22,7 @@ export async function getReportData({ year = new Date().getFullYear() } = {}) {
         .limit(2000),
       supabase.from('appraisals')
         .select('id, employee_name, period, status, final_score')
+        .ilike('period', `%${year}%`)
         .limit(2000),
       supabase.from('expenses')
         .select('status, amount')

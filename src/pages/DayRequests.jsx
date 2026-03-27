@@ -314,7 +314,7 @@ export default function DayRequests() {
                   </button>
                 </div>
               )}
-              {isHR && req.approval_status === 'Pending HR' && (
+              {(isHR || isAdmin) && req.approval_status === 'Pending HR' && (
                 <div className="request-actions">
                   <button
                     className="btn btn-sm btn-success"

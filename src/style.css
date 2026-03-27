@@ -2738,10 +2738,11 @@ body {
   border-left: 1px solid var(--gray-100);
 }
 
-[dir="rtl"] .link-arrow {
-  display: inline-block;
-  transform: scaleX(-1);
-}
+.link-arrow::after { content: ' →'; }
+[dir="rtl"] .link-arrow::after { content: ' ←'; }
+
+.back-link::before { content: '← '; }
+[dir="rtl"] .back-link::before { content: '→ '; }
 
 [dir="rtl"] .wf-arrow {
   transform: rotate(180deg);

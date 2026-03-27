@@ -1,8 +1,16 @@
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 
 export default function ConfirmModal({ message, onConfirm, onCancel, confirmLabel, cancelLabel, danger = false }) {
   const { t } = useTranslation();
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onCancel?.(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onCancel]);
+
   return (
     <Modal title={t('common.confirm')} onClose={onCancel}>
       <div className="form-stack">

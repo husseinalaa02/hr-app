@@ -53,8 +53,7 @@ export async function getPayslips(employeeId) {
 
 export async function getPayslip(id) {
   if (SUPABASE_MODE) {
-    const { data, error } = await supabase.from('payroll').select('*').eq('id', id).single();
-    if (error) return null;
+    const { data } = await supabase.from('payroll').select('*').eq('id', id).maybeSingle();
     return normalize(data);
   }
   const row = await db.payroll.get(Number(id));

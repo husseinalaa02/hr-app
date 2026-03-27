@@ -56,6 +56,16 @@ export default function Login() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Show a message when AuthContext signed the user out because their employees
+  // row was deleted (offboarded account with an orphaned Supabase Auth entry).
+  useEffect(() => {
+    const authError = sessionStorage.getItem('auth_error');
+    if (authError === 'account_not_found') {
+      addToast(t('auth.accountNotFound'), 'error');
+      sessionStorage.removeItem('auth_error');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleReset = async (e) => {
     e.preventDefault();
     if (!resetEmail) return;

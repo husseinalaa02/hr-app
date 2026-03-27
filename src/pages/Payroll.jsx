@@ -32,7 +32,8 @@ const LOG_ICONS = {
   'Marked as Paid':       { emoji: '✅', labelKey: 'payroll.logIcon.paid' },
 };
 function LogTimeline({ entries }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const tsLocale = i18n.language === 'ar' ? 'ar-IQ' : 'en-GB';
   if (!entries.length) return <p className="text-muted" style={{ fontSize: 13 }}>{t('payroll.noLog')}</p>;
   return (
     <div className="process-log">
@@ -46,7 +47,7 @@ function LogTimeline({ entries }) {
               {icon ? <span role="img" aria-label={t(icon.labelKey)}>{icon.emoji}</span> : '•'} {e.action}
             </div>
             <div className="log-by">{e.performed_by_name}</div>
-            <div className="log-time">{new Date(e.timestamp).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Baghdad' })}</div>
+            <div className="log-time">{new Date(e.timestamp).toLocaleString(tsLocale, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Baghdad' })}</div>
             {e.notes && <div className="log-notes">{e.notes}</div>}
           </div>
         </div>
@@ -219,7 +220,7 @@ export default function Payroll() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {(isFinance || isAdmin) && (
-            <button className="btn btn-secondary" onClick={() => exportPayrollCSV(filtered)}>{t('payroll.exportCSV')}</button>
+            <button className="btn btn-secondary" onClick={() => exportPayrollCSV(filtered, t)}>{t('payroll.exportCSV')}</button>
           )}
           {canCreate && (
             <button className="btn btn-primary" onClick={() => setShowCreate(true)}>{t('payroll.newPayroll')}</button>

@@ -60,17 +60,16 @@ export async function markAllAsRead(recipientId) {
   }
 }
 
-export async function addNotification({ recipient_id, title, message, type = 'info' }) {
+export async function addNotification({ recipient_id, title, message, type = 'info', link }) {
   if (SUPABASE_MODE) {
     // Use security-definer RPC so non-HR managers can send notifications to other employees
-    const { data } = await supabase
-      .rpc('insert_notification', { p_recipient_id: recipient_id, p_title: title, p_message: message, p_type: type })
-      .select()
-      .single();
-    return data;
+    const { error } = await supabase
+      .rpc('insert_notification', { p_recipient_id: recipient_id, p_type: type, p_message: message, p_link: link || null });
+    if (error) throw error;
+    return;
   }
   if (DEMO) {
-    const record = { recipient_id, title, message, type, read: false, created_at: new Date().toISOString() };
+    const record = { recipient_id, title, message, type, link: link || null, read: false, created_at: new Date().toISOString() };
     const id = await db.notifications.add(record);
     return { ...record, id };
   }
@@ -100,6 +99,8 @@ export async function notifyRole(roles, { title, message, type = 'info' }) {
       p_title:   title,
       p_message: message,
       p_type:    type,
-    }).catch(() => {});
+    }).catch(e => {
+      if (import.meta.env.DEV) console.error('[notifyRole] RPC failed:', e);
+    });
   }
 }

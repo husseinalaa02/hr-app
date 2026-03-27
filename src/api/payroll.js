@@ -2,6 +2,7 @@ import { db } from '../db/index';
 import { MOCK_PAYROLL_RECORDS } from './mock';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
 import { ABSENCE_SALARY_DEDUCTION } from './leave';
+import { logAction } from './auditLog';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -149,6 +150,7 @@ export async function createPayroll(data, performer = null) {
     if (error) throw error;
     if (performer) {
       await addLog(inserted.id, 'Created', performer.name, performer.employee_name, '');
+      logAction({ userId: performer.name, userName: performer.employee_name, role: performer.role, action: 'CREATE', resource: 'payroll', resourceId: String(inserted.id), resourceLabel: `${record.employee_name} – ${record.period_start}` }).catch(() => {});
     }
     return inserted;
   }
@@ -325,6 +327,7 @@ export async function submitPayroll(id, performer) {
     const { data: updated, error } = await supabase.from('payroll').update(updates).eq('id', id).select().single();
     if (error) throw error;
     await addLog(Number(id), 'Submitted to Finance', performer.name, performer.employee_name, 'Submitted for payment processing');
+    logAction({ userId: performer.name, userName: performer.employee_name, role: performer.role, action: 'UPDATE', resource: 'payroll', resourceId: String(id), resourceLabel: `Submitted to Finance`, details: 'Status → Submitted' }).catch(() => {});
     return updated;
   }
   if (DEMO) {
@@ -356,6 +359,7 @@ export async function markAsPaid(id, performer) {
     const { data: updated, error } = await supabase.from('payroll').update(updates).eq('id', id).select().single();
     if (error) throw error;
     await addLog(Number(id), 'Marked as Paid', performer.name, performer.employee_name, 'Salary payment processed');
+    logAction({ userId: performer.name, userName: performer.employee_name, role: performer.role, action: 'APPROVE', resource: 'payroll', resourceId: String(id), resourceLabel: `Marked as Paid`, details: 'Status → Paid' }).catch(() => {});
     return updated;
   }
   if (DEMO) {
@@ -386,8 +390,13 @@ function csvEscape(val) {
     ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-export function exportPayrollCSV(records) {
-  const headers = [
+export function exportPayrollCSV(records, t) {
+  const headers = t ? [
+    t('payroll.csv.employeeId'),     t('payroll.csv.employeeName'), t('payroll.csv.period'),
+    t('payroll.csv.baseSalary'),     t('payroll.csv.additionalSalary'), t('payroll.csv.workingDays'),
+    t('payroll.csv.fridayBonus'),    t('payroll.csv.extraDayBonus'), t('payroll.csv.lateDeductions'),
+    t('payroll.csv.absenceDeductions'), t('payroll.csv.calculatedSalary'), t('payroll.csv.status'),
+  ] : [
     'Employee ID', 'Employee Name', 'Period',
     'Base Salary', 'Additional Salary', 'Working Days',
     'Friday Bonus', 'Extra Day Bonus', 'Late Deductions', 'Absence Deductions', 'Calculated Salary', 'Status',

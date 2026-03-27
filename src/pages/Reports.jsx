@@ -112,7 +112,7 @@ export default function Reports() {
         <>
           <div className="stats-row">
             <StatCard label={t('reports.headcount')} value={data.employees.length} color="#1565c0" />
-            <StatCard label={t('nav.leaveRequests')} value={data.leaves.filter(l => l.status === 'Open').length} color="#ef6c00" />
+            <StatCard label={t('nav.leaveRequests')} value={data.leaves.filter(l => l.status !== 'Approved' && l.status !== 'Rejected').length} color="#ef6c00" />
             <StatCard label={t('reports.payroll')} value={(data.payrollTotal / 1_000_000).toFixed(2) + 'M IQD'} color="#2e7d32" />
             <StatCard label={t('reports.pendingExpenses')} value={data.pendingExpenses} color="#6a1b9a" />
           </div>
@@ -137,11 +137,11 @@ export default function Reports() {
           <div className="stats-row">
             <StatCard label={t('reports.totalApplications')} value={data.leaves.length} color="#1565c0" />
             <StatCard label={t('reports.approved')} value={data.leaves.filter(l => l.status === 'Approved').length} color="#2e7d32" />
-            <StatCard label={t('reports.pending')} value={data.leaves.filter(l => l.status === 'Open').length} color="#ef6c00" />
+            <StatCard label={t('reports.pending')} value={data.leaves.filter(l => l.status !== 'Approved' && l.status !== 'Rejected').length} color="#ef6c00" />
             <StatCard label={t('reports.rejected')} value={data.leaves.filter(l => l.status === 'Rejected').length} color="#c62828" />
           </div>
           <div className="card" style={{ marginTop: 16 }}>
-            <div className="card-header"><h3>{t('reports.leave')} ({t('common.status')})</h3></div>
+            <div className="card-header"><h3>{t('reports.approvedLeaveByType')}</h3></div>
             <div className="card-body">
               <table className="data-table">
                 <thead><tr><th>{t('reports.leave')}</th><th>{t('reports.applications')}</th></tr></thead>
@@ -176,7 +176,7 @@ export default function Reports() {
                       <td>{r.employee_name}</td>
                       <td>{r.period_start?.slice(0, 7)}</td>
                       <td>{Number(r.calculated_salary).toLocaleString()}</td>
-                      <td>{r.status}</td>
+                      <td>{t(`status.${r.status}`, { defaultValue: r.status })}</td>
                     </tr>
                   ))}
                 </tbody>

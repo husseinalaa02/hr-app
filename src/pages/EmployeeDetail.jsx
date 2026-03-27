@@ -31,7 +31,7 @@ function ChangePasswordModal({ targetId, isSelf, onClose }) {
   const handle = async (e) => {
     e.preventDefault();
     if (newPwd !== confirm) { addToast(t('employeeDetail.passwordMismatch'), 'error'); return; }
-    if (newPwd.length < 6) { addToast(t('employeeDetail.passwordTooShort'), 'error'); return; }
+    if (newPwd.length < 8) { addToast(t('employeeDetail.passwordTooShort'), 'error'); return; }
     setSaving(true);
     try {
       if (isSelf && SUPABASE_MODE) {
@@ -80,7 +80,7 @@ function ChangePasswordModal({ targetId, isSelf, onClose }) {
         )}
         <div className="form-group">
           <label>{t('employeeDetail.newPassword')}</label>
-          <input type="password" className="form-input" value={newPwd} onChange={e => setNewPwd(e.target.value)} required placeholder={t('employeeDetail.enterNewPassword')} />
+          <input type="password" className="form-input" value={newPwd} onChange={e => setNewPwd(e.target.value)} required minLength={8} placeholder={t('employeeDetail.enterNewPassword')} />
         </div>
         <div className="form-group">
           <label>{t('employeeDetail.confirmNewPassword')}</label>
@@ -150,7 +150,10 @@ export default function EmployeeDetail() {
 
   const isSelf      = me?.name === id;
   const canEdit     = isHR || isSelf;  // isHR includes admin (role === 'hr_manager' || 'admin')
-  const canChangePwd = isAdmin || isHR || isSelf;
+  // Only admins (or the employee themselves) may change passwords.
+  // HR managers previously had this privilege, but a rogue HR employee could
+  // lock out any user including the CEO — restricted to admin + self only.
+  const canChangePwd = isAdmin || isSelf;
   const editableKeys = isHR ? ADMIN_EDITABLE : SELF_EDITABLE;
 
   const load = useCallback(async () => {

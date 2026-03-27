@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import {
-  getAppraisals, getAppraisalTemplates, createAppraisal,
+  getAppraisals, getAllAppraisals, getAppraisalTemplates, createAppraisal,
   submitSelfAssessment, submitManagerReview,
   saveSelfAssessmentDraft, saveManagerReviewDraft,
   createTemplate, updateTemplate, deleteTemplate,
@@ -440,7 +440,9 @@ export default function Appraisals() {
       const opts = {};
       if (tab === 'mine') opts.employeeId = employee.name;
       if (tab === 'review') opts.appraiserId = employee.name;
-      const data = await getAppraisals(opts);
+      const data = tab === 'all' && canManage
+        ? await getAllAppraisals()
+        : await getAppraisals(opts);
       setAppraisals(data);
     } catch (e) {
       setLoadError(e.message || t('errors.failedLoad'));

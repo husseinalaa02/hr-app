@@ -92,8 +92,9 @@
     "newPassword": "كلمة المرور الجديدة",
     "confirmPassword": "تأكيد كلمة المرور",
     "passwordsDoNotMatch": "كلمتا المرور غير متطابقتين",
-    "passwordTooShort": "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل",
-    "passwordUpdated": "تم تحديث كلمة المرور — يرجى تسجيل الدخول"
+    "passwordTooShort": "يجب أن تكون كلمة المرور 8 أحرف على الأقل",
+    "passwordUpdated": "تم تحديث كلمة المرور — يرجى تسجيل الدخول",
+    "accountNotFound": "لم يتم العثور على حسابك. يرجى التواصل مع قسم الموارد البشرية."
   },
   "dashboard": {
     "goodMorning": "صباح الخير",
@@ -337,10 +338,18 @@
     "toFinance": "للمالية",
     "financePays": "المالية تدفع",
     "salary": "الراتب",
+    "pendingPayment_zero": "لا توجد سجلات رواتب في انتظار الدفع",
     "pendingPayment_one": "سجل راتب واحد في انتظار الدفع",
+    "pendingPayment_two": "سجلا راتب في انتظار الدفع",
+    "pendingPayment_few": "{{count}} سجلات رواتب في انتظار الدفع",
+    "pendingPayment_many": "{{count}} سجل راتب في انتظار الدفع",
     "pendingPayment_other": "{{count}} سجل راتب في انتظار الدفع",
     "pendingPayment": "{{count}} سجل راتب في انتظار الدفع",
+    "draftPending_zero": "لا توجد سجلات مسودة",
     "draftPending_one": "سجل مسودة واحد — راجع وقدم للمالية عند الجاهزية",
+    "draftPending_two": "سجلا مسودة — راجع وقدم للمالية عند الجاهزية",
+    "draftPending_few": "{{count}} سجلات مسودة — راجع وقدم للمالية عند الجاهزية",
+    "draftPending_many": "{{count}} سجل مسودة — راجع وقدم للمالية عند الجاهزية",
     "draftPending_other": "{{count}} سجل مسودة — راجع وقدم للمالية عند الجاهزية",
     "draftPending": "{{count}} سجل مسودة — راجع وقدم للمالية عند الجاهزية",
     "totalAcross": "الإجمالي: {{amount}} عبر {{count}} سجل",
@@ -357,6 +366,20 @@
       "draft": "مسودة",
       "submitted": "مُقدَّم",
       "paid": "مدفوع"
+    },
+    "csv": {
+      "employeeId": "رقم الموظف",
+      "employeeName": "اسم الموظف",
+      "period": "الفترة",
+      "baseSalary": "الراتب الأساسي",
+      "additionalSalary": "الراتب الإضافي",
+      "workingDays": "أيام العمل",
+      "fridayBonus": "علاوة الجمعة",
+      "extraDayBonus": "علاوة اليوم الإضافي",
+      "lateDeductions": "خصومات التأخير",
+      "absenceDeductions": "خصومات الغياب",
+      "calculatedSalary": "الراتب المحسوب",
+      "status": "الحالة"
     }
   },
   "payslips": {
@@ -378,7 +401,8 @@
     "payslipTitle": "قسيمة الراتب",
     "component": "البند",
     "allAmountsIQD": "جميع المبالغ بالدينار العراقي (IQD)",
-    "employeeId": "رقم الموظف"
+    "employeeId": "رقم الموظف",
+    "notFound": "قسيمة الراتب هذه لم تعد موجودة."
   },
   "timesheets": {
     "title": "جداول الوقت",
@@ -460,6 +484,14 @@
     "reject": "رفض",
     "target": "الهدف:",
     "movedToStage": "تم النقل إلى {{stage}}",
+    "stage": {
+      "application": "التقديم",
+      "screening": "الفحص الأولي",
+      "interview": "المقابلة",
+      "offer": "العرض",
+      "hired": "تم التوظيف",
+      "rejected": "مرفوض"
+    },
     "removeConfirm": "إزالة {{name}}؟",
     "selectJobFirst": "اختر وظيفة من تبويب الوظائف لعرض مرشحيها.",
     "confirmDeleteCandidate": "إزالة المرشح {{name}}؟",
@@ -627,7 +659,8 @@
     "pendingExpenses": "المصروفات المعلقة",
     "failedLoad": "فشل تحميل بيانات التقرير",
     "year": "السنة",
-    "totalPaid": "إجمالي المدفوع"
+    "totalPaid": "إجمالي المدفوع",
+    "approvedLeaveByType": "الإجازات المعتمدة حسب النوع"
   },
   "audit": {
     "title": "سجل المراجعة",
@@ -643,7 +676,11 @@
     "readOnly": "للقراءة فقط",
     "allUsers": "جميع المستخدمين",
     "clearFilters": "مسح الفلاتر",
+    "logsFound_zero": "لا توجد سجلات",
     "logsFound_one": "سجل واحد موجود",
+    "logsFound_two": "سجلان موجودان",
+    "logsFound_few": "{{count}} سجلات موجودة",
+    "logsFound_many": "{{count}} سجل موجود",
     "logsFound_other": "{{count}} سجل موجود",
     "logsFound": "{{count}} سجل موجود",
     "allResources": "جميع الموارد",
@@ -663,7 +700,8 @@
     "actionReject": "رفض",
     "actionExport": "تصدير",
     "actionDelete": "حذف",
-    "truncationWarning": "يتم عرض أحدث 200 إدخال. استخدم مرشحات التاريخ لتضييق النتائج.",
+    "filterByName": "بحث بالاسم…",
+    "truncationWarning": "يتم عرض أحدث 1,000 إدخال. استخدم مرشحات التاريخ لتضييق النتائج.",
     "noLogsToExport": "لا توجد سجلات للتصدير — استخدم المرشحات للبحث عن إدخالات أولاً",
     "csv": {
       "timestamp": "الوقت",
@@ -858,7 +896,7 @@
     "Paid": "مدفوع",
     "Hired": "تم التوظيف",
     "Applied": "مُقدِّم",
-    "Shortlisted": "مختصر",
+    "Shortlisted": "مرشح",
     "Interview": "مقابلة",
     "Not Started": "لم يبدأ",
     "In Progress": "جارٍ",

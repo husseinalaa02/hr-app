@@ -18,19 +18,48 @@ returns text language sql stable security definer as $$
   )
 $$;
 
--- C2: Single-recipient notification insert that bypasses RLS for non-HR callers.
--- Managers sending notifications to their reports would fail the notif_insert policy
--- which only allows admin/hr_manager or self-sends. This function runs as SECURITY
--- DEFINER (owner's privileges) so any authenticated user can call it.
+-- C2/C3: Single-recipient notification insert that bypasses RLS for non-HR callers.
+-- Authorization checks: caller must be authenticated, and must be the recipient,
+-- an admin/hr_manager, or a direct manager of the recipient.
+-- Input validation: message ≤ 1000 chars, type must be a known enum value.
 create or replace function insert_notification(
   p_recipient_id text,
-  p_title        text,
-  p_message      text,
-  p_type         text default 'info'
+  p_type         text default 'info',
+  p_message      text default '',
+  p_link         text default null
 ) returns void language plpgsql security definer as $$
+declare
+  v_caller      text := auth_employee_id();
+  v_valid_types text[] := array['info','leave','payroll','appraisal','expense','recruitment'];
 begin
-  insert into notifications(recipient_id, title, message, type)
-  values (p_recipient_id, p_title, p_message, p_type);
+  -- Authorization: caller must be authenticated
+  if v_caller is null then
+    raise exception 'insert_notification: unauthenticated caller';
+  end if;
+
+  -- Authorization: caller must be the recipient OR a manager of the recipient OR admin/hr_manager
+  if v_caller <> p_recipient_id
+    and auth_role() not in ('admin', 'hr_manager')
+    and not exists (
+      select 1 from employees
+      where name = p_recipient_id and reports_to = v_caller
+    )
+  then
+    raise exception 'insert_notification: caller % is not authorized to notify %', v_caller, p_recipient_id;
+  end if;
+
+  -- Validate message length
+  if length(p_message) > 1000 then
+    raise exception 'insert_notification: message exceeds 1000 characters';
+  end if;
+
+  -- Validate type
+  if p_type <> all(v_valid_types) then
+    raise exception 'insert_notification: invalid type "%"', p_type;
+  end if;
+
+  insert into notifications(recipient_id, type, message, link, read, created_at)
+  values (p_recipient_id, p_type, p_message, p_link, false, now());
 end;
 $$;
 
@@ -77,7 +106,7 @@ create table if not exists employees (
   password        text,    -- kept for migration only; cleared after auth migration
   auth_id         uuid unique references auth.users(id) on delete set null,
   image           text,
-  reports_to      text,
+  reports_to      text references employees(name) on delete set null,
   company         text default 'AFAQ ALFIKER'
 );
 
@@ -110,7 +139,6 @@ create table if not exists leave_allocs (
   is_hourly               boolean default false,
   leave_year              int not null default extract(year from now())::int
 );
-alter table leave_allocs add column if not exists leave_year int not null default extract(year from now())::int;
 
 -- Day Requests (Friday / Extra Day)
 create table if not exists day_requests (
@@ -279,12 +307,30 @@ alter table employees add column if not exists employee_type text;
 -- M1: payroll timestamps and FK
 alter table payroll add column if not exists created_at timestamptz default now();
 alter table payroll add column if not exists updated_at timestamptz default now();
--- M2: unique leave allocation per employee/type/year
-alter table leave_allocs add constraint if not exists leave_allocs_unique unique (employee, leave_type, leave_year);
+-- M2: ensure leave_year column exists, deduplicate, then add unique constraint
+alter table leave_allocs
+  add column if not exists leave_year int not null default extract(year from now())::int;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'leave_allocs_unique') then
+    delete from leave_allocs
+    where id not in (
+      select max(id) from leave_allocs group by employee, leave_type, leave_year
+    );
+    alter table leave_allocs add constraint leave_allocs_unique unique (employee, leave_type, leave_year);
+  end if;
+end $$;
 -- M3: unique day request per employee/date/type
-alter table day_requests add constraint if not exists day_requests_unique unique (employee_id, request_date, request_type);
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'day_requests_unique') then
+    alter table day_requests add constraint day_requests_unique unique (employee_id, request_date, request_type);
+  end if;
+end $$;
 -- M4: unique attendance per employee/date
-alter table attendance add constraint if not exists attendance_unique unique (employee, attendance_date);
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'attendance_unique') then
+    alter table attendance add constraint attendance_unique unique (employee, attendance_date);
+  end if;
+end $$;
 -- M7: updated_at on key tables
 alter table leave_apps             add column if not exists updated_at timestamptz default now();
 alter table expenses               add column if not exists updated_at timestamptz default now();
@@ -306,6 +352,7 @@ create table if not exists notifications (
   title        text,
   message      text,
   type         text default 'info',
+  link         text,
   read         boolean default false,
   created_at   timestamptz default now()
 );
@@ -555,7 +602,18 @@ create policy "recruit_cands_access" on recruitment_candidates for all to authen
 create policy "audit_select" on audit_logs for select to authenticated
   using (auth_role() in ('admin', 'audit_manager', 'ceo'));
 create policy "audit_insert" on audit_logs for insert to authenticated
-  with check (user_id = auth_employee_id());
+  with check (
+    user_id = auth_employee_id()
+    and role = auth_role()
+  );
+-- Permissive policy for ERROR-action inserts (e.g. ErrorBoundary in App.jsx).
+-- Supabase applies OR logic across multiple INSERT policies, so this allows any
+-- authenticated user to log an ERROR even when userId/role are not set by the client.
+create policy "audit_error_insert" on audit_logs for insert to authenticated
+  with check (
+    action = 'ERROR'
+    and (user_id is null or user_id = auth_employee_id())
+  );
 
 -- NOTIFICATIONS
 create policy "notif_select" on notifications for select to authenticated

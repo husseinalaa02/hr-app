@@ -200,7 +200,8 @@ export async function getLeaveBalance(employeeId) {
   const currentYear = parseInt(baghdadToday.slice(0, 4), 10);
 
   if (SUPABASE_MODE) {
-    const { data: rawAllocs } = await supabase.from('leave_allocs').select('*')
+    const { data: rawAllocs } = await supabase.from('leave_allocs')
+      .select('employee, leave_type, total_leaves_allocated, is_hourly, leave_year')
       .eq('employee', employeeId).eq('leave_year', currentYear);
     const { data: approved } = await supabase.from('leave_apps')
       .select('leave_type, total_leave_days, total_hours, from_date, is_hourly')
@@ -281,7 +282,8 @@ export async function getLeaveBalance(employeeId) {
 
 export async function getAllApprovedLeaves({ year = new Date().getFullYear() } = {}) {
   if (SUPABASE_MODE) {
-    const { data, error } = await supabase.from('leave_apps').select('*')
+    const { data, error } = await supabase.from('leave_apps')
+      .select('name, employee, employee_name, leave_type, from_date, to_date, status, approval_stage, reason, total_leave_days, approved_by, created_at, is_hourly, from_time, to_time')
       .eq('status', 'Approved')
       .gte('from_date', `${year}-01-01`)
       .lte('from_date', `${year}-12-31`)
@@ -409,7 +411,7 @@ export async function submitLeaveApplication(data) {
 
 export async function updateLeaveStatus(name, action, actorRole = 'manager') {
   if (SUPABASE_MODE) {
-    const { data: existing } = await supabase.from('leave_apps').select('*').eq('name', name).single();
+    const { data: existing } = await supabase.from('leave_apps').select('*').eq('name', name).maybeSingle();
     if (!existing) return null;
 
     if (action === 'Rejected') {

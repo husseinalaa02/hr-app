@@ -27,7 +27,7 @@ export async function getJobs({ status = '' } = {}) {
 
 export async function getJob(id) {
   if (SUPABASE_MODE) {
-    const { data } = await supabase.from('recruitment_jobs').select('*').eq('id', id).single();
+    const { data } = await supabase.from('recruitment_jobs').select('*').eq('id', id).maybeSingle();
     return data || null;
   }
   if (DEMO) return db.recruitment_jobs.get(Number(id));

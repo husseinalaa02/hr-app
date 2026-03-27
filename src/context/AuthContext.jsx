@@ -103,6 +103,13 @@ export function AuthProvider({ children }) {
         getCustomRoles().then(setCustomRoles).catch(() => {});
         if (session?.user) {
           const emp = await fetchEmployee(session.user);
+          if (!emp) {
+            // Auth account exists but the employees row was deleted (offboarded user).
+            // Sign out immediately and leave a flag for the Login page to show a message.
+            sessionStorage.setItem('auth_error', 'account_not_found');
+            await supabase.auth.signOut();
+            return;
+          }
           setUser(session.user);
           setEmployee(emp);
           if (emp?.name) {
@@ -142,6 +149,12 @@ export function AuthProvider({ children }) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === 'SIGNED_IN' && session?.user) {
           const emp = await fetchEmployee(session.user);
+          if (!emp) {
+            // Auth account exists but employees row deleted — sign out immediately.
+            sessionStorage.setItem('auth_error', 'account_not_found');
+            await supabase.auth.signOut();
+            return;
+          }
           setUser(session.user);
           setEmployee(emp);
           if (emp?.name) {
@@ -154,6 +167,13 @@ export function AuthProvider({ children }) {
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           // Re-fetch employee in case role/data changed
           const emp = await fetchEmployee(session.user);
+          if (!emp) {
+            sessionStorage.setItem('auth_error', 'account_not_found');
+            await supabase.auth.signOut();
+            setUser(null);
+            setEmployee(null);
+            return;
+          }
           setEmployee(emp);
         }
       });

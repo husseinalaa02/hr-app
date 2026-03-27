@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getNotifications, markAsRead, markAllAsRead, deleteReadNotifications } from '../api/notifications';
+import { getNotifications, getUnreadCount, markAsRead, markAllAsRead, deleteReadNotifications } from '../api/notifications';
 import { useAuth } from '../context/AuthContext';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
 
@@ -29,15 +29,25 @@ export default function NotificationBell() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const panelRef = useRef(null);
 
-  const unread = notifications.filter(n => !n.read).length;
+  const unread = unreadCount;
+
+  const refreshCount = async () => {
+    if (!employee?.name) return;
+    try {
+      const count = await getUnreadCount(employee.name);
+      setUnreadCount(count);
+    } catch { /* silent */ }
+  };
 
   const load = async () => {
     if (!employee?.name) return;
     try {
       const data = await getNotifications(employee.name);
       setNotifications(data);
+      setUnreadCount(data.filter(n => !n.read).length);
     } catch { /* silent — bell is non-critical */ }
   };
 
@@ -45,6 +55,7 @@ export default function NotificationBell() {
     if (!employee?.name) return;
 
     load();
+    refreshCount();
 
     if (SUPABASE_MODE) {
       const channel = supabase
@@ -55,6 +66,7 @@ export default function NotificationBell() {
             filter: `recipient_id=eq.${employee.name}` },
           (payload) => {
             setNotifications(prev => [payload.new, ...prev]);
+            setUnreadCount(prev => prev + 1);
           }
         )
         .subscribe();
@@ -85,6 +97,7 @@ export default function NotificationBell() {
       try {
         await markAsRead(n.id);
         setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+        setUnreadCount(prev => Math.max(0, prev - 1));
       } catch { /* silent */ }
     }
     setOpen(false);
@@ -96,6 +109,7 @@ export default function NotificationBell() {
     try {
       await markAllAsRead(employee.name);
       setNotifications(prev => prev.map(x => ({ ...x, read: true })));
+      setUnreadCount(0);
     } catch { /* silent */ }
   };
 

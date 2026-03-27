@@ -17,7 +17,8 @@ export async function getAnnouncements() {
       return rows.length > 0 ? rows : [...MOCK_ANNOUNCEMENTS];
     }
     return [];
-  }, 1_800_000); // 30 min — announcements change rarely
+  }, 300_000); // 5 min — balance between freshness and request count
+  // For urgent announcements consider adding a Supabase Realtime subscription.
 }
 
 export async function createAnnouncement({ title, content, notice_date }) {
