@@ -219,7 +219,7 @@ export default function Admin() {
   // Departments tab
   const [depts, setDepts]                   = useState([]);
   const [deptsLoading, setDeptsLoading]     = useState(false);
-  const [deptsError, setDeptsError]         = useState(false);
+  const [deptsError, setDeptsError]         = useState('');
   const [editingDept, setEditingDept]       = useState(null);
   const [deptForm, setDeptForm]             = useState({ name: '', manager_id: '' });
   const [deptNameError, setDeptNameError]   = useState('');
@@ -248,17 +248,25 @@ export default function Admin() {
 
   const loadDepts = useCallback(async () => {
     setDeptsLoading(true);
-    setDeptsError(false);
+    setDeptsError('');
     try { setDepts(await getDepartments()); }
-    catch { setDeptsError(true); }
+    catch (e) { setDeptsError(e.message || t('departments.loadError')); }
     finally { setDeptsLoading(false); }
-  }, []);
+  }, [t]);
 
   useEffect(() => { load(); loadCustomRoles(); }, [load, loadCustomRoles]);
 
   useEffect(() => { checkHealth().then(setHealth); }, []);
   useEffect(() => { if (tab === 'holidays') loadHolidays(); }, [tab, loadHolidays]);
   useEffect(() => { if (tab === 'departments') loadDepts(); }, [tab, loadDepts]);
+
+  // M4: reset open forms when switching tabs
+  const handleTabChange = (newTab) => {
+    setTab(newTab);
+    setEditingDept(null);
+    setDeptNameError('');
+    setEditingHoliday(null);
+  };
 
   const handleSaveHoliday = async () => {
     if (!holidayForm.name.trim() || !holidayForm.date) return;
@@ -310,6 +318,7 @@ export default function Admin() {
       }
       setEditingDept(null);
       await loadDepts();
+      await load(); // H1: refresh employee list so dept counts stay current
     } catch (err) { addToast(err.message || t('errors.actionFailed'), 'error'); }
     finally { setSavingDept(false); }
   };
@@ -499,19 +508,19 @@ export default function Admin() {
       <div className="card" style={{ marginBottom: 0 }}>
         {/* Tabs */}
         <div className="admin-tabs">
-          <button className={`admin-tab${tab === 'roles' ? ' active' : ''}`} onClick={() => setTab('roles')}>
+          <button className={`admin-tab${tab === 'roles' ? ' active' : ''}`} onClick={() => handleTabChange('roles')}>
             {t('admin.tabRoles')}
           </button>
-          <button className={`admin-tab${tab === 'permissions' ? ' active' : ''}`} onClick={() => setTab('permissions')}>
+          <button className={`admin-tab${tab === 'permissions' ? ' active' : ''}`} onClick={() => handleTabChange('permissions')}>
             {t('admin.tabPermissions')}
           </button>
-          <button className={`admin-tab${tab === 'custom-roles' ? ' active' : ''}`} onClick={() => setTab('custom-roles')}>
+          <button className={`admin-tab${tab === 'custom-roles' ? ' active' : ''}`} onClick={() => handleTabChange('custom-roles')}>
             {t('admin.tabCustomRoles')}
           </button>
-          <button className={`admin-tab${tab === 'holidays' ? ' active' : ''}`} onClick={() => setTab('holidays')}>
+          <button className={`admin-tab${tab === 'holidays' ? ' active' : ''}`} onClick={() => handleTabChange('holidays')}>
             {t('holidays.title')}
           </button>
-          <button className={`admin-tab${tab === 'departments' ? ' active' : ''}`} onClick={() => setTab('departments')}>
+          <button className={`admin-tab${tab === 'departments' ? ' active' : ''}`} onClick={() => handleTabChange('departments')}>
             {t('departments.title')}
           </button>
         </div>
@@ -853,7 +862,7 @@ export default function Admin() {
                 </div>
                 <div style={{ flex: 1, minWidth: 140 }}>
                   <label className="form-label">{t('holidays.date')}</label>
-                  <input className="form-control" type="date" value={holidayForm.date} onChange={e => setHolidayForm(f => ({ ...f, date: e.target.value }))} />
+                  <input className="form-control" type="date" value={holidayForm.date} min={`${holidayYear}-01-01`} max={`${holidayYear}-12-31`} onChange={e => setHolidayForm(f => ({ ...f, date: e.target.value }))} />
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="btn btn-primary btn-sm" onClick={handleSaveHoliday} disabled={savingHoliday || !holidayForm.name.trim() || !holidayForm.date}>
@@ -938,7 +947,7 @@ export default function Admin() {
             {/* Departments list */}
             {deptsError ? (
               <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
-                <div style={{ marginBottom: 8 }}>{t('departments.loadError')}</div>
+                <div style={{ marginBottom: 8 }}>{deptsError}</div>
                 <button className="btn btn-sm btn-primary" onClick={loadDepts}>{t('common.retry')}</button>
               </div>
             ) : deptsLoading ? <Skeleton height={60} /> : depts.length === 0 ? (
@@ -949,7 +958,7 @@ export default function Admin() {
             ) : (
               <div className="table-wrap">
                 <table className="data-table">
-                  <thead><tr><th>{t('departments.name')}</th><th>{t('departments.employeeCount', { count: '' }).replace('{{count}}', '').trim()}</th><th style={{ width: 120 }}></th></tr></thead>
+                  <thead><tr><th>{t('departments.name')}</th><th>{t('departments.employeesHeader')}</th><th style={{ width: 120 }}></th></tr></thead>
                   <tbody>
                     {depts.map(dept => {
                       const count = employees.filter(e => e.department === (dept.name || dept)).length;

@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getEmployees, getDepartments, createEmployee, addDepartment, deleteDepartment } from '../api/employees';
+import { getEmployees, getDepartments, createEmployee } from '../api/employees';
+import { createDepartment, deleteDepartment as deleteDeptById, getDepartments as getDeptObjects } from '../api/departments';
+import { useConfirm } from '../hooks/useConfirm';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import Avatar from '../components/Avatar';
@@ -214,19 +216,32 @@ function CreateEmployeeModal({ departments, employees, onClose, onCreated }) {
   );
 }
 
-function ManageDepartmentsModal({ departments, onClose, onChanged }) {
-  const [newName, setNewName] = useState('');
-  const [saving, setSaving]   = useState(false);
+function ManageDepartmentsModal({ onClose, onChanged }) {
+  const [depts, setDepts]       = useState([]);
+  const [depsLoading, setDepsLoading] = useState(true);
+  const [newName, setNewName]   = useState('');
+  const [saving, setSaving]     = useState(false);
   const [deleting, setDeleting] = useState('');
   const { addToast } = useToast();
   const { t } = useTranslation();
+  const { confirm, ConfirmModalComponent } = useConfirm();
+
+  const loadDepts = useCallback(async () => {
+    setDepsLoading(true);
+    try { setDepts(await getDeptObjects()); }
+    catch { /* silent — list stays empty */ }
+    finally { setDepsLoading(false); }
+  }, []);
+
+  useEffect(() => { loadDepts(); }, [loadDepts]);
 
   const handleAdd = async () => {
     if (!newName.trim()) return;
     setSaving(true);
     try {
-      await addDepartment(newName.trim());
+      await createDepartment({ name: newName.trim(), description: '', manager_id: null });
       setNewName('');
+      await loadDepts();
       onChanged();
       addToast(t('employees.deptAdded', { name: newName.trim() }), 'success');
     } catch (e) {
@@ -234,14 +249,22 @@ function ManageDepartmentsModal({ departments, onClose, onChanged }) {
     } finally { setSaving(false); }
   };
 
-  const handleDelete = async (name) => {
-    setDeleting(name);
+  const handleDelete = async (dept) => {
+    const ok = await confirm({ message: t('departments.deleteConfirm'), danger: true });
+    if (!ok) return;
+    setDeleting(dept.id);
     try {
-      await deleteDepartment(name);
+      await deleteDeptById(dept.id, dept.name);
+      await loadDepts();
       onChanged();
-      addToast(t('employees.deptRemoved', { name }), 'success');
+      addToast(t('employees.deptRemoved', { name: dept.name }), 'success');
     } catch (e) {
-      addToast(e.message || t('employees.failedDeleteDept'), 'error');
+      if (e.message?.startsWith('HAS_EMPLOYEES:')) {
+        const count = e.message.split(':')[1];
+        addToast(t('departments.hasEmployees', { count }), 'error');
+      } else {
+        addToast(e.message || t('employees.failedDeleteDept'), 'error');
+      }
     } finally { setDeleting(''); }
   };
 
@@ -265,21 +288,26 @@ function ManageDepartmentsModal({ departments, onClose, onChanged }) {
 
         {/* List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
-          {departments.length === 0 && <p className="text-muted" style={{ fontSize: 13 }}>{t('employees.noDepartments')}</p>}
-          {departments.map(d => (
-            <div key={d} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 8, padding: '8px 12px' }}>
-              <span style={{ fontSize: 14, fontWeight: 500 }}>{d}</span>
-              <button
-                onClick={() => handleDelete(d)}
-                disabled={deleting === d}
-                style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '0 4px' }}
-              >
-                {deleting === d ? <span className="spinner-sm" /> : '×'}
-              </button>
-            </div>
-          ))}
+          {depsLoading
+            ? <div style={{ padding: 12, textAlign: 'center' }}><span className="spinner-sm" /></div>
+            : depts.length === 0
+              ? <p className="text-muted" style={{ fontSize: 13 }}>{t('employees.noDepartments')}</p>
+              : depts.map(d => (
+                  <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 8, padding: '8px 12px' }}>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>{d.name}</span>
+                    <button
+                      onClick={() => handleDelete(d)}
+                      disabled={deleting === d.id}
+                      style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '0 4px' }}
+                    >
+                      {deleting === d.id ? <span className="spinner-sm" /> : '×'}
+                    </button>
+                  </div>
+                ))
+          }
         </div>
       </div>
+      {ConfirmModalComponent}
     </Modal>
   );
 }
@@ -416,7 +444,6 @@ export default function Employees() {
 
       {showDepts && (
         <ManageDepartmentsModal
-          departments={departments}
           onClose={() => setShowDepts(false)}
           onChanged={handleDeptsChanged}
         />

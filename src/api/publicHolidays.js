@@ -52,7 +52,10 @@ export async function updateHoliday(id, { name, date }) {
     .from('public_holidays')
     .update({ name: name.trim(), date })
     .eq('id', id);
-  if (error) throw error;
+  if (error) {
+    if (error.code === '23505') throw new Error('DUPLICATE_DATE');
+    throw error;
+  }
   await logAction({
     action: 'UPDATE',
     resource: 'PublicHoliday',

@@ -4,9 +4,10 @@ import { useToast } from '../context/ToastContext';
 import {
   getLeaveApplications, getPendingApprovals, getAllApprovedLeaves,
   submitLeaveApplication, updateLeaveStatus, getLeaveTypes,
-  getLeaveBalance, calcHours, calcDays,
+  getLeaveBalance, calcHours,
 } from '../api/leave';
 import { getPublicHolidays } from '../api/publicHolidays';
+import { countWorkingDays } from '../utils/workSchedule';
 import { useConfirm } from '../hooks/useConfirm';
 import Badge from '../components/Badge';
 import Modal from '../components/Modal';
@@ -77,11 +78,14 @@ function LeaveForm({ onSubmit, leaveTypes, balance, onClose }) {
     return result;
   }, [isHourly, form.from_date, form.to_date, publicHolidays]);
 
+  const { employee } = useAuth();
+  const empOffDays = employee?.off_days || [5, 6];
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const hours = isHourly ? calcHours(form.from_time, form.to_time) : 0;
   const days  = !isHourly && form.from_date && form.to_date
-    ? calcDays(form.from_date, form.to_date)
+    ? countWorkingDays(form.from_date, form.to_date, empOffDays, publicHolidays)
     : 0;
 
   const hourlyBalance  = balance.find(b => b.is_hourly);

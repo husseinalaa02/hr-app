@@ -42,7 +42,7 @@ export async function getAttendanceForExport({ dateFrom, dateTo }) {
   };
 }
 
-export function buildAttendanceCSV({ employees, attendance, leaves, holidays, dateFrom, dateTo, t }) {
+export function buildAttendanceCSV({ employees, attendance, leaves, holidays, dateFrom, dateTo, t, language }) {
   const BOM = '\uFEFF';
   const csvEscape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
@@ -91,7 +91,8 @@ export function buildAttendanceCSV({ employees, attendance, leaves, holidays, da
   const rows = [];
   dates.forEach(date => {
     const d = new Date(date + 'T12:00:00+03:00');
-    const dayOfWeek = d.toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'Asia/Baghdad' });
+    const dayLocale = language === 'ar' ? 'ar-IQ' : 'en-GB';
+    const dayOfWeek = d.toLocaleDateString(dayLocale, { weekday: 'long', timeZone: 'Asia/Baghdad' });
 
     employees.forEach(emp => {
       const empOffDays = emp.off_days || [5, 6];
@@ -140,7 +141,7 @@ export function buildAttendanceCSV({ employees, attendance, leaves, holidays, da
     ...rows.map(row => row.map(csvEscape).join(',')),
   ].join('\n');
 
-  return BOM + csvContent;
+  return { csv: BOM + csvContent, rowCount: rows.length };
 }
 
 export function downloadAttendanceCSV(csv, dateFrom, dateTo) {

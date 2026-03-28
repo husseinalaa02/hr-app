@@ -2,6 +2,8 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getEmployee, getDirectReports, updateEmployee, deleteEmployee, updateEmployeeSchedule } from '../api/employees';
+import { getDepartments as getDeptList } from '../api/departments';
+import { useConfirm } from '../hooks/useConfirm';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import Avatar from '../components/Avatar';
@@ -146,7 +148,9 @@ export default function EmployeeDetail() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting]       = useState(false);
   const [showChangePwd, setShowChangePwd] = useState(false);
+  const [deptNames, setDeptNames]     = useState([]);
   const fileInputRef = useRef(null);
+  const { confirm, ConfirmModalComponent } = useConfirm();
 
   const isSelf      = me?.name === id;
   const canEdit     = isHR || isSelf;  // isHR includes admin (role === 'hr_manager' || 'admin')
@@ -187,6 +191,12 @@ export default function EmployeeDetail() {
 
   useEffect(() => { load(); }, [load]);
 
+  // L4: load department list for dropdown
+  useEffect(() => {
+    if (!isHR && !isAdmin) return;
+    getDeptList().then(list => setDeptNames(list.map(d => d.name))).catch(() => {});
+  }, [isHR, isAdmin]);
+
   const handleChange = (key, val) => setDraft(d => ({ ...d, [key]: val }));
 
   const toggleOffDay = (day) => {
@@ -198,6 +208,15 @@ export default function EmployeeDetail() {
   };
 
   const handleSave = async () => {
+    // H5: warn before saving a schedule with all 7 days off
+    if ((isHR || isAdmin) && (draft.off_days || [5, 6]).length === 7) {
+      const proceed = await confirm({
+        message: t('employees.schedule.allDaysOffWarning'),
+        confirmLabel: t('common.saveAnyway'),
+        danger: true,
+      });
+      if (!proceed) return;
+    }
     setSaving(true);
     try {
       const payload = {};
@@ -260,6 +279,11 @@ export default function EmployeeDetail() {
     }
     return <ReadField key={key} label={label} value={employee?.[key]} />;
   };
+
+  // L4: dept dropdown options for edit mode
+  const deptOptions = isHR && deptNames.length > 0
+    ? [{ value: '', label: `— ${t('employees.selectDepartment')} —` }, ...deptNames.map(n => ({ value: n, label: n }))]
+    : null;
 
   const isManager = directReports.length > 0;
   const roleBadge = !employee ? null
@@ -367,7 +391,7 @@ export default function EmployeeDetail() {
             {/* Work Info */}
             <div className="detail-section">
               <h4 className="detail-section-title">{t('employeeDetail.jobInfo')}</h4>
-              {field(t('employees.department'), 'department')}
+              {field(t('employees.department'), 'department', 'text', deptOptions)}
               {field(t('employees.designation'), 'designation')}
               {field(t('employeeDetail.employmentType'), 'employment_type', 'text', [
                 { value: 'Full-time', label: t('employees.employmentTypes.fullTime') },
@@ -519,6 +543,7 @@ export default function EmployeeDetail() {
           </div>
         </div>
       )}
+      {ConfirmModalComponent}
     </div>
   );
 }

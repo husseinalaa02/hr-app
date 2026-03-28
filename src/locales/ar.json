@@ -35,6 +35,7 @@
     "to": "إلى",
     "actions": "الإجراءات",
     "printNotSupported": "الطباعة غير مدعومة على هذا الجهاز.",
+    "saveAnyway": "حفظ على أي حال",
     "confirmReject": "هل أنت متأكد أنك تريد رفض هذا الطلب؟",
     "confirm": "تأكيد",
     "dayShort": {
@@ -206,7 +207,8 @@
       "onLeave": "في إجازة",
       "missedPunch": "بصمة مفقودة",
       "invalidRange": "تاريخ البداية يجب أن يكون قبل أو مساوياً لتاريخ النهاية",
-      "largeRangeWarning": "تصدير أكثر من 90 يوماً — قد يستغرق وقتاً"
+      "largeRangeWarning": "تصدير أكثر من 90 يوماً — قد يستغرق وقتاً",
+      "noWorkingDays": "لا توجد أيام عمل في النطاق المحدد — لا يوجد شيء للتنزيل"
     },
     "missedCheckout": "نسيت تسجيل الانصراف يوم {{date}} (سجّلت حضورك الساعة {{time}}). يرجى تقديم طلب تصحيح.",
     "checkedInToast": "تم تسجيل الحضور",
@@ -271,7 +273,9 @@
     "sickLeave": "إجازة مرضية",
     "casualLeave": "إجازة عارضة",
     "hourlyLeave": "إجازة ساعية",
-    "alreadyProcessed": "تمت معالجة هذا الطلب بالفعل"
+    "alreadyProcessed": "تمت معالجة هذا الطلب بالفعل",
+    "workingDaysCount_one": "{{count}} يوم عمل",
+    "workingDaysCount_other": "{{count}} أيام عمل"
   },
   "employees": {
     "title": "دليل الموظفين",
@@ -336,9 +340,12 @@
       "intern": "متدرب"
     },
     "largeDatasetWarning": "عرض أول 1,000 موظف — استخدم المرشحات لتضييق النتائج",
+    "selectDepartment": "اختر القسم",
     "schedule": {
       "weeklyOffDays": "جدول العمل الأسبوعي",
-      "hint": "المحدد = يوم عمل، غير المحدد = يوم إجازة"
+      "hint": "المحدد = يوم عمل، غير المحدد = يوم إجازة",
+      "allDaysOffTitle": "جميع الأيام إجازة؟",
+      "allDaysOffWarning": "تم تحديد جميع الأيام السبعة كأيام إجازة. لن يظهر هذا الموظف كمجدول أبداً. هل تريد الحفظ على أي حال؟"
     }
   },
   "payroll": {
@@ -944,7 +951,8 @@
     "manager": "المدير",
     "managerOptional": "اختياري",
     "nameRequired": "اسم القسم مطلوب",
-    "loadError": "فشل تحميل الأقسام"
+    "loadError": "فشل تحميل الأقسام",
+    "employeesHeader": "الموظفون"
   },
   "errors": {
     "failedLoad": "فشل تحميل البيانات",

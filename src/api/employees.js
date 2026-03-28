@@ -64,14 +64,9 @@ export async function getDirectReports(managerId) {
 export async function getDepartments() {
   return cached('departments', async () => {
     if (SUPABASE_MODE) {
-      // Fetch from dedicated departments table; fall back to distinct employee departments
-      const [{ data: deptRows }, { data: empRows }] = await Promise.all([
-        supabase.from('departments').select('name').order('name'),
-        supabase.from('employees_public').select('department'),
-      ]);
-      const fromTable = (deptRows || []).map(d => d.name);
-      const fromEmps  = (empRows  || []).map(e => e.department).filter(Boolean);
-      return [...new Set([...fromTable, ...fromEmps])].sort();
+      // Fetch only from the dedicated departments table (source of truth)
+      const { data: deptRows } = await supabase.from('departments').select('name').order('name');
+      return (deptRows || []).map(d => d.name);
     }
     if (DEMO) {
       const emps = await db.employees.toArray();

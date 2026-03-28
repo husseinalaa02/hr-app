@@ -35,6 +35,7 @@
     "to": "To",
     "actions": "Actions",
     "printNotSupported": "Printing is not supported on this device.",
+    "saveAnyway": "Save Anyway",
     "dayShort": {
       "0": "Sun",
       "1": "Mon",
@@ -206,7 +207,8 @@
       "onLeave": "On Leave",
       "missedPunch": "Missed Punch",
       "invalidRange": "From date must be before or equal to To date",
-      "largeRangeWarning": "Exporting more than 90 days — this may take a moment"
+      "largeRangeWarning": "Exporting more than 90 days — this may take a moment",
+      "noWorkingDays": "No working days in the selected range — nothing to download"
     },
     "missedCheckout": "You forgot to check out on {{date}} (checked in at {{time}}). Please submit a regularization request.",
     "checkedInToast": "Checked in",
@@ -271,7 +273,9 @@
     "sickLeave": "Sick Leave",
     "casualLeave": "Casual Leave",
     "hourlyLeave": "Hourly Leave",
-    "alreadyProcessed": "This request has already been processed"
+    "alreadyProcessed": "This request has already been processed",
+    "workingDaysCount_one": "{{count}} working day",
+    "workingDaysCount_other": "{{count}} working days"
   },
   "employees": {
     "title": "Employee Directory",
@@ -336,9 +340,12 @@
       "intern": "Intern"
     },
     "largeDatasetWarning": "Showing first 1,000 employees — use filters to narrow results",
+    "selectDepartment": "Select Department",
     "schedule": {
       "weeklyOffDays": "Work Schedule",
-      "hint": "Checked = working day, unchecked = off day"
+      "hint": "Checked = working day, unchecked = off day",
+      "allDaysOffTitle": "All Days Off?",
+      "allDaysOffWarning": "All 7 days are marked as off. This employee will never appear as scheduled. Save anyway?"
     }
   },
   "payroll": {
@@ -932,7 +939,8 @@
     "manager": "Manager",
     "managerOptional": "optional",
     "nameRequired": "Department name is required",
-    "loadError": "Failed to load departments"
+    "loadError": "Failed to load departments",
+    "employeesHeader": "Employees"
   },
   "errors": {
     "failedLoad": "Failed to load data",

@@ -172,7 +172,7 @@ export default function Attendance() {
   const { employee, isHR, isAdmin } = useAuth();
   const { addToast } = useToast();
   const geo = useGeofence();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [checkins, setCheckins]         = useState([]);
   const [todayAtt, setTodayAtt]         = useState(null);
@@ -190,8 +190,11 @@ export default function Attendance() {
   const [exportTo, setExportTo]     = useState(today);
   const [exporting, setExporting]   = useState(false);
 
+  const empOffDaysKey = (employee?.off_days || []).join(',');
+
   const load = useCallback(async () => {
     if (!employee) return;
+    const today = baghdadFmt.format(new Date()); // L6: always use current date
     setLoading(true);
     setError(null);
     try {
@@ -218,7 +221,7 @@ export default function Attendance() {
     } finally {
       setLoading(false);
     }
-  }, [employee?.name]);
+  }, [employee?.name, empOffDaysKey]); // H3: re-run when off_days change
 
   useEffect(() => { load(); }, [load]);
 
@@ -243,7 +246,11 @@ export default function Attendance() {
     setExporting(true);
     try {
       const data = await getAttendanceForExport({ dateFrom: exportFrom, dateTo: exportTo });
-      const csv  = buildAttendanceCSV({ ...data, dateFrom: exportFrom, dateTo: exportTo, t });
+      const { csv, rowCount } = buildAttendanceCSV({ ...data, dateFrom: exportFrom, dateTo: exportTo, t, language: i18n.language });
+      if (rowCount === 0) {
+        addToast(t('attendance.export.noWorkingDays'), 'warning');
+        return;
+      }
       downloadAttendanceCSV(csv, exportFrom, exportTo);
       addToast(t('attendance.export.success'), 'success');
       await logAction({
