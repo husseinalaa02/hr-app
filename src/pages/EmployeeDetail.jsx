@@ -149,6 +149,7 @@ export default function EmployeeDetail() {
   const [deleting, setDeleting]       = useState(false);
   const [showChangePwd, setShowChangePwd] = useState(false);
   const [deptNames, setDeptNames]     = useState([]);
+  const [deptLoadError, setDeptLoadError] = useState(false);
   const fileInputRef = useRef(null);
   const { confirm, ConfirmModalComponent } = useConfirm();
 
@@ -202,10 +203,12 @@ export default function EmployeeDetail() {
 
   useEffect(() => { load(); }, [load]);
 
-  // L4: load department list for dropdown
+  // L3: load department list for dropdown; surface error if it fails
   useEffect(() => {
     if (!isHR && !isAdmin) return;
-    getDeptList().then(list => setDeptNames(list.map(d => d.name))).catch(() => {});
+    getDeptList()
+      .then(list => { setDeptNames(list.map(d => d.name)); setDeptLoadError(false); })
+      .catch(() => setDeptLoadError(true));
   }, [isHR, isAdmin]);
 
   const handleChange = (key, val) => setDraft(d => ({ ...d, [key]: val }));
@@ -291,10 +294,14 @@ export default function EmployeeDetail() {
     return <ReadField key={key} label={label} value={employee?.[key]} />;
   };
 
-  // L4: dept dropdown options for edit mode
+  // L2: dept dropdown options for edit mode; null falls back to free-text input
   const deptOptions = isHR && deptNames.length > 0
     ? [{ value: '', label: `— ${t('employees.selectDepartment')} —` }, ...deptNames.map(n => ({ value: n, label: n }))]
     : null;
+
+  // L2: replaces IIFE in JSX for schedule default hint
+  const scheduleUsesDefault = !employee?.off_days
+    || (employee.off_days.length === 2 && employee.off_days.includes(5) && employee.off_days.includes(6));
 
   const isManager = directReports.length > 0;
   const roleBadge = !employee ? null
@@ -403,6 +410,11 @@ export default function EmployeeDetail() {
             <div className="detail-section">
               <h4 className="detail-section-title">{t('employeeDetail.jobInfo')}</h4>
               {field(t('employees.department'), 'department', 'text', deptOptions)}
+              {editMode && deptLoadError && (
+                <p className="form-hint" style={{ color: 'var(--color-danger)', fontSize: 12, marginTop: -8 }}>
+                  {t('employees.deptLoadError', 'Could not load departments — type manually.')}
+                </p>
+              )}
               {field(t('employees.designation'), 'designation')}
               {field(t('employeeDetail.employmentType'), 'employment_type', 'text', [
                 { value: 'Full-time', label: t('employees.employmentTypes.fullTime') },
@@ -421,15 +433,11 @@ export default function EmployeeDetail() {
           {(isHR || isAdmin) && (
             <div className="detail-section schedule-section">
               <h4 className="detail-section-title">{t('employees.schedule.weeklyOffDays')}</h4>
-              {!editMode && (() => {
-                const od = employee.off_days;
-                const isDefault = !od || (od.length === 2 && od.includes(5) && od.includes(6));
-                return isDefault ? (
-                  <p className="form-hint schedule-hint" style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
-                    {t('employees.schedule.usingDefault')}
-                  </p>
-                ) : null;
-              })()}
+              {!editMode && scheduleUsesDefault && (
+                <p className="form-hint schedule-hint" style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+                  {t('employees.schedule.usingDefault')}
+                </p>
+              )}
               {editMode ? (
                 <>
                   <p className="text-muted" style={{ fontSize: 12, marginBottom: 10 }}>{t('employees.schedule.hint')}</p>

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import {
@@ -190,7 +190,7 @@ export default function Attendance() {
   const [exportTo, setExportTo]     = useState(today);
   const [exporting, setExporting]   = useState(false);
 
-  const empOffDaysKey = (employee?.off_days || []).join(',');
+  const empOffDaysKey = useMemo(() => (employee?.off_days || []).join(','), [employee?.off_days]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     if (!employee) return;

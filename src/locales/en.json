@@ -181,8 +181,6 @@
     "findingLocation": "Finding your location…",
     "outsideZone": "Outside Zone",
     "locating": "Locating…",
-    "offDayNotice": "Today is a non-working day — you can still check in if assigned a shift.",
-    "offDayBlocked": "Today is a scheduled day off.",
     "publicHoliday": "Today is {{name}} — a public holiday.",
     "weeklyOffDay": "Today is your weekly day off.",
     "export": {

@@ -10,5 +10,6 @@ SET off_days = ARRAY[5, 6]
 WHERE off_days IS NULL;
 
 -- Ensure future inserts without an explicit off_days get Fri/Sat off.
+-- Idempotent: SET DEFAULT can be run multiple times safely; it simply overwrites the existing default.
 ALTER TABLE employees
   ALTER COLUMN off_days SET DEFAULT ARRAY[5, 6];

@@ -33,12 +33,7 @@ function localDayEnd() {
   return new Date(`${today}T23:59:59.999+03:00`).toISOString();
 }
 
-// Returns true for Friday only — company work week is Sat–Thu
-export function isOffDay(date = new Date()) {
-  const day = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Baghdad', weekday: 'short' })
-    .format(date);
-  return day === 'Fri';
-}
+// Off-day logic lives in src/utils/workSchedule.js — use isOffDay() from there.
 
 // ─── Shift helpers ────────────────────────────────────────────────────────────
 

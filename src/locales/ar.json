@@ -181,8 +181,6 @@
     "findingLocation": "جاري تحديد موقعك…",
     "outsideZone": "خارج النطاق",
     "locating": "جاري التحديد…",
-    "offDayNotice": "اليوم يوم إجازة — يمكنك تسجيل الحضور إذا كان لديك مناوبة.",
-    "offDayBlocked": "اليوم إجازة مجدولة.",
     "publicHoliday": "اليوم {{name}} — عطلة رسمية.",
     "weeklyOffDay": "اليوم إجازتك الأسبوعية.",
     "export": {

@@ -35,7 +35,7 @@ export async function getEmployees({ search = '', department = '' } = {}) {
 
 export async function getEmployee(id) {
   if (SUPABASE_MODE) {
-    const { data, error } = await supabase.from('employees').select('*').eq('name', id).single();
+    const { data, error } = await supabase.from('employees').select('*').eq('name', id).maybeSingle();
     if (error) return null;
     return data;
   }
