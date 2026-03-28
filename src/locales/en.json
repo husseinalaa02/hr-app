@@ -182,8 +182,9 @@
     "outsideZone": "Outside Zone",
     "locating": "Locating…",
     "offDayNotice": "Today is a non-working day — you can still check in if assigned a shift.",
-    "publicHoliday": "Public holiday: {{name}} — you can still check in if assigned a shift.",
-    "weeklyOffDay": "Today is a weekly off day — you can still check in if assigned a shift.",
+    "offDayBlocked": "Today is a scheduled day off.",
+    "publicHoliday": "Today is {{name}} — a public holiday.",
+    "weeklyOffDay": "Today is your weekly day off.",
     "export": {
       "title": "Export Attendance",
       "from": "From",
@@ -345,7 +346,8 @@
       "weeklyOffDays": "Work Schedule",
       "hint": "Checked = working day, unchecked = off day",
       "allDaysOffTitle": "All Days Off?",
-      "allDaysOffWarning": "All 7 days are marked as off. This employee will never appear as scheduled. Save anyway?"
+      "allDaysOffWarning": "All 7 days are marked as off. This employee will never appear as scheduled. Save anyway?",
+      "usingDefault": "Using default schedule (Fri/Sat off). Edit to customize for this employee."
     }
   },
   "payroll": {

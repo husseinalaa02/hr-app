@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getEmployee, getDirectReports, updateEmployee, deleteEmployee, updateEmployeeSchedule } from '../api/employees';
+import { getEmployee, getEmployees, getDirectReports, updateEmployee, deleteEmployee, updateEmployeeSchedule } from '../api/employees';
 import { getDepartments as getDeptList } from '../api/departments';
 import { useConfirm } from '../hooks/useConfirm';
 import { useAuth } from '../context/AuthContext';
@@ -173,12 +173,23 @@ export default function EmployeeDetail() {
       setDraft(emp);
       setDirectReports(reports);
 
-      // Load manager details if employee reports to someone
+      // Load manager details if employee reports to someone.
+      // getEmployee() queries the employees table directly which RLS may block for
+      // non-HR users. Fall back to the employees_public cached list in that case.
       if (emp?.reports_to) {
         try {
-          const mgr = await getEmployee(emp.reports_to);
+          let mgr = await getEmployee(emp.reports_to);
+          if (!mgr) {
+            const list = await getEmployees();
+            mgr = list.find(e => e.name === emp.reports_to) || null;
+          }
           setManager(mgr);
-        } catch { setManager(null); }
+        } catch {
+          try {
+            const list = await getEmployees();
+            setManager(list.find(e => e.name === emp.reports_to) || null);
+          } catch { setManager(null); }
+        }
       } else {
         setManager(null);
       }
@@ -410,6 +421,15 @@ export default function EmployeeDetail() {
           {(isHR || isAdmin) && (
             <div className="detail-section schedule-section">
               <h4 className="detail-section-title">{t('employees.schedule.weeklyOffDays')}</h4>
+              {!editMode && (() => {
+                const od = employee.off_days;
+                const isDefault = !od || (od.length === 2 && od.includes(5) && od.includes(6));
+                return isDefault ? (
+                  <p className="form-hint schedule-hint" style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+                    {t('employees.schedule.usingDefault')}
+                  </p>
+                ) : null;
+              })()}
               {editMode ? (
                 <>
                   <p className="text-muted" style={{ fontSize: 12, marginBottom: 10 }}>{t('employees.schedule.hint')}</p>
