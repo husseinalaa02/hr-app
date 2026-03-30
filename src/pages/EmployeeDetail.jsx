@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getEmployee, getEmployees, getDirectReports, updateEmployee, deleteEmployee, updateEmployeeSchedule } from '../api/employees';
+import { getEmployee, getEmployees, getDirectReports, getDirectAndIndirectReports, getEmployeeScoped, updateEmployee, deleteEmployee, updateEmployeeSchedule } from '../api/employees';
 import { getDepartments as getDeptList } from '../api/departments';
 import { useConfirm } from '../hooks/useConfirm';
 import { useAuth } from '../context/AuthContext';
@@ -11,15 +11,47 @@ import { Skeleton } from '../components/Skeleton';
 import ErrorState from '../components/ErrorState';
 import Modal from '../components/Modal';
 import { supabase, SUPABASE_MODE } from '../db/supabase';
+import {
+  submitProfileChangeRequest, getMyProfileRequests, getMyPendingFields,
+  SELF_SERVICE_FIELDS,
+} from '../api/profileChangeRequests';
+import { getMyDelegations, createDelegation, revokeDelegation } from '../api/delegations';
+import { getEncashmentHistory, processEncashment, calculateEncashment } from '../api/leaveEncashment';
+import { getLeaveBalance } from '../api/leave';
+import { formatIQD } from '../utils/format';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
-const SELF_EDITABLE  = ['cell_number', 'personal_email', 'date_of_birth', 'image'];
+const SELF_EDITABLE  = [
+  'cell_number', 'personal_email', 'date_of_birth', 'image',
+  // H3: also allow employees to see & request changes to these fields
+  'address', 'marital_status', 'nationality',
+  'emergency_contact_name', 'emergency_contact_phone',
+];
 const ADMIN_EDITABLE = [
   'employee_name', 'department', 'designation', 'employment_type',
   'date_of_joining', 'branch', 'gender', 'reports_to',
   'cell_number', 'personal_email', 'date_of_birth', 'company_email', 'user_id', 'image',
+  'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relation',
+  'address', 'marital_status', 'nationality', 'national_id',
+  'notice_period_days', 'probation_end_date', 'access_expires_at',
 ];
+
+// Fields employees can self-edit (goes through PCR workflow)
+const EMPLOYEE_PCR_EDITABLE = SELF_SERVICE_FIELDS;
+
+function isExpiringSoon(dateStr) {
+  if (!dateStr) return false;
+  const expiry = new Date(dateStr + 'T23:59:59+03:00');
+  const diff   = expiry - new Date();
+  return diff > 0 && diff < 30 * 24 * 60 * 60 * 1000;
+}
+function daysUntilExpiry(dateStr) {
+  if (!dateStr) return null;
+  const expiry = new Date(dateStr + 'T23:59:59+03:00');
+  return Math.ceil((expiry - new Date()) / (1000 * 60 * 60 * 24));
+}
+function today() { return new Date().toISOString().split('T')[0]; }
 
 function ChangePasswordModal({ targetId, isSelf, onClose }) {
   const { t } = useTranslation();
@@ -131,10 +163,11 @@ function EditableField({ label, fieldKey, value, type = 'text', options, onChang
 }
 
 export default function EmployeeDetail() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
-  const { employee: me, isAdmin, isHR, logout, refreshEmployee } = useAuth();
+  const { employee: me, isAdmin, isHR, isFinance, logout, refreshEmployee } = useAuth();
+  const myRole = me?.role;
   const { addToast } = useToast();
 
   const [employee, setEmployee]       = useState(null);
@@ -153,12 +186,33 @@ export default function EmployeeDetail() {
   const fileInputRef = useRef(null);
   const { confirm, ConfirmModalComponent } = useConfirm();
 
+  // PCR (profile change requests)
+  const [pcrRequests, setPcrRequests]     = useState([]);
+  const [pendingFields, setPendingFields] = useState(new Set());
+  const [pcrSaving, setPcrSaving]         = useState('');
+
+  // M4: whether the current employee manages anyone (used to show delegation section)
+  const [hasAnyReports, setHasAnyReports] = useState(false);
+
+  // Delegations
+  const [delegations, setDelegations]   = useState([]);
+  const [showDelegationModal, setShowDelegationModal] = useState(false);
+  const [delegForm, setDelegForm]       = useState({ delegate_id: '', start_date: '', end_date: '', reason: '' });
+  const [delegSaving, setDelegSaving]   = useState(false);
+  const [allEmployees, setAllEmployees] = useState([]);
+
+  // Leave encashment
+  const [encashmentHistory, setEncashmentHistory] = useState([]);
+  const [showEncashModal, setShowEncashModal]     = useState(false);
+  const [encashForm, setEncashForm] = useState({ leave_type: 'Annual Leave', days: '', reason: 'Resignation' });
+  const [encashBalance, setEncashBalance]   = useState(null);
+  const [encashSaving, setEncashSaving]     = useState(false);
+  const [leaveBalance, setLeaveBalance]     = useState([]);
+
   const isSelf      = me?.name === id;
-  const canEdit     = isHR || isSelf;  // isHR includes admin (role === 'hr_manager' || 'admin')
-  // Only admins (or the employee themselves) may change passwords.
-  // HR managers previously had this privilege, but a rogue HR employee could
-  // lock out any user including the CEO — restricted to admin + self only.
+  const canEdit     = isHR || isSelf;
   const canChangePwd = isAdmin || isSelf;
+  const canViewSalary = isAdmin || isHR || isFinance;
   const editableKeys = isHR ? ADMIN_EDITABLE : SELF_EDITABLE;
 
   const load = useCallback(async () => {
@@ -166,7 +220,8 @@ export default function EmployeeDetail() {
     setError(null);
     try {
       const [emp, reports] = await Promise.all([
-        getEmployee(id),
+        // C3: use scoped getter so line managers cannot load profiles outside their tree
+        getEmployeeScoped(id, me?.name, myRole),
         getDirectReports(id),
       ]);
       if (!emp) throw new Error(t('employeeDetail.employeeNotFound'));
@@ -174,9 +229,6 @@ export default function EmployeeDetail() {
       setDraft(emp);
       setDirectReports(reports);
 
-      // Load manager details if employee reports to someone.
-      // getEmployee() queries the employees table directly which RLS may block for
-      // non-HR users. Fall back to the employees_public cached list in that case.
       if (emp?.reports_to) {
         try {
           let mgr = await getEmployee(emp.reports_to);
@@ -194,12 +246,54 @@ export default function EmployeeDetail() {
       } else {
         setManager(null);
       }
+
+      // Load PCR for self view
+      if (isSelf) {
+        Promise.all([
+          getMyProfileRequests(id),
+          getMyPendingFields(id),
+        ]).then(([reqs, fields]) => {
+          setPcrRequests(reqs);
+          setPendingFields(fields);
+        }).catch(() => {});
+      }
+
+      // M4: load full indirect report tree to determine if this employee is a manager at any level
+      if (isSelf) {
+        getDirectAndIndirectReports(id).then(allReports => {
+          setHasAnyReports(allReports.length > 0);
+          if (allReports.length > 0) {
+            getMyDelegations(id).then(setDelegations).catch(() => {});
+            getEmployees().then(setAllEmployees).catch(() => {});
+          }
+        }).catch(() => {});
+      } else if (reports.length > 0) {
+        // Non-self view: use direct reports count already fetched
+        setHasAnyReports(true);
+      }
+
+      // Load encashment history and leave balance for HR/Admin/Finance
+      if (isHR || isAdmin || isFinance) {
+        Promise.all([
+          getEncashmentHistory(id),
+          getLeaveBalance(id),
+        ]).then(([hist, bal]) => {
+          setEncashmentHistory(hist);
+          setLeaveBalance(bal);
+        }).catch(() => {});
+      }
+
     } catch (e) {
+      if (e.code === 'ACCESS_DENIED') {
+        addToast(t('errors.accessDenied', { defaultValue: 'Access denied' }), 'error');
+        navigate('/employees');
+        return;
+      }
       setError(e.message || t('errors.failedLoad'));
     } finally {
       setLoading(false);
     }
-  }, [id, t]);
+  }, [id, t, isSelf, isHR, isAdmin, isFinance, me?.name, myRole, navigate, addToast]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -222,7 +316,6 @@ export default function EmployeeDetail() {
   };
 
   const handleSave = async () => {
-    // H5: warn before saving a schedule with all 7 days off
     if ((isHR || isAdmin) && (draft.off_days || [5, 6]).length === 7) {
       const proceed = await confirm({
         message: t('employees.schedule.allDaysOffWarning'),
@@ -233,10 +326,45 @@ export default function EmployeeDetail() {
     }
     setSaving(true);
     try {
+      // For self-editing, certain fields go through the PCR workflow
+      if (isSelf && !isHR && !isAdmin) {
+        const pcrFields = EMPLOYEE_PCR_EDITABLE.filter(k => SELF_EDITABLE.includes(k));
+        const changedPcr = pcrFields.filter(k => draft[k] !== employee[k] && draft[k] !== undefined);
+        // image field saves immediately
+        const immediatePayload = {};
+        if (draft.image !== employee.image) immediatePayload.image = draft.image;
+        // Others go through PCR
+        for (const fieldName of changedPcr) {
+          if (fieldName === 'image') continue;
+          try {
+            await submitProfileChangeRequest(id, fieldName, employee[fieldName], draft[fieldName]);
+          } catch (pcrErr) {
+            if (pcrErr.message === 'DUPLICATE_PENDING_REQUEST') {
+              addToast(t('profile.duplicatePending', { field: fieldName }), 'warning');
+              continue;
+            }
+            throw pcrErr;
+          }
+        }
+        if (Object.keys(immediatePayload).length > 0) {
+          await updateEmployee(id, immediatePayload);
+          if (isSelf) refreshEmployee({ ...me, ...immediatePayload });
+        }
+        if (changedPcr.filter(k => k !== 'image').length > 0) {
+          addToast(t('profile.changeSubmitted'), 'info');
+          const [reqs, fields] = await Promise.all([getMyProfileRequests(id), getMyPendingFields(id)]);
+          setPcrRequests(reqs);
+          setPendingFields(fields);
+        } else if (Object.keys(immediatePayload).length > 0) {
+          addToast(t('employeeDetail.profileUpdated'), 'success');
+        }
+        setEditMode(false);
+        return;
+      }
+
       const payload = {};
       editableKeys.forEach(k => { payload[k] = draft[k]; });
       const updated = await updateEmployee(id, payload);
-      // Save schedule separately if HR/admin changed off_days
       if ((isHR || isAdmin) && JSON.stringify(draft.off_days) !== JSON.stringify(employee.off_days)) {
         await updateEmployeeSchedule(id, draft.off_days || [5, 6]);
       }
@@ -250,6 +378,74 @@ export default function EmployeeDetail() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCreateDelegation = async () => {
+    if (!delegForm.delegate_id || !delegForm.start_date || !delegForm.end_date) {
+      addToast(t('errors.fillRequired'), 'error'); return;
+    }
+    setDelegSaving(true);
+    try {
+      await createDelegation({
+        delegatorId: id,
+        delegateId:  delegForm.delegate_id,
+        startDate:   delegForm.start_date,
+        endDate:     delegForm.end_date,
+        reason:      delegForm.reason,
+      });
+      addToast(t('delegation.createSuccess'), 'success');
+      setShowDelegationModal(false);
+      setDelegForm({ delegate_id: '', start_date: '', end_date: '', reason: '' });
+      getMyDelegations(id).then(setDelegations).catch(() => {});
+    } catch (e) {
+      addToast(e.message || t('errors.actionFailed'), 'error');
+    } finally { setDelegSaving(false); }
+  };
+
+  const handleRevokeDelegation = async (delegId) => {
+    const ok = await confirm({ message: t('delegation.revokeConfirm'), danger: true });
+    if (!ok) return;
+    try {
+      await revokeDelegation(delegId);
+      addToast(t('delegation.revokeSuccess'), 'success');
+      getMyDelegations(id).then(setDelegations).catch(() => {});
+    } catch (e) {
+      addToast(e.message || t('errors.actionFailed'), 'error');
+    }
+  };
+
+  const handleProcessEncashment = async () => {
+    const days = Number(encashForm.days);
+    if (!days || days <= 0) { addToast(t('errors.fillRequired'), 'error'); return; }
+    const bal = leaveBalance.find(b => b.leave_type === encashForm.leave_type && !b.is_hourly);
+    if (!bal || days > bal.remaining) { addToast(t('leave.encashment.insufficientBalance'), 'error'); return; }
+    if (!employee.base_salary) { addToast(t('leave.encashment.noSalaryConfigured'), 'error'); return; }
+    const { dailyRate, totalAmount } = calculateEncashment(employee.base_salary, days);
+    setEncashSaving(true);
+    try {
+      await processEncashment({
+        employeeId:     id,
+        leaveType:      encashForm.leave_type,
+        encashmentDate: today(),
+        daysEncashed:   days,
+        dailyRate,
+        totalAmount,
+        reason:         encashForm.reason,
+        processedBy:    me.name,
+      });
+      addToast(t('leave.encashment.success'), 'success');
+      setShowEncashModal(false);
+      setEncashForm({ leave_type: 'Annual Leave', days: '', reason: 'Resignation' });
+      const [hist, bal2] = await Promise.all([getEncashmentHistory(id), getLeaveBalance(id)]);
+      setEncashmentHistory(hist);
+      setLeaveBalance(bal2);
+    } catch (e) {
+      if (e.message === 'INSUFFICIENT_BALANCE') {
+        addToast(t('leave.encashment.insufficientBalance'), 'error');
+      } else {
+        addToast(e.message || t('errors.actionFailed'), 'error');
+      }
+    } finally { setEncashSaving(false); }
   };
 
   const handleCancel = () => { setDraft(employee); setEditMode(false); };
@@ -403,7 +599,24 @@ export default function EmployeeDetail() {
               {field(t('employees.gender'), 'gender', 'text', [t('employees.male'), t('employees.female')])}
               {field(t('employeeDetail.dateOfBirth'), 'date_of_birth', 'date')}
               {field(t('employees.personalEmail'), 'personal_email', 'email')}
+              {isSelf && !isHR && !isAdmin && pendingFields.has('personal_email') && (
+                <span className="badge badge-warning" style={{ fontSize: 11 }}>{t('profile.changePending')}</span>
+              )}
               {field(t('employees.phone'), 'cell_number', 'tel')}
+              {isSelf && !isHR && !isAdmin && pendingFields.has('cell_number') && (
+                <span className="badge badge-warning" style={{ fontSize: 11 }}>{t('profile.changePending')}</span>
+              )}
+              {/* Address, marital status, nationality (HR can edit; employee can see own and request change) */}
+              {(isHR || isAdmin || isSelf) && field(t('employees.address'), 'address')}
+              {(isHR || isAdmin || isSelf) && field(t('employees.maritalStatus'), 'marital_status', 'text', [
+                { value: 'Single',   label: t('employees.maritalSingle') },
+                { value: 'Married',  label: t('employees.maritalMarried') },
+                { value: 'Divorced', label: t('employees.maritalDivorced') },
+                { value: 'Widowed',  label: t('employees.maritalWidowed') },
+              ])}
+              {(isHR || isAdmin || isSelf) && field(t('employees.nationality'), 'nationality')}
+              {/* Sensitive — HR/Admin only */}
+              {(isHR || isAdmin) && field(t('employees.nationalId'), 'national_id')}
             </div>
 
             {/* Work Info */}
@@ -426,7 +639,53 @@ export default function EmployeeDetail() {
               {field(t('employees.branch'), 'branch')}
               {field(t('employees.companyEmail'), 'company_email', 'email')}
               {isAdmin && field(t('employeeDetail.userIdLogin'), 'user_id', 'email')}
+              {/* Notice period & probation (HR/Admin) */}
+              {(isHR || isAdmin) && field(t('employees.noticePeriod'), 'notice_period_days', 'number')}
+              {(isHR || isAdmin) && field(t('employees.probationEndDate'), 'probation_end_date', 'date')}
+              {(isHR || isAdmin) && employee.probation_end_date && new Date(employee.probation_end_date) > new Date() && (
+                <span className="badge badge-warning" style={{ fontSize: 11 }}>
+                  {t('employees.inProbation')}
+                </span>
+              )}
+              {/* Access expiry — HR/Admin only */}
+              {(isHR || isAdmin) && (
+                <div className="detail-field">
+                  <span className="detail-label">{t('employees.accessExpiry')}</span>
+                  {editMode ? (
+                    <input
+                      type="date"
+                      className="form-input form-input-sm"
+                      value={draft.access_expires_at || ''}
+                      min={today()}
+                      onChange={e => handleChange('access_expires_at', e.target.value || null)}
+                    />
+                  ) : (
+                    <span className="detail-value">
+                      {employee.access_expires_at
+                        ? <>
+                            {employee.access_expires_at}
+                            {isExpiringSoon(employee.access_expires_at) && (
+                              <span className="badge badge-warning" style={{ marginInlineStart: 8, fontSize: 11 }}>
+                                {t('employees.accessExpiringSoon', { days: daysUntilExpiry(employee.access_expires_at) })}
+                              </span>
+                            )}
+                          </>
+                        : <span className="text-muted">{t('employees.noExpiry')}</span>
+                      }
+                    </span>
+                  )}
+                  {editMode && <p className="form-hint" style={{ fontSize: 11 }}>{t('employees.accessExpiryHint')}</p>}
+                </div>
+              )}
             </div>
+          </div>
+
+          {/* Emergency Contact */}
+          <div className="detail-section" style={{ marginTop: 16 }}>
+            <h4 className="detail-section-title">{t('employees.emergencyContact')}</h4>
+            {field(t('employees.emergencyContactName'),     'emergency_contact_name')}
+            {field(t('employees.emergencyContactPhone'),    'emergency_contact_phone', 'tel')}
+            {field(t('employees.emergencyContactRelation'), 'emergency_contact_relation')}
           </div>
 
           {/* Work Schedule — HR/admin only */}
@@ -476,6 +735,134 @@ export default function EmployeeDetail() {
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Leave Encashment — HR/Admin/Finance only */}
+          {(isHR || isAdmin || isFinance) && (
+            <div className="detail-section" style={{ marginTop: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <h4 className="detail-section-title" style={{ margin: 0 }}>{t('leave.encashment.title')}</h4>
+                {(isHR || isAdmin || isFinance) && (
+                  <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setShowEncashModal(true)}>
+                    {t('leave.encashment.process')}
+                  </button>
+                )}
+              </div>
+              {encashmentHistory.length === 0 ? (
+                <p className="text-muted" style={{ fontSize: 13 }}>{t('leave.encashment.noHistory')}</p>
+              ) : (
+                <div className="table-wrap" style={{ marginTop: 8 }}>
+                  <table className="data-table" style={{ fontSize: 12 }}>
+                    <thead>
+                      <tr>
+                        <th>{t('common.date')}</th>
+                        <th>{t('common.type')}</th>
+                        <th>{t('leave.encashment.daysEncashed')}</th>
+                        <th>{t('leave.encashment.dailyRate')}</th>
+                        <th>{t('leave.encashment.totalAmount')}</th>
+                        <th>{t('leave.encashment.reason')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {encashmentHistory.map(e => (
+                        <tr key={e.id}>
+                          <td>{e.encashment_date}</td>
+                          <td>{e.leave_type}</td>
+                          <td>{e.days_encashed}</td>
+                          <td>{formatIQD(e.daily_rate)}</td>
+                          <td><strong style={{ color: 'var(--primary)' }}>{formatIQD(e.total_amount)}</strong></td>
+                          <td>{e.reason}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Approval Delegation — self view, managers with any reports (direct or indirect) */}
+          {isSelf && hasAnyReports && (
+            <div className="detail-section" style={{ marginTop: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <h4 className="detail-section-title" style={{ margin: 0 }}>{t('delegation.title')}</h4>
+                <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setShowDelegationModal(true)}>
+                  {t('delegation.create')}
+                </button>
+              </div>
+              {delegations.length === 0 ? (
+                <p className="text-muted" style={{ fontSize: 13 }}>{t('delegation.noCurrent')}</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {delegations.map(d => {
+                    const now = new Date().toISOString().split('T')[0];
+                    const status = d.is_active ? 'active'
+                      : d.start_date > now ? 'upcoming' : 'expired';
+                    const statusColor = status === 'active' ? '#059669' : status === 'upcoming' ? '#b45309' : '#9ca3af';
+                    const delegateName = allEmployees.find(e => e.name === d.delegate_id)?.employee_name || d.delegate_id;
+                    return (
+                      <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 8, padding: '8px 12px' }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>
+                            {t('delegation.delegate')}: {delegateName}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                            {d.start_date} → {d.end_date}
+                            {d.reason && ` · ${d.reason}`}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: statusColor }}>
+                            {t(`delegation.${status}`)}
+                          </span>
+                          {status === 'active' && (
+                            <button
+                              className="btn btn-sm btn-danger"
+                              onClick={() => handleRevokeDelegation(d.id)}
+                            >
+                              {t('common.revoke')}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* My Change Requests — self view */}
+          {isSelf && pcrRequests.length > 0 && (
+            <div className="detail-section" style={{ marginTop: 16 }}>
+              <h4 className="detail-section-title">{t('profile.myChangeRequests')}</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {pcrRequests.map(r => (
+                  <div key={r.id} style={{ background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 8, padding: '8px 12px', fontSize: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 600 }}>{r.field_name}</span>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700,
+                        color: r.status === 'Approved' ? '#059669' : r.status === 'Rejected' ? '#dc2626' : '#b45309',
+                      }}>
+                        {r.status}
+                      </span>
+                    </div>
+                    <div style={{ color: 'var(--text-muted)', marginTop: 2 }}>
+                      {r.old_value || '—'} → {r.new_value}
+                    </div>
+                    {r.review_note && (
+                      <div style={{ color: '#dc2626', marginTop: 4, fontSize: 11 }}>
+                        {t('profile.reviewNote')}: {r.review_note}
+                      </div>
+                    )}
+                    <div style={{ color: 'var(--gray-400)', marginTop: 2, fontSize: 10 }}>
+                      {new Date(r.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -546,6 +933,102 @@ export default function EmployeeDetail() {
           isSelf={isSelf}
           onClose={() => setShowChangePwd(false)}
         />
+      )}
+
+      {/* Delegation Modal */}
+      {showDelegationModal && (
+        <Modal title={t('delegation.create')} onClose={() => setShowDelegationModal(false)}>
+          <div className="form-stack">
+            <div className="form-group">
+              <label>{t('delegation.delegate')} *</label>
+              <select className="form-input" value={delegForm.delegate_id} onChange={e => setDelegForm(f => ({ ...f, delegate_id: e.target.value }))}>
+                <option value="">— {t('common.select')} —</option>
+                {allEmployees.filter(e => e.name !== id).map(e => (
+                  <option key={e.name} value={e.name}>{e.employee_name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>{t('delegation.startDate')} *</label>
+                <input type="date" className="form-input" value={delegForm.start_date} min={today()} onChange={e => setDelegForm(f => ({ ...f, start_date: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label>{t('delegation.endDate')} *</label>
+                <input type="date" className="form-input" value={delegForm.end_date} min={delegForm.start_date || today()} onChange={e => setDelegForm(f => ({ ...f, end_date: e.target.value }))} />
+              </div>
+            </div>
+            <div className="form-group">
+              <label>{t('delegation.reason')}</label>
+              <textarea className="form-input" rows={2} value={delegForm.reason} onChange={e => setDelegForm(f => ({ ...f, reason: e.target.value }))} />
+            </div>
+            <div className="form-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowDelegationModal(false)}>{t('common.cancel')}</button>
+              <button type="button" className="btn btn-primary" onClick={handleCreateDelegation} disabled={delegSaving}>
+                {delegSaving ? <span className="spinner-sm" /> : t('common.save')}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Encashment Modal */}
+      {showEncashModal && (
+        <Modal title={t('leave.encashment.process')} onClose={() => setShowEncashModal(false)}>
+          <div className="form-stack">
+            <div className="form-group">
+              <label>{t('leave.leaveType')}</label>
+              <select className="form-input" value={encashForm.leave_type} onChange={e => {
+                const lt = e.target.value;
+                setEncashForm(f => ({ ...f, leave_type: lt, days: '' }));
+                const bal = leaveBalance.find(b => b.leave_type === lt && !b.is_hourly);
+                setEncashBalance(bal || null);
+              }}>
+                {['Annual Leave','Sick Leave','Casual Leave'].map(lt => <option key={lt} value={lt}>{lt}</option>)}
+              </select>
+              {encashBalance && (
+                <p className="form-hint">{t('leave.encashment.availableDays', { count: encashBalance.remaining })}</p>
+              )}
+            </div>
+            <div className="form-group">
+              <label>{t('leave.encashment.daysToEncash')} *</label>
+              <input
+                type="number" className="form-input"
+                min="1" max={encashBalance?.remaining || undefined}
+                value={encashForm.days}
+                onChange={e => setEncashForm(f => ({ ...f, days: e.target.value }))}
+              />
+            </div>
+            {employee.base_salary && encashForm.days > 0 && (
+              <div style={{ background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 8, padding: 12, fontSize: 13 }}>
+                <div>{t('leave.encashment.formula')}</div>
+                <div style={{ marginTop: 4 }}>
+                  {formatIQD(employee.base_salary)} ÷ 30 = <strong>{formatIQD(employee.base_salary / 30)}</strong>/day
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  {t('leave.encashment.totalAmount')}: <strong style={{ color: 'var(--primary)' }}>
+                    {formatIQD((employee.base_salary / 30) * Number(encashForm.days))}
+                  </strong>
+                </div>
+              </div>
+            )}
+            <div className="form-group">
+              <label>{t('leave.encashment.reason')}</label>
+              <select className="form-input" value={encashForm.reason} onChange={e => setEncashForm(f => ({ ...f, reason: e.target.value }))}>
+                <option value="Resignation">{t('leave.encashment.resignation')}</option>
+                <option value="Year-End">{t('leave.encashment.yearEnd')}</option>
+                <option value="Policy">{t('leave.encashment.policy')}</option>
+                <option value="Other">{t('leave.encashment.other')}</option>
+              </select>
+            </div>
+            <div className="form-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowEncashModal(false)}>{t('common.cancel')}</button>
+              <button type="button" className="btn btn-primary" onClick={handleProcessEncashment} disabled={encashSaving || !encashForm.days}>
+                {encashSaving ? <span className="spinner-sm" /> : t('common.confirm')}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {showDeleteConfirm && (

@@ -15,7 +15,7 @@ const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
 export async function getEmployees({ search = '', department = '' } = {}) {
   const all = await cached('employees:all', async () => {
     if (SUPABASE_MODE) {
-      const { data, error } = await supabase.from('employees_public').select('name, employee_name, department, designation, employment_type, date_of_joining, branch, gender, cell_number, image, company, reports_to, employee_type, role, off_days').order('employee_name').limit(1000);
+      const { data, error } = await supabase.from('employees_public').select('name, employee_name, department, designation, employment_type, date_of_joining, branch, gender, cell_number, image, company, reports_to, employee_type, role, off_days, status, access_expires_at').order('employee_name').limit(1000);
       if (error) throw error;
       return data || [];
     }
@@ -45,6 +45,49 @@ export async function getEmployee(id) {
     return MOCK_EMPLOYEES.find(e => e.name === id) || null;
   }
   return null;
+}
+
+// C3: scope-enforced getEmployee — verifies viewer has access to the requested employee.
+// Returns the employee if viewer is HR/admin (role checked server-side via RLS),
+// or if the target is the viewer themselves, or if the target is in the viewer's report tree.
+// Throws { code: 'ACCESS_DENIED' } when the viewer has no access.
+export async function getEmployeeScoped(employeeId, viewerId, viewerRole) {
+  const HR_ROLES = ['admin', 'hr_manager', 'finance_manager', 'ceo', 'audit_manager'];
+  // HR-level roles can see anyone — RLS on the employees table already enforces this server-side
+  if (viewerId === employeeId || HR_ROLES.includes(viewerRole)) {
+    return getEmployee(employeeId);
+  }
+  // Line manager: verify the target is in the manager's report tree
+  const reports = await getDirectAndIndirectReports(viewerId);
+  const inScope = reports.some(r => r.name === employeeId);
+  if (!inScope) {
+    const err = new Error('You do not have permission to view this employee profile');
+    err.code = 'ACCESS_DENIED';
+    throw err;
+  }
+  return getEmployee(employeeId);
+}
+
+export async function getDirectAndIndirectReports(managerId) {
+  if (!managerId) return [];
+  if (SUPABASE_MODE) {
+    const { data: ids, error } = await supabase.rpc('get_all_reports', { manager_id: managerId });
+    if (error) throw error;
+    if (!ids?.length) return [];
+    const { data: employees, error: empError } = await supabase
+      .from('employees_public')
+      .select('name, employee_name, department, designation, role, branch, image, employment_type, date_of_joining, reports_to, off_days, status')
+      .in('name', ids.map(r => r.employee_name))
+      .order('employee_name');
+    if (empError) throw empError;
+    return employees || [];
+  }
+  // Demo: fall back to direct reports only
+  if (DEMO) {
+    const rows = await db.employees.where('reports_to').equals(managerId).toArray();
+    return rows.length > 0 ? rows : MOCK_EMPLOYEES.filter(e => e.reports_to === managerId);
+  }
+  return [];
 }
 
 export async function getDirectReports(managerId) {
@@ -115,6 +158,12 @@ const EMPLOYEE_ALLOWED_FIELDS = [
   'employee_name', 'cell_number', 'department', 'designation', 'branch',
   'personal_email', 'date_of_birth', 'image', 'reports_to', 'employment_type',
   'employee_type', 'gender', 'nationality', 'address', 'company_email',
+  // Emergency contact
+  'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relation',
+  // Personal fields
+  'marital_status', 'national_id',
+  // Job fields (HR/Admin only)
+  'notice_period_days', 'probation_end_date', 'access_expires_at',
 ];
 
 // HR/admin-only: update the weekly off-days schedule for an employee.

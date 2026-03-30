@@ -6,6 +6,7 @@ import {
   submitLeaveApplication, updateLeaveStatus, getLeaveTypes,
   getLeaveBalance, calcHours,
 } from '../api/leave';
+import { getAccrualLog } from '../api/leaveAccrual';
 import { getPublicHolidays } from '../api/publicHolidays';
 import { countWorkingDays } from '../utils/workSchedule';
 import { useConfirm } from '../hooks/useConfirm';
@@ -252,6 +253,9 @@ export default function LeaveRequests() {
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [actionId, setActionId] = useState(null);
+  // L4: accrual history — loaded lazily when user opens the section
+  const [accrualLog, setAccrualLog] = useState(null);
+  const [accrualLoading, setAccrualLoading] = useState(false);
 
   const load = useCallback(async (silent = false) => {
     if (!employee) return;
@@ -352,6 +356,57 @@ export default function LeaveRequests() {
             )}
           </div>
         </div>
+      )}
+
+      {/* L4: Accrual history — lazy-loaded when section is opened */}
+      {!isAdmin && (
+        <details
+          style={{ marginBottom: 16 }}
+          onToggle={async (e) => {
+            if (e.target.open && accrualLog === null && !accrualLoading) {
+              setAccrualLoading(true);
+              try { setAccrualLog(await getAccrualLog(employee.name)); }
+              catch { setAccrualLog([]); }
+              finally { setAccrualLoading(false); }
+            }
+          }}
+        >
+          <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 14, padding: '8px 0', userSelect: 'none' }}>
+            {t('leave.accrual.history')}
+          </summary>
+          <div style={{ marginTop: 8 }}>
+            {accrualLoading ? (
+              <div className="loading-center"><span className="spinner" /></div>
+            ) : accrualLog && accrualLog.length === 0 ? (
+              <p className="text-muted" style={{ fontSize: 13 }}>{t('leave.accrual.noHistory')}</p>
+            ) : accrualLog ? (
+              <div className="table-wrap">
+                <table className="data-table" style={{ fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      <th>{t('common.date')}</th>
+                      <th>{t('common.type')}</th>
+                      <th>{t('leave.accrual.daysAccrued')}</th>
+                      <th>{t('leave.accrual.balanceBefore')}</th>
+                      <th>{t('leave.accrual.balanceAfter')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {accrualLog.map(a => (
+                      <tr key={a.id}>
+                        <td>{a.accrual_date}</td>
+                        <td>{a.leave_type}</td>
+                        <td style={{ color: 'var(--primary)', fontWeight: 600 }}>+{a.days_accrued}</td>
+                        <td>{a.balance_before}</td>
+                        <td>{a.balance_after}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </div>
+        </details>
       )}
 
       <div className="page-toolbar">

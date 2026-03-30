@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getEmployees, getDepartments, createEmployee } from '../api/employees';
+import { getEmployees, getDepartments, createEmployee, getDirectAndIndirectReports } from '../api/employees';
 import { createDepartment, deleteDepartment as deleteDeptById, getDepartments as getDeptObjects } from '../api/departments';
 import { useConfirm } from '../hooks/useConfirm';
 import { useAuth } from '../context/AuthContext';
@@ -330,7 +330,7 @@ function EmployeeCard({ emp, onClick }) {
 
 export default function Employees() {
   const navigate = useNavigate();
-  const { isAdmin, hasPermission } = useAuth();
+  const { employee: me, isAdmin, isHR, hasPermission } = useAuth();
   const canWrite = hasPermission('employees:write');
   const { t } = useTranslation();
   const [employees, setEmployees] = useState([]);
@@ -342,19 +342,43 @@ export default function Employees() {
   const [showCreate, setShowCreate] = useState(false);
   const [showDepts, setShowDepts]   = useState(false);
   const [showLargeDatasetWarning, setShowLargeDatasetWarning] = useState(false);
+  const [isLineManager, setIsLineManager] = useState(false);
 
   const departmentsRef = useRef(departments);
   useEffect(() => { departmentsRef.current = departments; }, [departments]);
+
+  // M8: cache the manager's full report tree to avoid re-fetching on every search/filter
+  const managerReportsRef = useRef(null);
+
+  // Determine if the current user is a line manager (has direct reports)
+  // Only matters for non-HR/Admin users
+  useEffect(() => {
+    if (!me || isHR || isAdmin) { setIsLineManager(false); managerReportsRef.current = null; return; }
+    getDirectAndIndirectReports(me.name)
+      .then(reports => {
+        managerReportsRef.current = reports;
+        setIsLineManager(reports.length > 0);
+      })
+      .catch(() => setIsLineManager(false));
+  }, [me?.name, isHR, isAdmin]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const deps = departmentsRef.current;
-      const [emps, depts] = await Promise.all([
-        getEmployees({ search, department }),
-        deps.length ? Promise.resolve(deps) : getDepartments(),
-      ]);
+      let emps;
+      if (isLineManager && !isHR && !isAdmin) {
+        // Manager scope: only direct + indirect reports — use cached list if available
+        const allReports = managerReportsRef.current ?? await getDirectAndIndirectReports(me.name);
+        managerReportsRef.current = allReports;
+        emps = allReports;
+        if (search) emps = emps.filter(e => e.employee_name?.toLowerCase().includes(search.toLowerCase()));
+        if (department) emps = emps.filter(e => e.department === department);
+      } else {
+        emps = await getEmployees({ search, department });
+      }
+      const depts = deps.length ? deps : await getDepartments();
       setEmployees(emps);
       if (!deps.length) setDepartments(depts);
       if (emps.length >= 1000) setShowLargeDatasetWarning(true);
@@ -363,7 +387,7 @@ export default function Employees() {
     } finally {
       setLoading(false);
     }
-  }, [search, department, t]);
+  }, [search, department, t, isLineManager, isHR, isAdmin, me?.name]);
 
   useEffect(() => {
     const timer = setTimeout(load, 300);
@@ -411,6 +435,11 @@ export default function Employees() {
         </select>
       </div>
 
+      {isLineManager && !isHR && !isAdmin && (
+        <div role="alert" style={{ marginBottom: 12, padding: '8px 14px', background: '#eff6ff', color: '#1e40af', borderRadius: 8, fontSize: 13, border: '1px solid #bfdbfe' }}>
+          {t('employees.managerScopeNotice')}
+        </div>
+      )}
       {error && <ErrorState message={error} onRetry={load} />}
       {showLargeDatasetWarning && (
         <div role="alert" style={{ marginBottom: 12, padding: '8px 14px', background: '#fef3c7', color: '#92400e', borderRadius: 8, fontSize: 13 }}>

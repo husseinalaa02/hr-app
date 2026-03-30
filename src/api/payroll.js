@@ -143,6 +143,7 @@ export async function createPayroll(data, performer = null) {
     payroll_date:       data.payroll_date || data.period_end,
     submitted_by: null, submitted_by_name: null, submitted_at: null,
     paid_by: null,      paid_by_name: null,       paid_at: null,
+    created_by:         performer?.name || null,
   };
 
   if (SUPABASE_MODE) {
@@ -348,13 +349,18 @@ export async function submitPayroll(id, performer) {
 
 export async function markAsPaid(id, performer) {
   if (SUPABASE_MODE) {
-    const { data: existing } = await supabase.from('payroll').select('status').eq('id', id).single();
+    const { data: existing } = await supabase.from('payroll').select('status, created_by').eq('id', id).single();
     if (!existing) throw new Error('Payroll record not found');
     if (existing.status !== 'Submitted') throw new Error('Only Submitted payroll can be marked as Paid');
+    // Separation of duties: creator cannot approve
+    if (existing.created_by && existing.created_by === performer?.name) {
+      throw new Error('SELF_APPROVAL_NOT_ALLOWED');
+    }
     const now = new Date().toISOString();
     const updates = {
       status: 'Paid',
       paid_by: performer.name, paid_by_name: performer.employee_name, paid_at: now,
+      approved_by: performer.name,
     };
     const { data: updated, error } = await supabase.from('payroll').update(updates).eq('id', id).select().single();
     if (error) throw error;

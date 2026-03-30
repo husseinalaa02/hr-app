@@ -55,7 +55,9 @@
       "6": "Saturday"
     },
     "confirmReject": "Are you sure you want to reject this request?",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "revoke": "Revoke",
+    "holiday": "Holiday"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -78,7 +80,9 @@
     "controlPanel": "Control Panel",
     "myProfile": "My Profile",
     "signOut": "Sign Out",
-    "hrSystem": "HR System"
+    "hrSystem": "HR System",
+    "teamCalendar": "Team Calendar",
+    "back": "Go Back"
   },
   "roles": {
     "admin": "Administrator",
@@ -114,7 +118,8 @@
     "passwordsDoNotMatch": "Passwords do not match",
     "passwordTooShort": "Password must be at least 8 characters",
     "passwordUpdated": "Password updated — please sign in",
-    "accountNotFound": "Your account was not found. Please contact HR."
+    "accountNotFound": "Your account was not found. Please contact HR.",
+    "accessExpired": "Your access has expired. Please contact HR."
   },
   "dashboard": {
     "goodMorning": "Good morning",
@@ -165,7 +170,9 @@
     "leaveSubCount": "{{leave}} leave · {{expense}} expense",
     "titleRequired": "Title is required",
     "announcementTitlePlaceholder": "Announcement title",
-    "announcementContentPlaceholder": "Announcement details..."
+    "announcementContentPlaceholder": "Announcement details...",
+    "expiringAccess": "Contractor Access Expiring Soon",
+    "expiringAccessHint": "The following contractor accounts expire within 30 days"
   },
   "attendance": {
     "title": "Attendance",
@@ -274,7 +281,51 @@
     "hourlyLeave": "Hourly Leave",
     "alreadyProcessed": "This request has already been processed",
     "workingDaysCount_one": "{{count}} working day",
-    "workingDaysCount_other": "{{count}} working days"
+    "workingDaysCount_other": "{{count}} working days",
+    "delegatedApproval": "Delegated Approval",
+    "accrual": {
+      "title": "Leave Accrual",
+      "runMonthly": "Run Monthly Accrual",
+      "runNow": "Run Now",
+      "running": "Running...",
+      "success": "Accrual complete — {{count}} records updated",
+      "yearEnd": "Year-End Carry Over",
+      "yearEndSuccess": "Carry-over for {{year}} complete",
+      "yearEndConfirm": "Run year-end carry-over for {{year}}? This will add unused balances to next year.",
+      "history": "Accrual History",
+      "noHistory": "No accrual records yet",
+      "daysAccrued": "Days Accrued",
+      "balanceBefore": "Balance Before",
+      "balanceAfter": "Balance After"
+    },
+    "entitlements": {
+      "title": "Leave Entitlements",
+      "leaveType": "Leave Type",
+      "employment_type": "Employment Type",
+      "daysPerYear": "Days / Year",
+      "accrualMethod": "Accrual Method",
+      "carryOver": "Carry-Over Max",
+      "carryOverMax": "Carry-Over Max",
+      "minTenure": "Min. Tenure (months)",
+      "saved": "Entitlement saved"
+    },
+    "encashment": {
+      "title": "Leave Encashment",
+      "noHistory": "No encashment records",
+      "process": "Process Encashment",
+      "daysEncashed": "Days Encashed",
+      "daysToEncash": "Days to Encash",
+      "dailyRate": "Daily Rate",
+      "totalAmount": "Total Amount",
+      "reason": "Reason",
+      "resignation": "Resignation",
+      "yearEnd": "Year-End",
+      "processSuccess": "Encashment processed",
+      "balance": "Available Balance",
+      "insufficientBalance": "Insufficient leave balance",
+      "success": "Encashment processed successfully",
+      "noSalaryConfigured": "No salary configured for this employee"
+    }
   },
   "employees": {
     "title": "Employee Directory",
@@ -346,7 +397,27 @@
       "allDaysOffTitle": "All Days Off?",
       "allDaysOffWarning": "All 7 days are marked as off. This employee will never appear as scheduled. Save anyway?",
       "usingDefault": "Using default schedule (Fri/Sat off). Edit to customize for this employee."
-    }
+    },
+    "managerScopeNotice": "Showing your direct and indirect reports only",
+    "salaryRestricted": "Salary Hidden",
+    "salaryRestrictedHint": "Salary information is restricted to HR and Finance",
+    "accessExpiry": "Access Expiry",
+    "accessExpiryHint": "Leave blank for no expiry",
+    "accessExpiringSoon": "Expiring Soon",
+    "noExpiry": "No expiry",
+    "emergencyContact": "Emergency Contact",
+    "emergencyContactName": "Contact Name",
+    "emergencyContactPhone": "Contact Phone",
+    "emergencyContactRelation": "Relationship",
+    "maritalStatus": "Marital Status",
+    "maritalSingle": "Single",
+    "maritalMarried": "Married",
+    "maritalDivorced": "Divorced",
+    "maritalWidowed": "Widowed",
+    "nationalId": "National ID",
+    "noticePeriod": "Notice Period (days)",
+    "probationEndDate": "Probation End Date",
+    "inProbation": "In Probation"
   },
   "payroll": {
     "title": "Payroll",
@@ -419,6 +490,10 @@
       "submitted": "Submitted",
       "paid": "Paid"
     },
+    "selfApprovalNotAllowed": "You cannot approve a payroll record you created",
+    "cannotSelfApprove": "Cannot self-approve",
+    "createdBy": "Created by",
+    "approvedBy": "Approved by",
     "csv": {
       "employeeId": "Employee ID",
       "employeeName": "Employee Name",
@@ -751,6 +826,7 @@
     "filterByName": "Search by name…",
     "truncationWarning": "Showing the most recent 1,000 entries. Use date filters to narrow results.",
     "noLogsToExport": "No logs to export — apply filters to find entries first",
+    "viewChanges": "View changes",
     "csv": {
       "timestamp": "Timestamp",
       "user": "User",
@@ -827,6 +903,22 @@
     "systemOk": "System OK",
     "systemSlow": "System Slow",
     "systemDown": "System Down",
+    "tabProfileChanges": "Profile Change Requests",
+    "tabEntitlements": "Leave Entitlements",
+    "pcrPending": "Pending",
+    "pcrApprove": "Approve",
+    "pcrReject": "Reject",
+    "pcrReviewNote": "Review note (optional)",
+    "pcrApproved": "Approved",
+    "pcrRejected": "Rejected",
+    "pcrNone": "No pending profile change requests",
+    "pcrField": "Field",
+    "pcrOldValue": "Old Value",
+    "pcrNewValue": "New Value",
+    "pcrEmployee": "Employee",
+    "pcrRequestedAt": "Requested",
+    "accrualRunSuccess": "Accrual complete",
+    "yearEndSuccess": "Year-end carry-over complete",
     "permGroup": {
       "employees": "Employees",
       "payroll": "Payroll",
@@ -856,6 +948,48 @@
       "finance": "Finance",
       "executive": "Executive"
     }
+  },
+  "profile": {
+    "changePending": "Change pending approval",
+    "changeSubmitted": "Change request submitted — HR will review shortly",
+    "changeApproved": "Change approved",
+    "changeRejected": "Change rejected",
+    "duplicatePending": "A pending request for {{field}} already exists",
+    "myChangeRequests": "My Change Requests",
+    "changeRequests": "Profile Change Requests",
+    "noChangeRequests": "No change requests",
+    "fieldName": "Field",
+    "oldValue": "Before",
+    "newValue": "After",
+    "reviewNote": "Review Note"
+  },
+  "delegation": {
+    "title": "Approval Delegation",
+    "current": "Current Delegation",
+    "noCurrent": "No active delegation",
+    "delegate": "Delegate To",
+    "create": "Create Delegation",
+    "revokeConfirm": "Revoke this delegation?",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "reason": "Reason",
+    "active": "Active",
+    "upcoming": "Upcoming",
+    "expired": "Expired",
+    "createSuccess": "Delegation created",
+    "revokeSuccess": "Delegation revoked"
+  },
+  "calendar": {
+    "title": "Team Leave Calendar",
+    "subtitle": "{{count}} team members",
+    "noLeaves": "No leave on this day",
+    "onLeave": "on leave",
+    "today": "Today",
+    "filterDepartment": "All Departments",
+    "filterDept": "All Departments",
+    "legend": "Legend",
+    "holiday": "Public Holiday",
+    "noTeam": "No team members found"
   },
   "employeeDetail": {
     "editProfile": "Edit Profile",
@@ -949,7 +1083,8 @@
     "somethingWentWrong": "Something went wrong",
     "offline": "You're offline — data loads from local cache",
     "fillRequired": "Please fill all required fields",
-    "failed": "Failed"
+    "failed": "Failed",
+    "accessDenied": "You do not have permission to view this profile"
   },
   "notifications": {
     "title": "Notifications",
@@ -992,5 +1127,10 @@
     "Application": "Application",
     "Screening": "Screening",
     "Offer": "Offer"
+  },
+  "notFound": {
+    "title": "Page Not Found",
+    "message": "The page you are looking for doesn't exist or you don't have permission to view it.",
+    "goToDashboard": "Go to Dashboard"
   }
 }

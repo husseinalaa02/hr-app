@@ -339,6 +339,38 @@ export default function AuditView() {
                       </td>
                       <td style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 260 }}>
                         {log.details || '—'}
+                        {/* Field-level changes */}
+                        {(() => {
+                          if (!log.details) return null;
+                          try {
+                            const parsed = JSON.parse(log.details);
+                            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                              const entries = Object.entries(parsed).filter(([, v]) => v && typeof v === 'object' && 'from' in v && 'to' in v);
+                              if (entries.length > 0) {
+                                return (
+                                  <details style={{ marginTop: 4 }}>
+                                    <summary style={{ cursor: 'pointer', fontSize: 11, color: 'var(--primary)' }}>
+                                      {t('audit.viewChanges')} ({entries.length})
+                                    </summary>
+                                    <table style={{ width: '100%', fontSize: 11, marginTop: 4 }}>
+                                      <thead><tr><th style={{ textAlign: 'start' }}>{t('profile.fieldName')}</th><th>{t('profile.oldValue')}</th><th>{t('profile.newValue')}</th></tr></thead>
+                                      <tbody>
+                                        {entries.map(([field, change]) => (
+                                          <tr key={field}>
+                                            <td>{field}</td>
+                                            <td style={{ color: '#dc2626' }}>{String(change.from ?? '—')}</td>
+                                            <td style={{ color: '#059669' }}>{String(change.to ?? '—')}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </details>
+                                );
+                              }
+                            }
+                          } catch {}
+                          return null;
+                        })()}
                       </td>
                       <td style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                         {log.ip_address || '—'}

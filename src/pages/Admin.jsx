@@ -10,6 +10,8 @@ import { getPublicHolidays, createHoliday, updateHoliday, deleteHoliday } from '
 import { getDepartments, createDepartment, updateDepartment, deleteDepartment } from '../api/departments';
 import { ROLE_PERMISSIONS } from '../rbac/permissions';
 import { Skeleton } from '../components/Skeleton';
+import { getPendingProfileRequests, reviewProfileChangeRequest } from '../api/profileChangeRequests';
+import { getLeaveEntitlements, updateLeaveEntitlement, runMonthlyAccrual, runYearEndCarryOver } from '../api/leaveAccrual';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const PERM_GROUPS = [
@@ -225,6 +227,19 @@ export default function Admin() {
   const [deptNameError, setDeptNameError]   = useState('');
   const [savingDept, setSavingDept]         = useState(false);
 
+  // Profile Change Requests tab
+  const [pcrList, setPcrList]               = useState([]);
+  const [pcrLoading, setPcrLoading]         = useState(false);
+  const [pcrReviewNote, setPcrReviewNote]   = useState({});
+  const [pcrActing, setPcrActing]           = useState('');
+
+  // Leave Entitlements tab
+  const [entitlements, setEntitlements]     = useState([]);
+  const [entLoading, setEntLoading]         = useState(false);
+  const [entEdits, setEntEdits]             = useState({});
+  const [accrualRunning, setAccrualRunning] = useState(false);
+  const [accrualResult, setAccrualResult]   = useState(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     try { setEmployees(await getAllEmployeesWithOverrides()); }
@@ -259,6 +274,18 @@ export default function Admin() {
   useEffect(() => { checkHealth().then(setHealth); }, []);
   useEffect(() => { if (tab === 'holidays') loadHolidays(); }, [tab, loadHolidays]);
   useEffect(() => { if (tab === 'departments') loadDepts(); }, [tab, loadDepts]);
+  useEffect(() => {
+    if (tab === 'profile-changes') {
+      setPcrLoading(true);
+      getPendingProfileRequests().then(setPcrList).catch(() => {}).finally(() => setPcrLoading(false));
+    }
+  }, [tab]);
+  useEffect(() => {
+    if (tab === 'entitlements') {
+      setEntLoading(true);
+      getLeaveEntitlements().then(setEntitlements).catch(() => {}).finally(() => setEntLoading(false));
+    }
+  }, [tab]);
 
   // M4: reset open forms when switching tabs
   const handleTabChange = (newTab) => {
@@ -522,6 +549,12 @@ export default function Admin() {
           </button>
           <button className={`admin-tab${tab === 'departments' ? ' active' : ''}`} onClick={() => handleTabChange('departments')}>
             {t('departments.title')}
+          </button>
+          <button className={`admin-tab${tab === 'profile-changes' ? ' active' : ''}`} onClick={() => handleTabChange('profile-changes')}>
+            {t('profile.changeRequests')}
+          </button>
+          <button className={`admin-tab${tab === 'entitlements' ? ' active' : ''}`} onClick={() => handleTabChange('entitlements')}>
+            {t('leave.entitlements.title')}
           </button>
         </div>
 
@@ -986,6 +1019,195 @@ export default function Admin() {
             )}
           </div>
         )}
+        {/* ── Profile Change Requests ─────────────────────────────────────── */}
+        {tab === 'profile-changes' && (
+          <div style={{ padding: 20 }}>
+            <h3 style={{ marginBottom: 16 }}>{t('profile.changeRequests')}</h3>
+            {pcrLoading ? <Skeleton height={60} /> : pcrList.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                {t('profile.noChangeRequests')}
+              </div>
+            ) : (
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>{t('common.name')}</th>
+                      <th>{t('profile.fieldName')}</th>
+                      <th>{t('profile.oldValue')}</th>
+                      <th>{t('profile.newValue')}</th>
+                      <th>{t('common.date')}</th>
+                      <th>{t('profile.reviewNote')}</th>
+                      <th>{t('common.actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pcrList.map(r => (
+                      <tr key={r.id}>
+                        <td style={{ fontWeight: 600 }}>{r.employee_id}</td>
+                        <td>{r.field_name}</td>
+                        <td style={{ color: 'var(--text-muted)' }}>{r.old_value || '—'}</td>
+                        <td style={{ color: 'var(--primary)', fontWeight: 600 }}>{r.new_value}</td>
+                        <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Date(r.created_at).toLocaleDateString()}</td>
+                        <td>
+                          <input
+                            className="form-input form-input-sm"
+                            style={{ minWidth: 140 }}
+                            placeholder={t('profile.reviewNote')}
+                            value={pcrReviewNote[r.id] || ''}
+                            onChange={e => setPcrReviewNote(n => ({ ...n, [r.id]: e.target.value }))}
+                          />
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button
+                              className="btn btn-sm btn-success"
+                              disabled={pcrActing === r.id}
+                              onClick={async () => {
+                                setPcrActing(r.id);
+                                try {
+                                  await reviewProfileChangeRequest(r.id, 'Approved', pcrReviewNote[r.id], me.name);
+                                  addToast(t('profile.changeApproved'), 'success');
+                                  setPcrList(l => l.filter(x => x.id !== r.id));
+                                } catch (e) { addToast(e.message || t('errors.actionFailed'), 'error'); }
+                                finally { setPcrActing(''); }
+                              }}
+                            >
+                              {t('common.approve')}
+                            </button>
+                            <button
+                              className="btn btn-sm btn-danger"
+                              disabled={pcrActing === r.id}
+                              onClick={async () => {
+                                setPcrActing(r.id);
+                                try {
+                                  await reviewProfileChangeRequest(r.id, 'Rejected', pcrReviewNote[r.id], me.name);
+                                  addToast(t('profile.changeRejected'), 'success');
+                                  setPcrList(l => l.filter(x => x.id !== r.id));
+                                } catch (e) { addToast(e.message || t('errors.actionFailed'), 'error'); }
+                                finally { setPcrActing(''); }
+                              }}
+                            >
+                              {t('common.reject')}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Leave Entitlements ──────────────────────────────────────────── */}
+        {tab === 'entitlements' && (
+          <div style={{ padding: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0 }}>{t('leave.entitlements.title')}</h3>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {accrualResult && (
+                  <span style={{ fontSize: 12, color: '#059669' }}>
+                    {t('leave.accrual.success', { count: accrualResult.accruals })}
+                    {accrualResult.errors > 0 && ` (${accrualResult.errors} errors)`}
+                  </span>
+                )}
+                <button
+                  className="btn btn-primary"
+                  disabled={accrualRunning}
+                  onClick={async () => {
+                    setAccrualRunning(true);
+                    setAccrualResult(null);
+                    try {
+                      const result = await runMonthlyAccrual();
+                      setAccrualResult(result);
+                      addToast(t('leave.accrual.success', { count: result.accruals }), 'success');
+                    } catch (e) {
+                      addToast(e.message || t('errors.actionFailed'), 'error');
+                    } finally { setAccrualRunning(false); }
+                  }}
+                >
+                  {accrualRunning ? t('leave.accrual.running') : t('leave.accrual.runNow')}
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={async () => {
+                    const ok = await confirm({ message: t('leave.accrual.yearEndConfirm', { year: new Date().getFullYear() }) });
+                    if (!ok) return;
+                    try {
+                      await runYearEndCarryOver(new Date().getFullYear());
+                      addToast(t('leave.accrual.yearEndSuccess', { year: new Date().getFullYear() }), 'success');
+                    } catch (e) { addToast(e.message || t('errors.actionFailed'), 'error'); }
+                  }}
+                >
+                  {t('leave.yearEndCarryOver')}
+                </button>
+              </div>
+            </div>
+            {entLoading ? <Skeleton height={60} /> : (
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>{t('leave.leaveType')}</th>
+                      <th>{t('leave.entitlements.employment_type')}</th>
+                      <th>{t('leave.entitlements.daysPerYear')}</th>
+                      <th>{t('leave.entitlements.accrualMethod')}</th>
+                      <th>{t('leave.entitlements.carryOver')}</th>
+                      <th>{t('leave.entitlements.minTenure')}</th>
+                      <th>{t('common.actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {entitlements.map(ent => (
+                      <tr key={ent.id}>
+                        <td style={{ fontWeight: 600 }}>{ent.leave_type}</td>
+                        <td>{ent.employment_type}</td>
+                        <td>
+                          <input
+                            type="number" className="form-input form-input-sm"
+                            style={{ width: 80 }}
+                            value={entEdits[ent.id]?.days_per_year ?? ent.days_per_year}
+                            onChange={e => setEntEdits(ed => ({ ...ed, [ent.id]: { ...ed[ent.id], days_per_year: e.target.value } }))}
+                          />
+                        </td>
+                        <td>{ent.accrual_method}</td>
+                        <td>
+                          <input
+                            type="number" className="form-input form-input-sm"
+                            style={{ width: 70 }}
+                            value={entEdits[ent.id]?.carry_over_max ?? ent.carry_over_max}
+                            onChange={e => setEntEdits(ed => ({ ...ed, [ent.id]: { ...ed[ent.id], carry_over_max: e.target.value } }))}
+                          />
+                        </td>
+                        <td>{ent.min_tenure_months}</td>
+                        <td>
+                          {entEdits[ent.id] && (
+                            <button
+                              className="btn btn-sm btn-primary"
+                              onClick={async () => {
+                                try {
+                                  await updateLeaveEntitlement(ent.id, entEdits[ent.id]);
+                                  setEntitlements(list => list.map(e => e.id === ent.id ? { ...e, ...entEdits[ent.id] } : e));
+                                  setEntEdits(ed => { const n = { ...ed }; delete n[ent.id]; return n; });
+                                  addToast(t('common.save') + ' ✓', 'success');
+                                } catch (e) { addToast(e.message || t('errors.actionFailed'), 'error'); }
+                              }}
+                            >
+                              {t('common.save')}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
       {ConfirmModalComponent}
     </div>

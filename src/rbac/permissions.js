@@ -45,6 +45,8 @@ export const PERMISSIONS = {
   DAY_REQUESTS_APPROVE: 'day_requests:approve',
 
   ADMIN_ACCESS:         'admin:access',
+
+  CALENDAR_VIEW:        'calendar:view',
 };
 
 // ─── Role → Permissions Map ────────────────────────────────────────────────────
@@ -71,6 +73,7 @@ export const ROLE_PERMISSIONS = {
     'payslips:read',
     'day_requests:read',
     'day_requests:approve',
+    'calendar:view',
   ],
 
   hr_manager: [
@@ -102,6 +105,7 @@ export const ROLE_PERMISSIONS = {
     'day_requests:write',
     'day_requests:approve',
     'payslips:read',
+    'calendar:view',
   ],
 
   finance_manager: [
@@ -119,6 +123,7 @@ export const ROLE_PERMISSIONS = {
     'employees:read',
     'payslips:read',
     'announcements:read',
+    'calendar:view',
   ],
 
   it_manager: [
@@ -140,6 +145,7 @@ export const ROLE_PERMISSIONS = {
     'announcements:read',
     'payslips:read',
     'reports:hr',
+    'calendar:view',
   ],
 
   employee: [
@@ -157,6 +163,7 @@ export const ROLE_PERMISSIONS = {
     'day_requests:write',
     'announcements:read',
     'payslips:read',
+    'calendar:view',
   ],
 
   audit_manager: [
@@ -175,6 +182,7 @@ export const ROLE_PERMISSIONS = {
     'payslips:read',
     'day_requests:read',
     'announcements:read',
+    'calendar:view',
   ],
 };
 
@@ -202,5 +210,6 @@ export const ROUTE_PERMISSIONS = {
   '/appraisals':   'appraisals:read',
   '/recruitment':  'recruitment:read',
   '/expenses':     'expenses:read',
-  '/reports':      'reports:hr',
+  '/reports':        'reports:hr',
+  '/team-calendar':  'calendar:view',
 };

@@ -27,6 +27,8 @@ const Recruitment    = lazy(() => import('./pages/Recruitment'));
 const Expenses       = lazy(() => import('./pages/Expenses'));
 const Reports        = lazy(() => import('./pages/Reports'));
 const Admin          = lazy(() => import('./pages/Admin'));
+const TeamCalendar   = lazy(() => import('./pages/TeamCalendar'));
+const NotFound       = lazy(() => import('./pages/NotFound'));
 
 
 function NetworkBanner() {
@@ -132,7 +134,8 @@ export default function App() {
     '/recruitment':  t('recruitment.title'),
     '/expenses':     t('expenses.title'),
     '/reports':      t('reports.title'),
-    '/admin':        t('admin.title'),
+    '/admin':          t('admin.title'),
+    '/team-calendar':  t('nav.teamCalendar'),
   }), [t]);
 
   const title = Object.entries(PAGE_TITLES).find(([path]) =>
@@ -175,8 +178,9 @@ export default function App() {
               <Route path="/recruitment"  element={<RequireRole permission={ROUTE_PERMISSIONS['/recruitment']}><Recruitment /></RequireRole>} />
               <Route path="/expenses"     element={<RequireRole permission={ROUTE_PERMISSIONS['/expenses']}><Expenses /></RequireRole>} />
               <Route path="/reports"      element={<RequireRole permission={ROUTE_PERMISSIONS['/reports']}><Reports /></RequireRole>} />
-              <Route path="/admin"        element={<RequireAdmin><Admin /></RequireAdmin>} />
-              <Route path="*"             element={<Navigate to="/" replace />} />
+              <Route path="/admin"         element={<RequireAdmin><Admin /></RequireAdmin>} />
+              <Route path="/team-calendar" element={<RequireRole permission={ROUTE_PERMISSIONS['/team-calendar']}><TeamCalendar /></RequireRole>} />
+              <Route path="*"             element={<NotFound />} />
             </Routes>
           </Suspense>
           </ErrorBoundary>

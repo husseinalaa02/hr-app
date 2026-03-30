@@ -163,6 +163,10 @@ export default function Payroll() {
   };
 
   const handlePay = async (r) => {
+    if (r.created_by && r.created_by === employee?.name) {
+      addToast(t('payroll.selfApprovalNotAllowed'), 'error');
+      return;
+    }
     const ok = await confirm({ message: t('payroll.confirmPay', { name: r.employee_name, amount: formatIQD(r.calculated_salary) }) });
     if (!ok) return;
     setActionId(r.id);
@@ -171,7 +175,13 @@ export default function Payroll() {
       addToast(t('payroll.paySuccess', { name: r.employee_name }), 'success');
       setDetail(null);
       load();
-    } catch (e) { addToast(e.message || t('errors.actionFailed'), 'error'); }
+    } catch (e) {
+      if (e.message === 'SELF_APPROVAL_NOT_ALLOWED') {
+        addToast(t('payroll.selfApprovalNotAllowed'), 'error');
+      } else {
+        addToast(e.message || t('errors.actionFailed'), 'error');
+      }
+    }
     finally { setActionId(null); }
   };
 
@@ -328,19 +338,24 @@ export default function Payroll() {
                   <td><strong style={{ color: 'var(--primary)' }}>{formatIQD(r.calculated_salary)}</strong></td>
                   <td onClick={e => e.stopPropagation()}><StatusBadge status={r.status} /></td>
                   <td style={{ fontSize: 11, color: 'var(--text-muted)' }} onClick={e => e.stopPropagation()}>
+                    {r.created_by_name   && <div>📝 {t('payroll.createdBy')}: {r.created_by_name}</div>}
                     {r.submitted_by_name && <div>📤 {r.submitted_by_name}</div>}
                     {r.paid_by_name      && <div>✅ {r.paid_by_name}</div>}
                   </td>
                   <td onClick={e => e.stopPropagation()}>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flexDirection: 'column', alignItems: 'flex-start' }}>
                       {/* HR: Submit Draft to Finance */}
                       {canCreate && r.status === 'Draft' && (
                         <button className="btn btn-sm btn-primary" onClick={() => handleSubmit(r)} disabled={actionId === r.id}>
                           {actionId === r.id ? <span className="spinner-sm" /> : t('payroll.submitToFinance')}
                         </button>
                       )}
-                      {/* Finance: Mark Submitted as Paid */}
-                      {canPay && r.status === 'Submitted' && (
+                      {/* Finance: Mark Submitted as Paid — separation of duties */}
+                      {canPay && r.status === 'Submitted' && r.created_by === employee?.name ? (
+                        <span className="field-hint" style={{ color: '#b45309', fontSize: 11 }}>
+                          {t('payroll.cannotSelfApprove')}
+                        </span>
+                      ) : canPay && r.status === 'Submitted' && (
                         <button className="btn btn-sm btn-success" onClick={() => handlePay(r)} disabled={actionId === r.id}>
                           {actionId === r.id ? <span className="spinner-sm" /> : `✓ ${t('payroll.markAsPaid')}`}
                         </button>
@@ -489,7 +504,11 @@ export default function Payroll() {
                       {t('payroll.submitToFinance')}
                     </button>
                   )}
-                  {canPay && detail.status === 'Submitted' && (
+                  {canPay && detail.status === 'Submitted' && detail.created_by === employee?.name ? (
+                    <span className="field-hint" style={{ color: '#b45309', fontSize: 11 }}>
+                      {t('payroll.cannotSelfApprove')}
+                    </span>
+                  ) : canPay && detail.status === 'Submitted' && (
                     <button className="btn btn-sm btn-success" disabled={actionId === detail.id} onClick={() => handlePay(detail)}>
                       {`✓ ${t('payroll.markAsPaid')}`}
                     </button>

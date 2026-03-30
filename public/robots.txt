@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /
+
+# This is a private internal application.
+# No public content to index.

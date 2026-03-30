@@ -56,12 +56,14 @@ export default function Login() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Show a message when AuthContext signed the user out because their employees
-  // row was deleted (offboarded account with an orphaned Supabase Auth entry).
+  // Show a message when AuthContext signed the user out due to various reasons.
   useEffect(() => {
     const authError = sessionStorage.getItem('auth_error');
     if (authError === 'account_not_found') {
       addToast(t('auth.accountNotFound'), 'error');
+      sessionStorage.removeItem('auth_error');
+    } else if (authError === 'access_expired') {
+      addToast(t('auth.accessExpired'), 'error');
       sessionStorage.removeItem('auth_error');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

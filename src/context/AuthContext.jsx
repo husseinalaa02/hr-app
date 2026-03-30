@@ -81,11 +81,21 @@ export function AuthProvider({ children }) {
   const fetchEmployee = useCallback(async (authUser) => {
     const result = await Promise.race([
       supabase.from('employees')
-        .select('name, employee_name, department, designation, employment_type, date_of_joining, branch, gender, date_of_birth, personal_email, company_email, cell_number, image, company, reports_to, auth_id, user_id, role, employee_type')
+        .select('name, employee_name, department, designation, employment_type, date_of_joining, branch, gender, date_of_birth, personal_email, company_email, cell_number, image, company, reports_to, auth_id, user_id, role, employee_type, access_expires_at')
         .eq('auth_id', authUser.id).single(),
       new Promise((_, reject) => setTimeout(() => reject(new Error('employee fetch timeout')), 8_000)),
     ]);
-    return result?.data || null;
+    const emp = result?.data || null;
+    // Check access expiry for contractor accounts
+    if (emp?.access_expires_at) {
+      const expiry = new Date(emp.access_expires_at + 'T23:59:59+03:00');
+      if (new Date() > expiry) {
+        sessionStorage.setItem('auth_error', 'access_expired');
+        await supabase.auth.signOut();
+        return null;
+      }
+    }
+    return emp;
   }, []);
 
   const loadSession = useCallback(async () => {

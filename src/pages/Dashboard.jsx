@@ -289,6 +289,28 @@ export default function Dashboard() {
 
         {loadError && <ErrorState message={loadError} onRetry={load} />}
 
+        {/* ── Expiring Access Alert ── */}
+        {(isHR || isAdmin) && (() => {
+          const today = new Date().toISOString().split('T')[0];
+          const in30  = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          const expiring = employees.filter(e =>
+            e.access_expires_at && e.access_expires_at >= today && e.access_expires_at <= in30
+          );
+          if (!expiring.length) return null;
+          return (
+            <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 13 }}>
+              <strong style={{ color: '#92400e' }}>{t('dashboard.expiringAccess')}</strong>
+              <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {expiring.map(emp => (
+                  <div key={emp.name} style={{ color: '#92400e' }}>
+                    {emp.employee_name} — {t('employees.accessExpiry')}: {emp.access_expires_at}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── Page Header ── */}
         <div className="dash-emp-header">
           <div className="dash-emp-hero">

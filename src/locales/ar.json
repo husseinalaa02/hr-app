@@ -38,6 +38,8 @@
     "saveAnyway": "حفظ على أي حال",
     "confirmReject": "هل أنت متأكد أنك تريد رفض هذا الطلب؟",
     "confirm": "تأكيد",
+    "revoke": "إلغاء التفويض",
+    "holiday": "عطلة",
     "dayShort": {
       "0": "أحد",
       "1": "اثن",
@@ -78,7 +80,9 @@
     "controlPanel": "لوحة الإدارة",
     "myProfile": "ملفي الشخصي",
     "signOut": "تسجيل الخروج",
-    "hrSystem": "نظام الموارد البشرية"
+    "hrSystem": "نظام الموارد البشرية",
+    "teamCalendar": "تقويم الفريق",
+    "back": "رجوع"
   },
   "roles": {
     "admin": "مدير النظام",
@@ -114,7 +118,8 @@
     "passwordsDoNotMatch": "كلمتا المرور غير متطابقتين",
     "passwordTooShort": "يجب أن تكون كلمة المرور 8 أحرف على الأقل",
     "passwordUpdated": "تم تحديث كلمة المرور — يرجى تسجيل الدخول",
-    "accountNotFound": "لم يتم العثور على حسابك. يرجى التواصل مع قسم الموارد البشرية."
+    "accountNotFound": "لم يتم العثور على حسابك. يرجى التواصل مع قسم الموارد البشرية.",
+    "accessExpired": "انتهت صلاحية وصولك. يرجى التواصل مع الموارد البشرية."
   },
   "dashboard": {
     "goodMorning": "صباح الخير",
@@ -165,7 +170,9 @@
     "leaveSubCount": "{{leave}} إجازة · {{expense}} مصروف",
     "titleRequired": "العنوان مطلوب",
     "announcementTitlePlaceholder": "عنوان الإعلان",
-    "announcementContentPlaceholder": "تفاصيل الإعلان..."
+    "announcementContentPlaceholder": "تفاصيل الإعلان...",
+    "expiringAccess": "صلاحية وصول المتعاقدين تنتهي قريباً",
+    "expiringAccessHint": "حسابات المتعاقدين التالية تنتهي خلال 30 يوماً"
   },
   "attendance": {
     "title": "الحضور",
@@ -274,7 +281,51 @@
     "hourlyLeave": "إجازة ساعية",
     "alreadyProcessed": "تمت معالجة هذا الطلب بالفعل",
     "workingDaysCount_one": "{{count}} يوم عمل",
-    "workingDaysCount_other": "{{count}} أيام عمل"
+    "workingDaysCount_other": "{{count}} أيام عمل",
+    "delegatedApproval": "موافقة مفوّضة",
+    "accrual": {
+      "title": "استحقاق الإجازات",
+      "runMonthly": "تشغيل الاستحقاق الشهري",
+      "runNow": "تشغيل الآن",
+      "running": "جاري التشغيل...",
+      "success": "اكتمل الاستحقاق — تم تحديث {{count}} سجل",
+      "yearEnd": "ترحيل نهاية السنة",
+      "yearEndSuccess": "اكتمل ترحيل {{year}}",
+      "yearEndConfirm": "هل تريد تشغيل ترحيل نهاية السنة لـ {{year}}؟ سيتم إضافة الأرصدة غير المستخدمة إلى السنة القادمة.",
+      "history": "سجل الاستحقاق",
+      "noHistory": "لا توجد سجلات استحقاق بعد",
+      "daysAccrued": "الأيام المستحقة",
+      "balanceBefore": "الرصيد قبل",
+      "balanceAfter": "الرصيد بعد"
+    },
+    "entitlements": {
+      "title": "مستحقات الإجازات",
+      "leaveType": "نوع الإجازة",
+      "employment_type": "نوع التوظيف",
+      "daysPerYear": "أيام / سنة",
+      "accrualMethod": "طريقة الاستحقاق",
+      "carryOver": "الحد الأقصى للترحيل",
+      "carryOverMax": "الحد الأقصى للترحيل",
+      "minTenure": "الحد الأدنى للخدمة (أشهر)",
+      "saved": "تم حفظ المستحق"
+    },
+    "encashment": {
+      "title": "صرف الإجازات",
+      "noHistory": "لا توجد سجلات صرف",
+      "process": "معالجة الصرف",
+      "daysEncashed": "الأيام المصروفة",
+      "daysToEncash": "الأيام المراد صرفها",
+      "dailyRate": "المعدل اليومي",
+      "totalAmount": "المبلغ الإجمالي",
+      "reason": "السبب",
+      "resignation": "استقالة",
+      "yearEnd": "نهاية السنة",
+      "processSuccess": "تمت معالجة الصرف",
+      "balance": "الرصيد المتاح",
+      "insufficientBalance": "رصيد الإجازة غير كافٍ",
+      "success": "تمت معالجة الصرف بنجاح",
+      "noSalaryConfigured": "لا يوجد راتب مُعيَّن لهذا الموظف"
+    }
   },
   "employees": {
     "title": "دليل الموظفين",
@@ -346,7 +397,27 @@
       "allDaysOffTitle": "جميع الأيام إجازة؟",
       "allDaysOffWarning": "تم تحديد جميع الأيام السبعة كأيام إجازة. لن يظهر هذا الموظف كمجدول أبداً. هل تريد الحفظ على أي حال؟",
       "usingDefault": "يستخدم الجدول الافتراضي (الجمعة/السبت إجازة). عدّل لتخصيصه لهذا الموظف."
-    }
+    },
+    "managerScopeNotice": "عرض تقاريرك المباشرة وغير المباشرة فقط",
+    "salaryRestricted": "الراتب مخفي",
+    "salaryRestrictedHint": "معلومات الراتب مقتصرة على الموارد البشرية والمالية",
+    "accessExpiry": "انتهاء الصلاحية",
+    "accessExpiryHint": "اتركه فارغاً لعدم وجود انتهاء صلاحية",
+    "accessExpiringSoon": "تنتهي قريباً",
+    "noExpiry": "بدون انتهاء",
+    "emergencyContact": "جهة الاتصال في حالات الطوارئ",
+    "emergencyContactName": "اسم جهة الاتصال",
+    "emergencyContactPhone": "هاتف جهة الاتصال",
+    "emergencyContactRelation": "صلة القرابة",
+    "maritalStatus": "الحالة الاجتماعية",
+    "maritalSingle": "أعزب",
+    "maritalMarried": "متزوج",
+    "maritalDivorced": "مطلق",
+    "maritalWidowed": "أرمل",
+    "nationalId": "رقم الهوية الوطنية",
+    "noticePeriod": "مدة الإشعار (أيام)",
+    "probationEndDate": "تاريخ انتهاء التجربة",
+    "inProbation": "في فترة التجربة"
   },
   "payroll": {
     "title": "الرواتب",
@@ -427,6 +498,10 @@
       "submitted": "مُقدَّم",
       "paid": "مدفوع"
     },
+    "selfApprovalNotAllowed": "لا يمكنك الموافقة على سجل راتب أنشأته بنفسك",
+    "cannotSelfApprove": "لا يمكن الموافقة الذاتية",
+    "createdBy": "أنشأه",
+    "approvedBy": "وافق عليه",
     "csv": {
       "employeeId": "رقم الموظف",
       "employeeName": "اسم الموظف",
@@ -763,6 +838,7 @@
     "filterByName": "بحث بالاسم…",
     "truncationWarning": "يتم عرض أحدث 1,000 إدخال. استخدم مرشحات التاريخ لتضييق النتائج.",
     "noLogsToExport": "لا توجد سجلات للتصدير — استخدم المرشحات للبحث عن إدخالات أولاً",
+    "viewChanges": "عرض التغييرات",
     "csv": {
       "timestamp": "الوقت",
       "user": "المستخدم",
@@ -839,6 +915,22 @@
     "systemOk": "النظام يعمل",
     "systemSlow": "النظام بطيء",
     "systemDown": "النظام متوقف",
+    "tabProfileChanges": "طلبات تغيير الملف الشخصي",
+    "tabEntitlements": "مستحقات الإجازات",
+    "pcrPending": "معلّق",
+    "pcrApprove": "موافقة",
+    "pcrReject": "رفض",
+    "pcrReviewNote": "ملاحظة المراجعة (اختياري)",
+    "pcrApproved": "معتمد",
+    "pcrRejected": "مرفوض",
+    "pcrNone": "لا توجد طلبات تغيير ملف شخصي معلقة",
+    "pcrField": "الحقل",
+    "pcrOldValue": "القيمة القديمة",
+    "pcrNewValue": "القيمة الجديدة",
+    "pcrEmployee": "الموظف",
+    "pcrRequestedAt": "تاريخ الطلب",
+    "accrualRunSuccess": "اكتمل الاستحقاق",
+    "yearEndSuccess": "اكتمل ترحيل نهاية السنة",
     "permGroup": {
       "employees": "الموظفون",
       "payroll": "الرواتب",
@@ -868,6 +960,48 @@
       "finance": "مالية",
       "executive": "تنفيذي"
     }
+  },
+  "profile": {
+    "changePending": "تغيير في انتظار الموافقة",
+    "changeSubmitted": "تم تقديم طلب التغيير — ستراجعه الموارد البشرية قريباً",
+    "changeApproved": "تمت الموافقة على التغيير",
+    "changeRejected": "تم رفض التغيير",
+    "duplicatePending": "يوجد طلب معلق بالفعل لحقل {{field}}",
+    "myChangeRequests": "طلبات التغيير الخاصة بي",
+    "changeRequests": "طلبات تغيير الملف الشخصي",
+    "noChangeRequests": "لا توجد طلبات تغيير",
+    "fieldName": "الحقل",
+    "oldValue": "قبل",
+    "newValue": "بعد",
+    "reviewNote": "ملاحظة المراجعة"
+  },
+  "delegation": {
+    "title": "تفويض الموافقة",
+    "current": "التفويض الحالي",
+    "noCurrent": "لا يوجد تفويض نشط",
+    "delegate": "التفويض إلى",
+    "create": "إنشاء تفويض",
+    "revokeConfirm": "هل تريد إلغاء هذا التفويض؟",
+    "startDate": "تاريخ البداية",
+    "endDate": "تاريخ الانتهاء",
+    "reason": "السبب",
+    "active": "نشط",
+    "upcoming": "قادم",
+    "expired": "منتهي",
+    "createSuccess": "تم إنشاء التفويض",
+    "revokeSuccess": "تم إلغاء التفويض"
+  },
+  "calendar": {
+    "title": "تقويم إجازات الفريق",
+    "subtitle": "{{count}} عضو في الفريق",
+    "noLeaves": "لا توجد إجازات في هذا اليوم",
+    "onLeave": "في إجازة",
+    "today": "اليوم",
+    "filterDepartment": "جميع الأقسام",
+    "filterDept": "جميع الأقسام",
+    "legend": "المفتاح",
+    "holiday": "عطلة رسمية",
+    "noTeam": "لا يوجد أعضاء في الفريق"
   },
   "employeeDetail": {
     "editProfile": "تعديل الملف الشخصي",
@@ -961,7 +1095,8 @@
     "somethingWentWrong": "حدث خطأ ما",
     "offline": "أنت غير متصل — يتم تحميل البيانات من الذاكرة المحلية",
     "fillRequired": "يرجى تعبئة جميع الحقول المطلوبة",
-    "failed": "فشل"
+    "failed": "فشل",
+    "accessDenied": "ليس لديك صلاحية لعرض هذا الملف الشخصي"
   },
   "notifications": {
     "title": "الإشعارات",
@@ -1004,5 +1139,10 @@
     "Application": "طلب",
     "Screening": "فرز",
     "Offer": "عرض"
+  },
+  "notFound": {
+    "title": "الصفحة غير موجودة",
+    "message": "الصفحة التي تبحث عنها غير موجودة أو ليس لديك صلاحية لعرضها.",
+    "goToDashboard": "الذهاب إلى لوحة التحكم"
   }
 }
