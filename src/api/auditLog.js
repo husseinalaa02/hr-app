@@ -114,7 +114,17 @@ export async function getAuditLogs({
     let query = supabase.from('audit_logs').select('*');
     if (resource) query = query.eq('resource', resource);
     if (action)   query = query.eq('action', action);
-    if (userName) query = query.ilike('user_name', `%${userName}%`);
+    if (userName) {
+      // Escape ILIKE metacharacters to prevent wildcard injection.
+      // A bare '%' would match ALL rows; '_' would match any single character.
+      const safeUserName = userName.trim()
+        .replace(/\\/g, '\\\\')
+        .replace(/%/g, '\\%')
+        .replace(/_/g, '\\_');
+      if (safeUserName.length >= 2) {
+        query = query.ilike('user_name', `%${safeUserName}%`);
+      }
+    }
     if (fromDate) query = query.gte('timestamp', fromDate);
     if (toDate)   query = query.lte('timestamp', toDate);
     const { data, error } = await query.order('timestamp', { ascending: false }).limit(limit || 1000);

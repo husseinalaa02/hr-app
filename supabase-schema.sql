@@ -64,23 +64,45 @@ end;
 $$;
 
 -- Fan-out notifications to all employees with a given role (or custom role whose
--- notify_as maps to that role). Runs as security definer so it bypasses RLS on
--- the employees table — callers (incl. regular employees) only need INSERT on notifications.
+-- notify_as maps to that role). Restricted to HR/admin callers only — prevents
+-- any employee from broadcasting phishing notifications to all managers/admins.
+-- SECURITY: Updated by migration 017 to add caller authorization check.
 create or replace function notify_roles(
   p_roles    text[],
   p_title    text,
   p_message  text,
   p_type     text default 'info'
-) returns void language plpgsql security definer as $$
+) returns void language plpgsql security definer
+set search_path = public
+as $$
+declare
+  v_caller_role text;
+  v_caller_id   text;
 begin
+  -- Only HR managers and admins can send role-wide notifications
+  select role, name into v_caller_role, v_caller_id
+  from employees where name = auth_employee_id();
+
+  if v_caller_role not in ('admin', 'hr_manager') then
+    raise exception 'Unauthorized: only HR/admin can send role notifications';
+  end if;
+
+  -- Enforce message length limit to prevent abuse
+  if length(p_message) > 500 then
+    raise exception 'Message too long (max 500 chars)';
+  end if;
+
   insert into notifications(recipient_id, title, message, type)
   select distinct e.name, p_title, p_message, p_type
   from employees e
   where
-    e.role = any(p_roles)
-    or exists (
-      select 1 from custom_roles cr
-      where cr.name = e.role and cr.notify_as = any(p_roles)
+    e.status = 'Active'
+    and (
+      e.role = any(p_roles)
+      or exists (
+        select 1 from custom_roles cr
+        where cr.name = e.role and cr.notify_as = any(p_roles)
+      )
     );
 end;
 $$;
@@ -435,8 +457,9 @@ $$;
 -- ─── Atomic checkout RPC ─────────────────────────────────────────────────────
 -- Inserts the OUT punch and updates the attendance row in one transaction,
 -- preventing the state where the punch is recorded but out_time stays null.
--- Runs as the caller's role (not security definer) — existing att_insert + att_update_admin
--- policies cover the writes since this is called server-side on behalf of the employee.
+-- SECURITY DEFINER — caller authorization is enforced inside the function body.
+-- Only the employee themselves OR an HR/admin caller may checkout any employee.
+-- Updated by migration 017 to add caller authorization check.
 create or replace function record_checkout(
   p_checkin_name        text,
   p_employee            text,
@@ -446,8 +469,27 @@ create or replace function record_checkout(
   p_early_leave_minutes numeric,
   p_overtime_minutes    numeric,
   p_new_status          text
-) returns void language plpgsql security definer as $$
+) returns void language plpgsql security definer
+set search_path = public
+as $$
+declare
+  v_caller_id   text;
+  v_caller_role text;
 begin
+  -- Resolve caller identity
+  select name, role into v_caller_id, v_caller_role
+  from employees where name = auth_employee_id();
+
+  if v_caller_id is null then
+    raise exception 'Unauthorized: not authenticated';
+  end if;
+
+  -- Only the employee themselves or HR/admin may check out on behalf of another
+  if v_caller_id != p_employee
+     and v_caller_role not in ('admin', 'hr_manager') then
+    raise exception 'Unauthorized: cannot modify another employee record';
+  end if;
+
   insert into checkins(name, employee, log_type, time)
     values(p_checkin_name, p_employee, 'OUT', p_time);
 
@@ -743,14 +785,17 @@ create trigger payroll_salary_check
 
 -- ─── Seed Data ────────────────────────────────────────────────────────────────
 
--- Employees (password = username for test purposes)
+-- SECURITY: Passwords must be set manually after deployment.
+-- NEVER seed production accounts with default passwords.
+-- Use Supabase Dashboard → Authentication → Users to set passwords.
+-- The password column below is cleared (empty string) intentionally.
 insert into employees (name, employee_name, department, designation, role, employment_type, date_of_joining, gender, date_of_birth, branch, cell_number, personal_email, company_email, user_id, password, reports_to) values
-  ('HR-EMP-0010', 'Hussein Alaa',       'Management',            'System Administrator', 'admin',           'Full-time', '2015-01-01', 'Male',   null,         'Baghdad HQ', '',                  '',                   'hussein@afaqalfiker.com', 'hussein', 'hussein', null),
-  ('HR-EMP-0009', 'Alaa Alghanimi',     'Management',            'CEO',                  'ceo',             'Full-time', '2015-01-01', 'Male',   '1975-03-10', 'Baghdad HQ', '+964 770 000 0001', 'alaa@gmail.com',     'alaa@afaqalfiker.com',    'alaa',    'alaa',    null),
-  ('HR-EMP-0002', 'Sara Al-Otaibi',     'Human Resources',       'HR Manager',           'hr_manager',      'Full-time', '2019-01-15', 'Female', '1988-04-20', 'Baghdad HQ', '+964 771 234 5678', 'sara@gmail.com',     'sara@afaqalfiker.com',    'sara',    'sara',    'HR-EMP-0009'),
-  ('HR-EMP-0003', 'Khalid Al-Zahrani',  'Finance',               'Finance Manager',      'finance_manager', 'Full-time', '2018-06-01', 'Male',   '1983-08-15', 'Baghdad HQ', '+964 772 345 6789', 'khalid@gmail.com',   'khalid@afaqalfiker.com',  'khalid',  'khalid',  'HR-EMP-0009'),
-  ('HR-EMP-0001', 'Ahmed Al-Rashidi',   'Information Technology', 'IT Manager',           'it_manager',      'Full-time', '2022-03-01', 'Male',   '1995-06-15', 'Baghdad HQ', '+964 770 123 4567', 'ahmed@gmail.com',    'ahmed@afaqalfiker.com',   'ahmed',   'ahmed',   'HR-EMP-0009'),
-  ('HR-EMP-0006', 'Reem Al-Dossari',    'Information Technology', 'Software Developer',   'employee',        'Full-time', '2023-09-01', 'Female', '2000-04-22', 'Baghdad HQ', '+964 775 678 9012', 'reem@gmail.com',     'reem@afaqalfiker.com',    'reem',    'reem',    'HR-EMP-0001')
+  ('HR-EMP-0010', 'Hussein Alaa',       'Management',            'System Administrator', 'admin',           'Full-time', '2015-01-01', 'Male',   null,         'Baghdad HQ', '',                  '',                   'hussein@afaqalfiker.com', 'hussein', '', null),
+  ('HR-EMP-0009', 'Alaa Alghanimi',     'Management',            'CEO',                  'ceo',             'Full-time', '2015-01-01', 'Male',   '1975-03-10', 'Baghdad HQ', '+964 770 000 0001', 'alaa@gmail.com',     'alaa@afaqalfiker.com',    'alaa',    '', null),
+  ('HR-EMP-0002', 'Sara Al-Otaibi',     'Human Resources',       'HR Manager',           'hr_manager',      'Full-time', '2019-01-15', 'Female', '1988-04-20', 'Baghdad HQ', '+964 771 234 5678', 'sara@gmail.com',     'sara@afaqalfiker.com',    'sara',    '', 'HR-EMP-0009'),
+  ('HR-EMP-0003', 'Khalid Al-Zahrani',  'Finance',               'Finance Manager',      'finance_manager', 'Full-time', '2018-06-01', 'Male',   '1983-08-15', 'Baghdad HQ', '+964 772 345 6789', 'khalid@gmail.com',   'khalid@afaqalfiker.com',  'khalid',  '', 'HR-EMP-0009'),
+  ('HR-EMP-0001', 'Ahmed Al-Rashidi',   'Information Technology', 'IT Manager',           'it_manager',      'Full-time', '2022-03-01', 'Male',   '1995-06-15', 'Baghdad HQ', '+964 770 123 4567', 'ahmed@gmail.com',    'ahmed@afaqalfiker.com',   'ahmed',   '', 'HR-EMP-0009'),
+  ('HR-EMP-0006', 'Reem Al-Dossari',    'Information Technology', 'Software Developer',   'employee',        'Full-time', '2023-09-01', 'Female', '2000-04-22', 'Baghdad HQ', '+964 775 678 9012', 'reem@gmail.com',     'reem@afaqalfiker.com',    'reem',    '', 'HR-EMP-0001')
 on conflict (name) do nothing;
 
 -- Leave Allocations (for all employees)

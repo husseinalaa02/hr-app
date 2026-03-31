@@ -4,6 +4,11 @@ import { addNotification } from './notifications';
 
 export async function getMyDelegations(employeeId) {
   if (!SUPABASE_MODE) return [];
+  // SECURITY: Validate employeeId format before interpolating into .or() filter.
+  // A crafted value like "HR-EMP-0002,delegator_id.neq.HR-EMP-0002" would create
+  // a tautological filter returning all records. The regex ensures the value
+  // cannot contain PostgREST DSL metacharacters (commas, dots in wrong places, etc.).
+  if (!/^HR-EMP-\d{4}$/.test(employeeId)) return [];
   const { data, error } = await supabase
     .from('approval_delegations')
     .select('id, delegator_id, delegate_id, start_date, end_date, reason, created_at')

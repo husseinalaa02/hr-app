@@ -911,6 +911,7 @@
     "pcrReviewNote": "Review note (optional)",
     "pcrApproved": "Approved",
     "pcrRejected": "Rejected",
+    "pcrInvalidField": "This change request contains an invalid field and cannot be approved. It has been flagged for review.",
     "pcrNone": "No pending profile change requests",
     "pcrField": "Field",
     "pcrOldValue": "Old Value",

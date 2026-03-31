@@ -98,6 +98,14 @@ export async function reviewProfileChangeRequest(requestId, status, reviewNote, 
     .maybeSingle();
 
   if (status === 'Approved' && req) {
+    // SECURITY: Re-validate field_name server-side before applying the update.
+    // An attacker can bypass the client-side SELF_SERVICE_FIELDS check by
+    // calling the Supabase API directly (e.g. field_name='role'). We must
+    // re-validate here (and the DB-level CHECK constraint in migration 017
+    // provides a third layer of defence).
+    if (!SELF_SERVICE_FIELDS.includes(req.field_name)) {
+      throw new Error('INVALID_FIELD_NAME');
+    }
     const { error: updateError } = await supabase
       .from('employees')
       .update({ [req.field_name]: req.new_value })

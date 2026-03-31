@@ -1068,7 +1068,13 @@ export default function Admin() {
                                   await reviewProfileChangeRequest(r.id, 'Approved', pcrReviewNote[r.id], me.name);
                                   addToast(t('profile.changeApproved'), 'success');
                                   setPcrList(l => l.filter(x => x.id !== r.id));
-                                } catch (e) { addToast(e.message || t('errors.actionFailed'), 'error'); }
+                                } catch (e) {
+                                  if (e.message === 'INVALID_FIELD_NAME') {
+                                    addToast(t('admin.pcrInvalidField'), 'error');
+                                  } else {
+                                    addToast(e.message || t('errors.actionFailed'), 'error');
+                                  }
+                                }
                                 finally { setPcrActing(''); }
                               }}
                             >

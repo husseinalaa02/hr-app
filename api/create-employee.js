@@ -56,6 +56,21 @@ export default async function handler(req, res) {
     return res.status(400).json({ message: 'Invalid user_id: use only letters, numbers, underscores, dots' });
   }
 
+  // ── Role allowlist — 'admin' and 'ceo' can NEVER be assigned via this endpoint ──
+  // Only a Supabase superadmin can promote to admin through the Supabase dashboard.
+  const ALLOWED_ROLES = [
+    'employee', 'hr_manager', 'finance_manager',
+    'it_manager', 'manager', 'audit_manager',
+  ];
+  const callerEmployeeId = user.app_metadata?.employee_id || user.id;
+  const requestedRole = employee_data.role || 'employee';
+  if (requestedRole && !ALLOWED_ROLES.includes(requestedRole)) {
+    console.error(
+      `[SECURITY] Role injection attempt: "${requestedRole}" requested by ${callerEmployeeId}`
+    );
+  }
+  const assignedRole = ALLOWED_ROLES.includes(requestedRole) ? requestedRole : 'employee';
+
   try {
     // ── Generate collision-free employee ID via DB sequence ────────────────────
     // next_employee_id() is defined in supabase-schema.sql
@@ -92,7 +107,7 @@ export default async function handler(req, res) {
       personal_email:  employee_data.personal_email  || '',
       company_email:   employee_data.company_email   || '',
       reports_to:      employee_data.reports_to      || null,
-      role:            employee_data.role            || 'employee',
+      role:            assignedRole,
     };
 
     const { data: emp, error: empError } = await supabaseAdmin
