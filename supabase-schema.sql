@@ -695,10 +695,11 @@ create policy "ep_self_read" on employee_permissions for select to authenticated
 -- C3: added employment_type, date_of_joining, gender, employee_type for Employees page
 -- cell_number included: needed by Employees directory card display (employees.js getEmployees)
 -- off_days included: needed by attendance export and schedule display
+-- 016: added status and access_expires_at (both added to employees table in migration 015)
 create or replace view employees_public as
   select name, employee_name, department, designation, role, branch, company,
          reports_to, image, employment_type, date_of_joining, gender, employee_type,
-         cell_number, off_days
+         cell_number, off_days, status, access_expires_at
   from employees;
 grant select on employees_public to authenticated;
 

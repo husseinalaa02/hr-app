@@ -102,7 +102,7 @@ export default function Expenses() {
         </div>
       </div>
 
-      <div className="tab-group" style={{ marginBottom: 12, gap: 6 }}>
+      <div className="tab-group" style={{ marginBottom: 12 }}>
         {[
           { value: '', label: t('expenses.all') },
           { value: 'Draft', label: t('expenses.draft') },
@@ -110,7 +110,7 @@ export default function Expenses() {
           { value: 'Approved', label: t('expenses.approved') },
           { value: 'Rejected', label: t('expenses.rejected') },
         ].map(({ value, label }) => (
-          <button key={value || 'all'} className={`tab-btn${statusFilter === value ? ' active' : ''}`} style={{ fontSize: 12 }} onClick={() => setStatusFilter(value)}>
+          <button key={value || 'all'} className={`tab-btn${statusFilter === value ? ' active' : ''}`} onClick={() => setStatusFilter(value)}>
             {label}
           </button>
         ))}

@@ -602,8 +602,8 @@ export default function Admin() {
                             <td><RolePill role={emp.role} /></td>
                             <td>
                               <select
-                                className="form-control"
-                                style={{ fontSize: 13, padding: '5px 8px', minWidth: 150 }}
+                                className="form-input select-sm"
+                                style={{ minWidth: 150 }}
                                 value={pendingRole ?? emp.role}
                                 onChange={e => setRoleEdits(p => ({ ...p, [emp.name]: e.target.value }))}
                                 disabled={isSelf}
@@ -871,8 +871,7 @@ export default function Admin() {
             {/* Year selector + Add button */}
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
               <select
-                className="form-control"
-                style={{ width: 120, fontSize: 13 }}
+                className="form-input select-sm"
                 value={holidayYear}
                 onChange={e => setHolidayYear(Number(e.target.value))}
               >
@@ -961,7 +960,7 @@ export default function Admin() {
                 </div>
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <label className="form-label">{t('departments.manager')} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({t('departments.managerOptional')})</span></label>
-                  <select className="form-control" value={deptForm.manager_id} onChange={e => setDeptForm(f => ({ ...f, manager_id: e.target.value }))}>
+                  <select className="form-input" value={deptForm.manager_id} onChange={e => setDeptForm(f => ({ ...f, manager_id: e.target.value }))}>
                     <option value="">— {t('common.none')} —</option>
                     {employees.map(emp => (
                       <option key={emp.name} value={emp.name}>{emp.employee_name}</option>

@@ -284,8 +284,7 @@ function TemplateEditorModal({ template, onClose, onSaved }) {
                 onChange={e => setQ(q.id, 'text', e.target.value)}
               />
               <select
-                className="form-input"
-                style={{ width: 140 }}
+                className="form-input select-sm"
                 value={q.type}
                 onChange={e => setQ(q.id, 'type', e.target.value)}
               >

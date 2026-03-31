@@ -215,12 +215,11 @@ export default function AuditView() {
       </div>
 
       {/* Filters */}
-      <div className="filter-row" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: '1rem' }}>
+      <div className="filter-bar">
         <select
           className="filter-select"
           value={filterResource}
           onChange={e => setFilterResource(e.target.value)}
-          style={{ minWidth: 160 }}
         >
           {RESOURCE_OPTIONS_T.map(o => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -231,7 +230,6 @@ export default function AuditView() {
           className="filter-select"
           value={filterAction}
           onChange={e => setFilterAction(e.target.value)}
-          style={{ minWidth: 140 }}
         >
           {ACTION_OPTIONS_T.map(o => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -244,11 +242,10 @@ export default function AuditView() {
           value={filterUser}
           onChange={e => setFilterUser(e.target.value)}
           placeholder={t('audit.filterByName')}
-          style={{ minWidth: 160 }}
         />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <label style={{ fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{t('common.from')}</label>
+        <div className="filter-group">
+          <label className="filter-label">{t('common.from')}</label>
           <input
             type="date"
             className="filter-select"
@@ -257,8 +254,8 @@ export default function AuditView() {
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <label style={{ fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{t('common.to')}</label>
+        <div className="filter-group">
+          <label className="filter-label">{t('common.to')}</label>
           <input
             type="date"
             className="filter-select"

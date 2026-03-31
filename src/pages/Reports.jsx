@@ -75,8 +75,7 @@ export default function Reports() {
           <label className="filter-label" htmlFor="report-year">{t('reports.year')}</label>
           <select
             id="report-year"
-            className="form-input"
-            style={{ width: 'auto' }}
+            className="year-selector"
             value={year}
             onChange={e => setYear(Number(e.target.value))}
           >

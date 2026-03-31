@@ -195,10 +195,10 @@ export default function Recruitment() {
           {selectedJob && (
             <>
               <div style={{ position: 'relative' }}>
-                <div className="tab-group" style={{ marginBottom: 4, overflowX: 'auto', flexWrap: 'nowrap', gap: 6, paddingBottom: 4 }}>
+                <div className="tab-group" style={{ overflowX: 'auto', maxWidth: '100%' }}>
                   <button className={`tab-btn${!stageFilter ? ' active' : ''}`} onClick={() => setStageFilter('')}>{t('recruitment.all')}</button>
                   {STAGES.map(s => (
-                    <button key={s} className={`tab-btn${stageFilter === s ? ' active' : ''}`} onClick={() => setStageFilter(s)} style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                    <button key={s} className={`tab-btn${stageFilter === s ? ' active' : ''}`} onClick={() => setStageFilter(s)}>
                       {s}
                     </button>
                   ))}

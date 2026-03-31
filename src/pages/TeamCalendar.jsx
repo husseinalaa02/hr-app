@@ -187,7 +187,7 @@ export default function TeamCalendar() {
           {t('calendar.today')}
         </button>
         {(isAdmin || isHR) && departments.length > 0 && (
-          <select className="form-input select-input" value={deptFilter} onChange={e => setDeptFilter(e.target.value)} style={{ maxWidth: 200 }}>
+          <select className="form-input select-input" value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
             <option value="">{t('calendar.filterDept')}</option>
             {departments.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
