@@ -102,6 +102,33 @@ CREATE TRIGGER enforce_role_protection
 -- Defense-in-depth DB constraint preventing storage of unauthorized field names
 -- in profile_change_requests. Mirrors SELF_SERVICE_FIELDS in profileChangeRequests.js.
 
+-- First: reject/delete any pentest-injected rows with invalid field names.
+-- These were created by bypassing the client-side allowlist (e.g. field_name='role').
+-- Log them to audit_logs before deletion so there is a permanent record.
+INSERT INTO audit_logs (action, resource, resource_label, details, timestamp)
+SELECT
+  'DELETE',
+  'ProfileChangeRequest',
+  'SECURITY: pentest-injected PCR row removed',
+  'field_name=' || field_name || ' employee_id=' || employee_id,
+  now()
+FROM profile_change_requests
+WHERE field_name NOT IN (
+  'cell_number', 'personal_email', 'bank_account',
+  'emergency_contact_name', 'emergency_contact_phone',
+  'emergency_contact_relation', 'address',
+  'marital_status', 'date_of_birth', 'image'
+);
+
+DELETE FROM profile_change_requests
+WHERE field_name NOT IN (
+  'cell_number', 'personal_email', 'bank_account',
+  'emergency_contact_name', 'emergency_contact_phone',
+  'emergency_contact_relation', 'address',
+  'marital_status', 'date_of_birth', 'image'
+);
+
+-- Now safe to add the constraint — all existing rows are valid.
 ALTER TABLE profile_change_requests
   ADD CONSTRAINT pcr_valid_field_name
   CHECK (field_name IN (
