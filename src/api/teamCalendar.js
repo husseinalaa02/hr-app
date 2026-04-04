@@ -7,7 +7,7 @@ export async function getTeamLeaveCalendar(year, month, employeeIds) {
   const endDate   = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
   const { data, error } = await supabase
-    .from('leave_applications')
+    .from('leave_apps')
     .select('employee, employee_name, leave_type, from_date, to_date, status, total_leave_days')
     .in('status', ['Approved', 'Open'])
     .lte('from_date', endDate)
